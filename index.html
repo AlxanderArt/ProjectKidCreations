@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // ONBOARDING</title>
+  <meta name="description" content="ProjectKidCreations onboarding — engineered rebellion.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <noscript>
+    <main class="kill">
+      <h1>SCRIPT REQUIRED</h1>
+      <p class="kill-line">// FORM UNAVAILABLE WITHOUT JAVASCRIPT</p>
+      <p class="kill-meta">// CONTACT DIRECTLY</p>
+    </main>
+  </noscript>
+
+  <header class="shell-header" aria-label="onboarding chrome">
+    <div class="progress" id="progress" aria-label="onboarding progress">
+      <span class="progress-counter" id="progress-counter">01 / 03</span>
+      <div
+        class="progress-bar"
+        id="progress-bar"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="3"
+        aria-valuenow="1"
+      ></div>
+    </div>
+    <p class="status" id="status" aria-live="polite"></p>
+    <a href="#" class="back" id="back" hidden>← BACK</a>
+  </header>
+
+  <main id="form" aria-live="polite"></main>
+
+  <section
+    class="end"
+    data-question="end"
+    data-active="false"
+    aria-hidden="true"
+    id="end-section"
+  >
+    <h1>TRANSMISSION RECEIVED</h1>
+    <p class="confirm-line" id="confirm-line">// SECURE CHANNEL CONFIRMED</p>
+    <p class="submission-id" id="submission-id" hidden></p>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
