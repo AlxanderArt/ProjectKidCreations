@@ -34,6 +34,23 @@
   --duration-cinematic: 480ms;
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --pkc-bg:            #FAFAFA;
+  --pkc-surface:       #FFFFFF;
+  --pkc-surface-raised:#F0F0F0;
+  --pkc-border:        #C8CCCF;
+  --pkc-border-strong: #9AA0A4;
+  --pkc-text:          var(--pkc-tac-black);
+  --pkc-text-muted:    #5A5F63;
+  --pkc-accent:        var(--pkc-hi-vis);
+  --pkc-accent-ink:    #FFFFFF;
+  --pkc-danger:        #D7261E;
+}
+
+html, body { transition: background var(--duration-snap) var(--ease-snappy), color var(--duration-snap) var(--ease-snappy); }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body {
@@ -366,6 +383,15 @@ input:focus-visible {
 .toggle input:checked ~ .toggle-text [data-off] { display: none; }
 .toggle input:not(:checked) ~ .toggle-text [data-on]  { display: none; }
 .toggle input:not(:checked) ~ .toggle-text [data-off] { color: var(--pkc-text); }
+
+.toggle-help {
+  margin: 12px 0 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--pkc-text-muted);
+  transition: color var(--duration-fast) var(--ease-snappy);
+}
 
 /* ──────────────────────────────────────────────
  * CTA
