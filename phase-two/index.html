@@ -12,59 +12,59 @@
 <body>
   <noscript>
     <main class="kill">
-      <h1>SCRIPT REQUIRED</h1>
-      <p class="kill-line">// PHASE TWO UNAVAILABLE WITHOUT JAVASCRIPT</p>
-      <p class="kill-meta">// CONTACT DIRECTLY</p>
+      <h1>JAVASCRIPT REQUIRED</h1>
+      <p class="kill-line">This page needs JavaScript to load.</p>
+      <p class="kill-meta">Please enable it and refresh.</p>
     </main>
   </noscript>
 
-  <header class="shell-header" aria-label="phase two chrome">
-    <div class="progress" aria-label="phase two progress">
-      <span class="progress-counter">02 / 02</span>
+  <header class="shell-header" aria-label="profile setup">
+    <div class="progress" aria-label="setup progress">
+      <span class="progress-counter">STEP 02 / 02</span>
       <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="2" aria-valuenow="2">
         <span class="filled"></span>
         <span class="filled"></span>
       </div>
     </div>
-    <p class="status" id="status" aria-live="polite">// VERIFYING TOKEN</p>
+    <p class="status" id="status" aria-live="polite">Checking your link</p>
   </header>
 
   <main id="stage" aria-live="polite">
 
     <section class="state" data-state="LOADING" data-active="true">
-      <p class="step-label">// PHASE TWO</p>
-      <h1 class="prompt">VERIFYING</h1>
-      <p class="idle-hint">// CHECKING YOUR LINK</p>
+      <p class="step-label">PROFILE SETUP</p>
+      <h1 class="prompt">CHECKING YOUR LINK</h1>
+      <p class="idle-hint">Just a second...</p>
     </section>
 
     <section class="state kill kill--invalid" data-state="INVALID" data-active="false" aria-hidden="true">
-      <h1>LINK INVALID</h1>
-      <p class="kill-line">// THIS LINK IS NOT RECOGNIZED</p>
-      <p class="kill-meta" id="invalid-meta">// REQUEST A FRESH LINK FROM SUPPORT</p>
+      <h1>LINK NOT RECOGNIZED</h1>
+      <p class="kill-line">We couldn't verify this link.</p>
+      <p class="kill-meta" id="invalid-meta">If you think this is a mistake, get in touch with support.</p>
     </section>
 
     <section class="state kill kill--expired" data-state="EXPIRED" data-active="false" aria-hidden="true">
       <h1>LINK EXPIRED</h1>
-      <p class="kill-line">// THIS LINK HAS RUN OUT</p>
-      <p class="kill-meta">// PHASE TWO LINKS LIVE FOR 14 DAYS</p>
-      <p class="kill-meta">// CONTACT US TO RE-ISSUE</p>
+      <p class="kill-line">This link has passed its 14&#8209;day window.</p>
+      <p class="kill-meta">Get in touch with support and we'll send you a fresh one.</p>
     </section>
 
     <section class="state" data-state="ALREADY_DONE" data-active="false" aria-hidden="true">
-      <p class="step-label">// PROFILE ALREADY INITIALIZED</p>
-      <h1 class="prompt">YOU'RE IN.</h1>
-      <p class="momentum">// HANDLE&nbsp;&nbsp;<span class="hl" id="already-username">—</span></p>
-      <p class="momentum">// COMPLETED&nbsp;&nbsp;<span class="hl" id="already-completed">—</span></p>
+      <p class="step-label">PROFILE READY</p>
+      <h1 class="prompt">YOU'RE ALL SET.</h1>
+      <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="already-username">—</span></p>
+      <p class="momentum">Created&nbsp;&nbsp;<span class="hl" id="already-completed">—</span></p>
+      <p class="momentum">You've already created your profile. No further action needed.</p>
     </section>
 
     <section class="state" data-state="FORM" data-active="false" aria-hidden="true">
-      <p class="step-label">// INITIALIZE PROFILE</p>
+      <p class="step-label">CREATE YOUR PROFILE</p>
       <h1 class="prompt" id="form-greeting">WELCOME</h1>
-      <p class="momentum">// CHANNEL&nbsp;&nbsp;<span class="hl" id="form-email">—</span></p>
+      <p class="momentum">Email&nbsp;&nbsp;<span class="hl" id="form-email">—</span></p>
 
       <form id="profile-form" novalidate>
         <div class="field" data-field="username">
-          <label class="field-label" for="username-input">// CHOOSE YOUR HANDLE</label>
+          <label class="field-label" for="username-input">Choose a username</label>
           <input
             id="username-input"
             type="text"
@@ -73,65 +73,61 @@
             inputmode="text"
             spellcheck="false"
             autocapitalize="off"
-            placeholder="lowercase, 3-24 chars"
+            placeholder="lowercase, 3-24 characters"
             maxlength="24"
             required>
           <div class="error-region" data-field="username">
             <span class="error-msg" id="username-error" hidden></span>
-            <span class="error-hint">// LETTERS, NUMBERS, _ OR - ONLY</span>
+            <span class="error-hint">Letters, numbers, hyphen, or underscore.</span>
           </div>
         </div>
 
         <div class="field" data-field="prefs">
-          <label class="field-label">// PREFERENCES</label>
+          <label class="field-label">Preferences</label>
           <div class="toggle-row">
             <label class="toggle">
               <input type="checkbox" id="notif-input" checked>
               <span class="toggle-frame">
                 <span class="toggle-dot"></span>
               </span>
-              <span class="toggle-text">// NOTIFICATIONS&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
+              <span class="toggle-text">Notifications&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
             </label>
             <label class="toggle">
               <input type="checkbox" id="theme-input" checked>
               <span class="toggle-frame">
                 <span class="toggle-dot"></span>
               </span>
-              <span class="toggle-text">// THEME&nbsp;&nbsp;<span data-on>DARK</span><span data-off>LIGHT</span></span>
+              <span class="toggle-text">Theme&nbsp;&nbsp;<span data-on>DARK</span><span data-off>LIGHT</span></span>
             </label>
           </div>
         </div>
 
         <button type="submit" class="cta" id="submit-btn">
-          INITIATE PHASE TWO
+          CREATE PROFILE
           <span aria-hidden="true">→</span>
         </button>
       </form>
     </section>
 
     <section class="state" data-state="SUBMITTING" data-active="false" aria-hidden="true">
-      <p class="step-label">// TRANSMITTING</p>
-      <h1 class="prompt">SAVING</h1>
-      <p class="idle-hint">// HOLD THE LINE</p>
+      <p class="step-label">SAVING</p>
+      <h1 class="prompt">SAVING YOUR PROFILE</h1>
+      <p class="idle-hint">Just a second...</p>
     </section>
 
     <section class="state state--success" data-state="SUCCESS" data-active="false" aria-hidden="true">
-      <p class="step-label" id="success-label">// PROFILE COMPLETE</p>
+      <p class="step-label" id="success-label">PROFILE COMPLETE</p>
       <h1 class="prompt" id="success-greeting">WELCOME</h1>
-      <p class="confirm-line" data-revealed="true">// YOUR ACCOUNT IS NOW ACTIVE</p>
-      <p class="momentum">// HANDLE&nbsp;&nbsp;<span class="hl" id="success-username">—</span></p>
-      <p class="momentum">// SECURE CHANNEL CONFIRMED</p>
-      <button type="button" class="cta" id="continue-btn">
-        CONTINUE
-        <span aria-hidden="true">→</span>
-      </button>
-      <p class="kill-meta" id="success-test-banner" hidden>// TEST MODE — NOT PERSISTED</p>
+      <p class="confirm-line" data-revealed="true">Your account is now active.</p>
+      <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="success-username">—</span></p>
+      <p class="momentum">You're all set. Watch your email for what's next.</p>
+      <p class="kill-meta" id="success-test-banner" hidden>Test mode — your profile was not saved.</p>
     </section>
 
     <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
-      <h1>HICCUP</h1>
-      <p class="kill-line">// SOMETHING DIDN'T LAND</p>
-      <p class="kill-meta" id="error-retry-meta">// WE'LL TRY AGAIN AUTOMATICALLY</p>
+      <h1>TRY AGAIN</h1>
+      <p class="kill-line">We couldn't save your profile just now.</p>
+      <p class="kill-meta" id="error-retry-meta">Hang tight — we'll try again automatically.</p>
       <button type="button" class="cta" id="retry-btn">
         TRY AGAIN
         <span aria-hidden="true">↻</span>
@@ -139,9 +135,9 @@
     </section>
 
     <section class="state kill kill--fatal" data-state="ERROR_FATAL" data-active="false" aria-hidden="true">
-      <h1>SOMETHING BROKE</h1>
-      <p class="kill-line">// UNEXPECTED ERROR</p>
-      <p class="kill-meta" id="error-fatal-meta">// CONTACT SUPPORT IF THIS PERSISTS</p>
+      <h1>SOMETHING WENT WRONG</h1>
+      <p class="kill-line">We weren't able to complete your profile.</p>
+      <p class="kill-meta" id="error-fatal-meta">If this keeps happening, please contact support.</p>
     </section>
 
   </main>
