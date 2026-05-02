@@ -82,34 +82,34 @@
     });
     if (loadingTimer) { clearTimeout(loadingTimer); loadingTimer = null; }
     if (next === "LOADING") {
-      status.textContent = "// VERIFYING TOKEN";
+      status.textContent = "Checking your link";
       status.removeAttribute("data-tone");
       loadingTimer = setTimeout(() => {
-        if (state === "LOADING") setError(true, "// VERIFY TOOK TOO LONG");
+        if (state === "LOADING") setError(true, "Checking your link took longer than expected.");
       }, CFG.LOADING_TIMEOUT_MS);
     } else if (next === "FORM") {
-      status.textContent = "// CHOOSE YOUR HANDLE";
+      status.textContent = "Choose a username";
       status.removeAttribute("data-tone");
       formEnteredAt = Date.now();
       setupAbandonWatcher();
     } else if (next === "SUBMITTING") {
-      status.textContent = "// SAVING PROFILE";
+      status.textContent = "Saving your profile";
       status.removeAttribute("data-tone");
     } else if (next === "SUCCESS") {
-      status.textContent = "// COMPLETE";
+      status.textContent = "All set";
       status.setAttribute("data-tone", "success");
       teardownAbandonWatcher();
     } else if (next === "ALREADY_DONE") {
-      status.textContent = "// PROFILE EXISTS";
+      status.textContent = "Profile ready";
       status.setAttribute("data-tone", "success");
     } else if (next === "INVALID" || next === "EXPIRED") {
-      status.textContent = next === "EXPIRED" ? "// LINK EXPIRED" : "// LINK INVALID";
+      status.textContent = next === "EXPIRED" ? "Link expired" : "Link not recognized";
       status.setAttribute("data-tone", "error");
     } else if (next === "ERROR_RETRY") {
-      status.textContent = "// RETRYING";
+      status.textContent = "Retrying";
       status.setAttribute("data-tone", "error");
     } else if (next === "ERROR_FATAL") {
-      status.textContent = "// FAILED";
+      status.textContent = "Something went wrong";
       status.setAttribute("data-tone", "error");
     }
   }
@@ -191,7 +191,7 @@
       if (res.code === "ALREADY_COMPLETED") {
         return showAlreadyDone(res.data || {});
       }
-      return setError(!!res.retryable, "// " + (res.message || "Verify failed").toUpperCase());
+      return setError(!!res.retryable, "We couldn't check your link just now.");
     }
     verifyData = res.data || {};
     if (verifyData.already_completed) {
@@ -228,7 +228,7 @@
 
   function validateClient(values) {
     if (!/^[a-z0-9_-]{3,24}$/.test(values.username)) {
-      return "USERNAME MUST BE 3-24 CHARS, LOWERCASE LETTERS / NUMBERS / _ / -.";
+      return "Username must be 3-24 characters: lowercase letters, numbers, hyphen, or underscore.";
     }
     return null;
   }
@@ -267,31 +267,31 @@
       if (res.code === "ALREADY_COMPLETED") return showAlreadyDone(res.data || values);
       if (res.code === "USERNAME_TAKEN") {
         setState("FORM");
-        showFieldError("username", "THAT HANDLE IS TAKEN. TRY ANOTHER.");
+        showFieldError("username", "That username is taken. Try another.");
         return;
       }
       if (res.code === "VALIDATION_ERROR") {
         setState("FORM");
-        showFieldError("username", (res.message || "INVALID INPUT").toUpperCase());
+        showFieldError("username", res.message || "Please check your input.");
         return;
       }
       // RATE_LIMITED / SERVER_ERROR / unknown
       if (res.retryable && !isAutoRetry && !autoRetryUsed) {
         autoRetryUsed = true;
         const meta = $("#error-retry-meta");
-        if (meta) meta.textContent = "// AUTO-RETRYING IN A MOMENT";
+        if (meta) meta.textContent = "We'll try again in just a moment.";
         setState("ERROR_RETRY");
         setTimeout(() => { runSave(values, true); }, CFG.AUTO_RETRY_DELAY_MS);
         return;
       }
-      return setError(!!res.retryable, "// " + (res.message || "Save failed").toUpperCase());
+      return setError(!!res.retryable, "We weren't able to save your profile.");
     }
     showSuccess(res.data || {});
   }
 
   function showSuccess(data) {
     const u = data.username || "—";
-    const greet = (verifyData && verifyData.firstName) ? verifyData.firstName.toUpperCase() : "OPERATOR";
+    const greet = (verifyData && verifyData.firstName) ? verifyData.firstName.toUpperCase() : "FRIEND";
     $("#success-greeting").textContent = `WELCOME, ${greet}.`;
     $("#success-username").textContent = u;
     if (data.persisted === false) {
@@ -310,7 +310,7 @@
 
     if (!tokenString) {
       const meta = $("#invalid-meta");
-      if (meta) meta.textContent = "// LINK MISSING OR MALFORMED";
+      if (meta) meta.textContent = "This link looks incomplete. Please use the link from your email.";
       setState("INVALID");
       return;
     }
@@ -353,10 +353,6 @@
         return;
       }
       runSave(values, false);
-    });
-
-    $("#continue-btn").addEventListener("click", () => {
-      window.location.href = "/";
     });
   }
 
