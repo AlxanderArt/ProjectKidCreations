@@ -324,6 +324,12 @@
     log("[PKC] enqueued", payload.submissionId);
   };
 
+  const authHeaders = () => {
+    const h = { "Content-Type": "application/json" };
+    if (window.PKC_AUTH_KEY) h["x-pkc-key"] = window.PKC_AUTH_KEY;
+    return h;
+  };
+
   const drainQueue = safeAsync(async () => {
     if (!CONFIG.ENDPOINT) return;
     if (CONFIG.MODE === "dev") return;
@@ -335,12 +341,23 @@
     const remaining = [];
     for (const entry of q) {
       try {
-        await fetch(CONFIG.ENDPOINT, {
+        const res = await fetch(CONFIG.ENDPOINT, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders(),
           body: JSON.stringify(entry.payload),
         });
-        track("submit_retried", { submissionId: entry.payload.submissionId });
+        if (res.status === 413) {
+          // Payload won't shrink on retry — drop it
+          track("payload_too_large", { submissionId: entry.payload.submissionId });
+          continue;
+        }
+        if (res.status === 503) {
+          // Server overloaded — keep in queue
+          track("server_overload_retry", { submissionId: entry.payload.submissionId });
+          remaining.push(entry);
+          continue;
+        }
+        track("submit_retried", { submissionId: entry.payload.submissionId, status: res.status });
       } catch (e) {
         warn("[PKC] retry failed", e);
         remaining.push(entry);
@@ -740,10 +757,30 @@
         } else {
           const res = await fetch(CONFIG.ENDPOINT, {
             method:  "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders(),
             body:    JSON.stringify(payload),
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if (res.status === 413) {
+            track("payload_too_large", { submissionId });
+            // Won't shrink on retry — surface as hard error
+          } else if (res.status === 503) {
+            track("server_overload", { submissionId });
+            enqueue(payload);
+          } else if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          } else {
+            // Parse response flags for observability
+            try {
+              const body = await res.json();
+              if (body.executionId) track("ack", { submissionId, executionId: body.executionId });
+              if (body.duplicate) track("duplicate_ack", { submissionId, dedupSource: body.dedupSource });
+              if (body.slow) track("slow_ack", { submissionId, durationMs: body.durationMs });
+              if (body.backpressure) track("backpressure_ack", { submissionId });
+              if (body.degraded) track("degraded_ack", { submissionId });
+            } catch (parseErr) {
+              warn("[PKC] response parse failed", parseErr);
+            }
+          }
         }
       } catch (e) {
         warn("[PKC] submit network error", e);
