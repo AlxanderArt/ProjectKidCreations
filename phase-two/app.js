@@ -304,9 +304,51 @@
   // Boot
   // ──────────────────────────────────────────────
 
+  // ──────────────────────────────────────────────
+  // Theme + preferences
+  // ──────────────────────────────────────────────
+
+  const THEME_KEY = "pkc-phase-two-theme";
+
+  function applyTheme(theme) {
+    const t = theme === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
+  }
+
+  function initThemeFromStorage() {
+    let stored = "dark";
+    try { stored = localStorage.getItem(THEME_KEY) || "dark"; } catch (_) {}
+    const isDark = stored !== "light";
+    applyTheme(isDark ? "dark" : "light");
+    const themeInput = $("#theme-input");
+    if (themeInput) themeInput.checked = isDark;
+  }
+
+  function ensureNotifHelp() {
+    let help = $("#notif-help");
+    if (help) return help;
+    const wrap = document.querySelector('.toggle-row');
+    if (!wrap) return null;
+    help = document.createElement("p");
+    help.id = "notif-help";
+    help.className = "toggle-help";
+    wrap.parentNode.appendChild(help);
+    return help;
+  }
+
+  function updateNotifHelp(enabled) {
+    const help = ensureNotifHelp();
+    if (!help) return;
+    help.textContent = enabled
+      ? "We'll email you about updates and what's next."
+      : "You won't receive any emails from us.";
+  }
+
   function init() {
     tokenString = safeParseToken();
     emitClientEvent("PHASE_TWO_PAGE_OPENED", { token_payload_hash: tokenPayloadHash(tokenString) });
+    initThemeFromStorage();
 
     if (!tokenString) {
       const meta = $("#invalid-meta");
@@ -342,6 +384,21 @@
       }
       clearFieldErrors();
     });
+
+    const themeInput = $("#theme-input");
+    if (themeInput) {
+      themeInput.addEventListener("change", () => {
+        applyTheme(themeInput.checked ? "dark" : "light");
+      });
+    }
+
+    const notifInput = $("#notif-input");
+    if (notifInput) {
+      updateNotifHelp(notifInput.checked);
+      notifInput.addEventListener("change", () => {
+        updateNotifHelp(notifInput.checked);
+      });
+    }
 
     $("#retry-btn").addEventListener("click", () => {
       autoRetryUsed = false;
