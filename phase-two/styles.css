@@ -314,8 +314,27 @@ input:focus-visible {
 .toggle-row {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
   margin-top: 8px;
+}
+
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toggle-desc {
+  margin: 0 0 0 60px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--pkc-text-muted);
+}
+
+@media (max-width: 600px) {
+  .toggle-desc { margin-left: 0; }
 }
 
 .toggle {
