@@ -85,20 +85,26 @@
         <div class="field" data-field="prefs">
           <label class="field-label">Preferences</label>
           <div class="toggle-row">
-            <label class="toggle">
-              <input type="checkbox" id="notif-input" checked>
-              <span class="toggle-frame">
-                <span class="toggle-dot"></span>
-              </span>
-              <span class="toggle-text">Notifications&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
-            </label>
-            <label class="toggle">
-              <input type="checkbox" id="theme-input" checked>
-              <span class="toggle-frame">
-                <span class="toggle-dot"></span>
-              </span>
-              <span class="toggle-text">Theme&nbsp;&nbsp;<span data-on>DARK</span><span data-off>LIGHT</span></span>
-            </label>
+            <div class="toggle-group">
+              <label class="toggle">
+                <input type="checkbox" id="notif-input" checked>
+                <span class="toggle-frame">
+                  <span class="toggle-dot"></span>
+                </span>
+                <span class="toggle-text">Notifications&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
+              </label>
+              <p class="toggle-desc">Get email updates about your account, orders, and rewards. Toggle off to opt out.</p>
+            </div>
+            <div class="toggle-group">
+              <label class="toggle">
+                <input type="checkbox" id="theme-input" checked>
+                <span class="toggle-frame">
+                  <span class="toggle-dot"></span>
+                </span>
+                <span class="toggle-text">Theme&nbsp;&nbsp;<span data-on>DARK</span><span data-off>LIGHT</span></span>
+              </label>
+              <p class="toggle-desc">Switch this page between dark and light colors. Your choice is saved.</p>
+            </div>
           </div>
         </div>
 
