@@ -26,6 +26,13 @@ A two-phase onboarding system for kids who create. Phase One captures intent. Ph
 
 ---
 
+## // LIVE
+
+- **Phase One** → https://projectkidcreations.vercel.app/
+- **Phase Two** → https://projectkidcreations.vercel.app/phase-two/
+
+---
+
 ## // SYSTEM_MAP
 
 Three tiers, named not detailed:
