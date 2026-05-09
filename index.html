@@ -49,8 +49,9 @@
   </section>
 
   <script>
-    window.PKC_ENDPOINT = "https://n8n.srv1109728.hstgr.cloud/webhook/pkc-onboarding";
-    window.PKC_AUTH_KEY = "c53d7e93498c4365b04914c761b982d6";
+    // Same-origin proxy. Real n8n base URL + auth key live in Vercel env vars
+    // (PKC_N8N_BASE_URL, PKC_AUTH_KEY) and never reach the browser.
+    window.PKC_ENDPOINT = "/api/onboarding";
   </script>
   <script src="app.js"></script>
 </body>
