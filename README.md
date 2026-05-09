@@ -29,7 +29,8 @@ A two-phase onboarding system for kids who create. Phase One captures intent. Ph
 ## // LIVE
 
 - **Phase One** → https://projectkidcreations.vercel.app/
-- **Phase Two** → https://projectkidcreations.vercel.app/phase-two/
+
+> Phase Two is token-gated — access only via the signed link emailed after Phase One.
 
 ---
 
