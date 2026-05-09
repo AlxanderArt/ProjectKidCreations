@@ -324,11 +324,7 @@
     log("[PKC] enqueued", payload.submissionId);
   };
 
-  const authHeaders = () => {
-    const h = { "Content-Type": "application/json" };
-    if (window.PKC_AUTH_KEY) h["x-pkc-key"] = window.PKC_AUTH_KEY;
-    return h;
-  };
+  const authHeaders = () => ({ "Content-Type": "application/json" });
 
   const drainQueue = safeAsync(async () => {
     if (!CONFIG.ENDPOINT) return;

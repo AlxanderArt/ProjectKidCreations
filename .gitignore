@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# Vercel
+.vercel/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+secrets.json
+*.secrets.*
+*.private.md
+
+# Phase B redaction outputs (kept out of repo)
+redaction-report.md
