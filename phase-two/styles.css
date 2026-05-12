@@ -198,6 +198,19 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
     pkc-scanline-in var(--duration-snap) var(--ease-scan) both;
 }
 
+/* ──────────────────────────────────────────────
+ * Center the non-form states. FORM keeps left
+ * alignment because form inputs read better there.
+ * ────────────────────────────────────────────── */
+.state[data-state="LOADING"],
+.state[data-state="SUBMITTING"],
+.state[data-state="SUCCESS"],
+.state[data-state="ALREADY_DONE"],
+.state[data-state="PHASE2_INCOMPLETE"] {
+  align-items: center;
+  text-align: center;
+}
+
 @keyframes pkc-pop-up {
   from { transform: translateY(8px); opacity: 0; }
   to   { transform: translateY(0);   opacity: 1; }

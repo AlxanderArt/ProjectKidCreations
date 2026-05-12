@@ -1,7 +1,8 @@
 ```
 // ────────────────────────────────────── //
 // PROJECT KID CREATIONS                  //
-// PHASE ONE → PHASE TWO                  //
+// PHASE ONE → PHASE TWO → PHASE THREE    //
+// ACCESS GRANTED (upcoming)              //
 // ────────────────────────────────────── //
 ```
 
@@ -9,7 +10,9 @@
 
 <sub>// STATUS</sub>
 
-[![Vercel](https://img.shields.io/github/deployments/AlxanderArt/ProjectKidCreations/production?style=flat-square&label=VERCEL&color=ff5f1f&labelColor=0a0a0a)](https://vercel.com/maxwell-willis-projects/projectkidcreations) &middot; [![Last commit](https://img.shields.io/github/last-commit/AlxanderArt/ProjectKidCreations?style=flat-square&label=LAST%20COMMIT&color=ff5f1f&labelColor=0a0a0a)](https://github.com/AlxanderArt/ProjectKidCreations/commits/main) &middot; ![Version](https://img.shields.io/badge/VERSION-v0.1.0-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Phase status](https://img.shields.io/badge/PHASE%20ONE%20%C2%B7%20live-PHASE%20TWO%20%C2%B7%20token--gated-ff5f1f?style=flat-square&labelColor=0a0a0a)
+[![Vercel](https://img.shields.io/github/deployments/AlxanderArt/ProjectKidCreations/production?style=flat-square&label=VERCEL&color=ff5f1f&labelColor=0a0a0a)](https://vercel.com/maxwell-willis-projects/projectkidcreations) &middot; [![Last commit](https://img.shields.io/github/last-commit/AlxanderArt/ProjectKidCreations?style=flat-square&label=LAST%20COMMIT&color=ff5f1f&labelColor=0a0a0a)](https://github.com/AlxanderArt/ProjectKidCreations/commits/main) &middot; ![Version](https://img.shields.io/badge/VERSION-v0.1.0-ff5f1f?style=flat-square&labelColor=0a0a0a)
+
+![Phase One](https://img.shields.io/badge/PHASE%20ONE-LIVE-39ff14?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Two](https://img.shields.io/badge/PHASE%20TWO-LIVE%20·%20TOKEN--GATED-39ff14?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Three](https://img.shields.io/badge/PHASE%20THREE-LIVE%20·%20TOKEN--GATED-39ff14?style=flat-square&labelColor=0a0a0a) &middot; ![Access Granted](https://img.shields.io/badge/ACCESS%20GRANTED-UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a)
 
 <sub>// STACK</sub>
 
@@ -27,15 +30,18 @@
 
 ## // PROJECT KID CREATIONS
 
-A two-phase onboarding system for kids who create. Phase One captures intent. Phase Two builds the profile. The whole thing is built brutalist — hi-vis on tac-black, monospace, no decoration that doesn't earn its place.
+A three-phase onboarding system for kids who create. Phase One captures intent. Phase Two confirms the email and unlocks the next step. Phase Three builds the operator profile — identity, loadout interests, logistics. Phase Four (codename **ACCESS GRANTED**, upcoming) is the verified-state dashboard where the accent flips from hi-vis orange to neon green to signal you're in. The whole thing is built brutalist — hi-vis on tac-black, monospace, no decoration that doesn't earn its place.
 
 ---
 
 ## // LIVE
 
-- **Phase One** → https://projectkidcreations.io/
+- ![status](https://img.shields.io/badge/LIVE-39ff14?style=flat-square&labelColor=0a0a0a) **Phase One** → https://projectkidcreations.io/
+- ![status](https://img.shields.io/badge/LIVE-39ff14?style=flat-square&labelColor=0a0a0a) **Phase Two** → token-gated (signed link emailed after Phase One)
+- ![status](https://img.shields.io/badge/LIVE-39ff14?style=flat-square&labelColor=0a0a0a) **Phase Three** → token-gated (signed link emailed after Phase Two redemption)
+- ![status](https://img.shields.io/badge/UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a) **Phase Four · ACCESS GRANTED** → verified-state dashboard (planning complete, gated on Supabase)
 
-> Phase Two is token-gated — access only via the signed link emailed after Phase One.
+> Token-gated phases never expose a bare URL — the only way in is through the signed link.
 
 ---
 
@@ -52,9 +58,13 @@ flowchart LR
   user([user]) --> phase1[Phase One form]
   phase1 -->|signed payload| n8n[(workflow engine)]
   n8n --> store[(datastore)]
-  n8n -->|signed token email| user
-  user --> phase2[Phase Two profile page]
-  phase2 -->|verify · save · event| n8n
+  n8n -->|phase-two token email| user
+  user --> phase2[Phase Two verify]
+  phase2 -->|redeem| n8n
+  n8n -->|phase-three token email| user
+  user --> phase3[Phase Three profile form]
+  phase3 -->|verify · save · event| n8n
+  n8n --> store
 ```
 
 ---
@@ -64,9 +74,13 @@ flowchart LR
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/webhook/pkc-onboarding` | POST | Submit Phase One (firstName, email) |
-| `/webhook/pkc-phase-two/verify` | POST | Verify token, return profile metadata |
-| `/webhook/pkc-phase-two/save` | POST | Persist Phase Two profile |
-| `/webhook/pkc-phase-two/event` | POST | Client-side telemetry |
+| `/webhook/pkc-phase-two/verify` | POST | Verify Phase 2 token |
+| `/webhook/pkc-phase-two/save` | POST | Redeem Phase 2 token, write `redeemed_at`, trigger Phase 3 email |
+| `/webhook/pkc-phase-two/event` | POST | Phase 2 client telemetry |
+| `/webhook/pkc-phase-three/verify` | POST | Verify Phase 3 token + Phase 2 redemption |
+| `/webhook/pkc-phase-three/save` | POST | Persist full operator profile (27 fields) |
+| `/webhook/pkc-phase-three/check-username` | POST | Debounced availability lookup |
+| `/webhook/pkc-phase-three/event` | POST | Phase 3 client telemetry |
 
 > Public surface only. Hostnames live outside the repo.
 
@@ -121,9 +135,17 @@ Phase One signs its payload with **SHA-256** over sorted-key JSON for tamper det
 | `index.html` | Phase One landing |
 | `app.js` | Phase One state + submit |
 | `styles.css` | Brand styling |
-| `phase-two/index.html` | Phase Two profile page |
-| `phase-two/app.js` | 9-state machine + verify/save |
-| `phase-two/styles.css` | Phase Two styling |
+| `phase-two/index.html` | Phase Two confirm-email page |
+| `phase-two/app.js` | State machine + verify/redeem |
+| `phase-two/styles.css` | Phase 2 styling + verified-state accent swap |
+| `phase-two/motion.js` | GSAP entrance choreography + orange→green flip |
+| `phase-three/index.html` | Phase Three profile-creation page |
+| `phase-three/app.js` | 11-state machine + 4-section form |
+| `phase-three/styles.css` | Phase 3 styling (extends phase-two tokens) |
+| `phase-three/motion.js` | GSAP entrance + section transitions |
+| `phase-three/upload-worker.js` | Avatar client-side pipeline (parked until Vercel Blob is wired) |
+| `api/phase-two/{verify,save,event}.js` | Vercel proxies to n8n (save is Node runtime · 60s) |
+| `api/phase-three/{verify,save,event,check-username}.js` | Vercel proxies to n8n |
 | `assets/badges/` | Bespoke flat-square SVG badges |
 | `assets/screenshots/` | UI captures (TODO) |
 | `README.template.md` | Reusable template — re-render via the github-proper-setup skill |
