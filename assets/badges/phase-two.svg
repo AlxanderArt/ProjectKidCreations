@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="265" height="22" viewBox="0 0 265 22" role="img" aria-label="PHASE TWO: LIVE · TOKEN-GATED">
+  <rect x="0" width="100" height="22" rx="0" ry="0" fill="#0A0A0A"/>
+  <rect x="100" width="165" height="22" rx="0" ry="0" fill="#FF5F1F"/>
+  <text x="50" y="15" fill="#E8E8E8" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" font-weight="600" text-anchor="middle" letter-spacing="1">PHASE TWO</text>
+  <text x="182" y="15" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" font-weight="600" text-anchor="middle" letter-spacing="1">
+    <tspan fill="#39FF14">LIVE</tspan><tspan fill="#E8E8E8"> · TOKEN-GATED</tspan>
+  </text>
+</svg>
