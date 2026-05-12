@@ -5,16 +5,21 @@
 // ────────────────────────────────────── //
 ```
 
-[![Vercel](https://img.shields.io/github/deployments/AlxanderArt/ProjectKidCreations/production?style=flat-square&label=VERCEL&color=ff5f1f&labelColor=0a0a0a)](https://vercel.com/maxwell-willis-projects/projectkidcreations)
-[![Last commit](https://img.shields.io/github/last-commit/AlxanderArt/ProjectKidCreations?style=flat-square&label=LAST%20COMMIT&color=ff5f1f&labelColor=0a0a0a)](https://github.com/AlxanderArt/ProjectKidCreations/commits/main)
+<div align="center">
 
-![HTML5](./assets/badges/html5.svg)
-![Vanilla JS](./assets/badges/vanilla-js.svg)
-![n8n](./assets/badges/n8n.svg)
-![Sheets](./assets/badges/sheets.svg)
-![Vercel](./assets/badges/vercel.svg)
+<sub>// STATUS</sub>
 
-![License — All Rights Reserved](./assets/badges/license.svg)
+[![Vercel](https://img.shields.io/github/deployments/AlxanderArt/ProjectKidCreations/production?style=flat-square&label=VERCEL&color=ff5f1f&labelColor=0a0a0a)](https://vercel.com/maxwell-willis-projects/projectkidcreations) &middot; [![Last commit](https://img.shields.io/github/last-commit/AlxanderArt/ProjectKidCreations?style=flat-square&label=LAST%20COMMIT&color=ff5f1f&labelColor=0a0a0a)](https://github.com/AlxanderArt/ProjectKidCreations/commits/main) &middot; ![Version](https://img.shields.io/badge/VERSION-v0.1.0-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Phase status](https://img.shields.io/badge/PHASE%20ONE%20%C2%B7%20live-PHASE%20TWO%20%C2%B7%20token--gated-ff5f1f?style=flat-square&labelColor=0a0a0a)
+
+<sub>// STACK</sub>
+
+<a href="https://developer.mozilla.org/docs/Web/HTML" title="HTML5"><img src="./assets/badges/html5.svg" alt="HTML5"></a>&nbsp;<a href="https://developer.mozilla.org/docs/Web/JavaScript" title="Vanilla JS — no framework"><img src="./assets/badges/vanilla-js.svg" alt="Vanilla JS"></a>&nbsp;<a href="https://n8n.io" title="n8n — workflow engine"><img src="./assets/badges/n8n.svg" alt="n8n"></a>&nbsp;<a href="https://developers.google.com/sheets/api" title="Google Sheets — append-only datastore"><img src="./assets/badges/sheets.svg" alt="Sheets"></a>&nbsp;<a href="https://vercel.com" title="Vercel — static hosting"><img src="./assets/badges/vercel.svg" alt="Vercel"></a>
+
+<sub>// LICENSE</sub>
+
+`// ALL RIGHTS RESERVED · © 2026 ALXANDERART`
+
+</div>
 
 <!-- TODO: screenshot — phase-one form hero -->
 
