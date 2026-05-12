@@ -12,7 +12,7 @@
 
 [![Vercel](https://img.shields.io/github/deployments/AlxanderArt/ProjectKidCreations/production?style=flat-square&label=VERCEL&color=ff5f1f&labelColor=0a0a0a)](https://vercel.com/maxwell-willis-projects/projectkidcreations) &middot; [![Last commit](https://img.shields.io/github/last-commit/AlxanderArt/ProjectKidCreations?style=flat-square&label=LAST%20COMMIT&color=ff5f1f&labelColor=0a0a0a)](https://github.com/AlxanderArt/ProjectKidCreations/commits/main) &middot; ![Version](https://img.shields.io/badge/VERSION-v0.1.0-ff5f1f?style=flat-square&labelColor=0a0a0a)
 
-![Phase One](https://img.shields.io/badge/PHASE%20ONE-LIVE-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Two](https://img.shields.io/badge/PHASE%20TWO-LIVE%20·%20TOKEN--GATED-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Three](https://img.shields.io/badge/PHASE%20THREE-LIVE%20·%20TOKEN--GATED-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Access Granted](https://img.shields.io/badge/ACCESS%20GRANTED-UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a)
+![Phase One](./assets/badges/phase-one.svg) &middot; ![Phase Two](https://img.shields.io/badge/PHASE%20TWO-LIVE%20·%20TOKEN--GATED-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Three](https://img.shields.io/badge/PHASE%20THREE-LIVE%20·%20TOKEN--GATED-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Access Granted](https://img.shields.io/badge/ACCESS%20GRANTED-UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a)
 
 <sub>// STACK</sub>
 
