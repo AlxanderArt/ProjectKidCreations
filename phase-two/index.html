@@ -51,11 +51,10 @@
     </section>
 
     <section class="state" data-state="ALREADY_DONE" data-active="false" aria-hidden="true">
-      <p class="step-label">PROFILE READY</p>
-      <h1 class="prompt">YOU'RE ALL SET.</h1>
-      <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="already-username">—</span></p>
-      <p class="momentum">Created&nbsp;&nbsp;<span class="hl" id="already-completed">—</span></p>
-      <p class="momentum">You've already created your profile. No further action needed.</p>
+      <p class="step-label">// LINK ALREADY USED</p>
+      <h1 class="prompt">YOU'RE PAST THIS STEP.</h1>
+      <p class="momentum">Redeemed&nbsp;&nbsp;<span class="hl" id="already-completed">—</span></p>
+      <p class="momentum">Check your inbox for the Phase Three profile setup link.</p>
     </section>
 
     <section class="state" data-state="FORM" data-active="false" aria-hidden="true">
@@ -79,12 +78,12 @@
     </section>
 
     <section class="state state--success" data-state="SUCCESS" data-active="false" aria-hidden="true">
-      <p class="step-label" id="success-label">PROFILE COMPLETE</p>
-      <h1 class="prompt" id="success-greeting">WELCOME</h1>
-      <p class="confirm-line" data-revealed="true">Your account is now active.</p>
-      <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="success-username">—</span></p>
-      <p class="momentum">You're all set. Watch your email for what's next.</p>
-      <p class="kill-meta" id="success-test-banner" hidden>Test mode — your profile was not saved.</p>
+      <p class="step-label" id="success-label">// EMAIL CONFIRMED</p>
+      <h1 class="prompt" id="success-greeting">LINK INCOMING.</h1>
+      <p class="confirm-line" data-revealed="true">Phase three is on the way.</p>
+      <p class="momentum">Email&nbsp;&nbsp;<span class="hl" id="success-email">—</span></p>
+      <p class="momentum">We just sent the profile setup link. Check your inbox.</p>
+      <p class="kill-meta" id="success-test-banner" hidden>Test mode — link not actually sent.</p>
     </section>
 
     <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
@@ -118,6 +117,8 @@
       ABANDON_AFTER_MS: 90000
     };
   </script>
+  <script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js" defer></script>
+  <script src="motion.js" defer></script>
   <script src="app.js"></script>
 </body>
 </html>

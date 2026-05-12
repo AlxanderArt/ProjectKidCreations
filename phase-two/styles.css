@@ -9,6 +9,7 @@
 
   --pkc-tac-black: #0A0A0A;
   --pkc-hi-vis:    #FF5F1F;
+  --pkc-neon:      #39FF14;
   --pkc-slate:     #3F4448;
   --pkc-ghost:     #1A1C1E;
   --pkc-concrete:  #E8E8E8;
@@ -22,6 +23,8 @@
   --pkc-text-muted:    #9AA0A4;
   --pkc-accent:        var(--pkc-hi-vis);
   --pkc-accent-ink:    var(--pkc-tac-black);
+  --pkc-verified:      var(--pkc-neon);
+  --pkc-verified-ink:  var(--pkc-tac-black);
   --pkc-danger:        #FF3B30;
 
   --font-display: "Archivo Black", "Helvetica Neue", Arial, sans-serif;
@@ -50,6 +53,39 @@ html[data-theme="light"] {
 }
 
 html, body { transition: background var(--duration-snap) var(--ease-snappy), color var(--duration-snap) var(--ease-snappy); }
+
+/* ──────────────────────────────────────────────
+ * VERIFIED-STATE ACCENT SWAP
+ * When body[data-verified="true"] (set by motion.js after a SUCCESS
+ * state activates), every component reading --pkc-accent rebinds to
+ * the neon-green verified token. The cross-fade is driven by the
+ * per-property transitions below.
+ * ────────────────────────────────────────────── */
+body[data-verified="true"] {
+  --pkc-accent:     var(--pkc-verified);
+  --pkc-accent-ink: var(--pkc-verified-ink);
+}
+
+.status,
+.step-label,
+.momentum .hl,
+.confirm-line,
+.idle-hint,
+.cta,
+.kill .kill-line,
+.progress-bar > span,
+input[type="text"],
+input[type="text"]:focus,
+.toggle-frame,
+.toggle-dot,
+::selection {
+  transition:
+    color   var(--duration-cinematic) var(--ease-snappy),
+    background var(--duration-cinematic) var(--ease-snappy),
+    border-color var(--duration-cinematic) var(--ease-snappy),
+    fill    var(--duration-cinematic) var(--ease-snappy),
+    box-shadow var(--duration-cinematic) var(--ease-snappy);
+}
 
 *, *::before, *::after { box-sizing: border-box; }
 
