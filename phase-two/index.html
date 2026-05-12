@@ -20,10 +20,11 @@
 
   <header class="shell-header" aria-label="profile setup">
     <div class="progress" aria-label="setup progress">
-      <span class="progress-counter">STEP 02 / 02</span>
-      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="2" aria-valuenow="2">
+      <span class="progress-counter">STEP 02 / 03</span>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="3" aria-valuenow="2">
         <span class="filled"></span>
         <span class="filled"></span>
+        <span></span>
       </div>
     </div>
     <p class="status" id="status" aria-live="polite">Checking your link</p>
@@ -58,58 +59,14 @@
     </section>
 
     <section class="state" data-state="FORM" data-active="false" aria-hidden="true">
-      <p class="step-label">CREATE YOUR PROFILE</p>
+      <p class="step-label">// CONFIRM EMAIL &amp; REDEEM</p>
       <h1 class="prompt" id="form-greeting">WELCOME</h1>
       <p class="momentum">Email&nbsp;&nbsp;<span class="hl" id="form-email">—</span></p>
+      <p class="momentum">Confirm this is you. We'll send a follow-up to set up your profile.</p>
 
       <form id="profile-form" novalidate>
-        <div class="field" data-field="username">
-          <label class="field-label" for="username-input">Choose a username</label>
-          <input
-            id="username-input"
-            type="text"
-            name="username"
-            autocomplete="username"
-            inputmode="text"
-            spellcheck="false"
-            autocapitalize="off"
-            placeholder="lowercase, 3-24 characters"
-            maxlength="24"
-            required>
-          <div class="error-region" data-field="username">
-            <span class="error-msg" id="username-error" hidden></span>
-            <span class="error-hint">Letters, numbers, hyphen, or underscore.</span>
-          </div>
-        </div>
-
-        <div class="field" data-field="prefs">
-          <label class="field-label">Preferences</label>
-          <div class="toggle-row">
-            <div class="toggle-group">
-              <label class="toggle">
-                <input type="checkbox" id="notif-input" checked>
-                <span class="toggle-frame">
-                  <span class="toggle-dot"></span>
-                </span>
-                <span class="toggle-text">Notifications&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
-              </label>
-              <p class="toggle-desc">Get email updates about your account, orders, and rewards. Toggle off to opt out.</p>
-            </div>
-            <div class="toggle-group">
-              <label class="toggle">
-                <input type="checkbox" id="theme-input" checked>
-                <span class="toggle-frame">
-                  <span class="toggle-dot"></span>
-                </span>
-                <span class="toggle-text">Theme&nbsp;&nbsp;<span data-on>DARK</span><span data-off>LIGHT</span></span>
-              </label>
-              <p class="toggle-desc">Switch this page between dark and light colors. Your choice is saved.</p>
-            </div>
-          </div>
-        </div>
-
         <button type="submit" class="cta" id="submit-btn">
-          CREATE PROFILE
+          CONFIRM &amp; CONTINUE
           <span aria-hidden="true">→</span>
         </button>
       </form>
