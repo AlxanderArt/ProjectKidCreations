@@ -1,0 +1,641 @@
+/* ProjectKidCreations — phase-three/styles.css
+ * Extends phase-two's tokens (palette, motion, type). DO NOT redefine vars here.
+ * Adds: sectioned form, tag inputs, dropzone, radio cards, age gate, review grid.
+ */
+
+@import url("../phase-two/styles.css");
+
+/* ──────────────────────────────────────────────
+ * Phase 3 overrides — kill the light-theme bleed,
+ * trust the dark.
+ * ────────────────────────────────────────────── */
+:root { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: dark; }  /* lock dark even if Phase 2 token leaks */
+
+/* ──────────────────────────────────────────────
+ * Toast — draft-restored notice
+ * ────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-accent);
+  background: var(--pkc-surface);
+  border: 1px solid var(--pkc-border-strong);
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity var(--duration-snap) var(--ease-snappy), transform var(--duration-snap) var(--ease-snappy);
+  pointer-events: none;
+}
+
+.toast[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ──────────────────────────────────────────────
+ * Section progress — sub-progress inside FORM
+ * ────────────────────────────────────────────── */
+.section-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 24px 0 8px;
+  padding: 14px 16px;
+  background: var(--pkc-surface);
+  border: 1px solid var(--pkc-border);
+}
+
+.section-progress-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  height: 2px;
+}
+
+.section-progress-bar > span {
+  background: var(--pkc-border);
+  transition: background var(--duration-snap) var(--ease-snappy);
+}
+
+.section-progress-bar > span.filled {
+  background: var(--pkc-accent);
+}
+
+.section-progress-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-text-muted);
+}
+
+.section-progress-label .hl { color: var(--pkc-accent); }
+
+/* ──────────────────────────────────────────────
+ * Sections — progressive disclosure
+ * ────────────────────────────────────────────── */
+.section {
+  display: none;
+  flex-direction: column;
+  gap: 28px;
+  margin: 0;
+  padding: 24px 0 0;
+  border: 0;
+}
+
+.section[data-active="true"] {
+  display: flex;
+  animation:
+    pkc-pop-up var(--duration-snap) var(--ease-snappy) both,
+    pkc-scanline-in var(--duration-snap) var(--ease-scan) both;
+}
+
+.section-legend {
+  margin: 0;
+  padding: 0 12px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-accent);
+}
+
+.section-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* ──────────────────────────────────────────────
+ * Field tweaks for textarea / select / date
+ * ────────────────────────────────────────────── */
+textarea, input[type="date"], select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--pkc-border);
+  border-radius: 0;
+  color: var(--pkc-text);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  caret-color: var(--pkc-accent);
+  resize: vertical;
+  transition: border-color var(--duration-fast) var(--ease-snappy);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+textarea { min-height: 88px; line-height: 1.5; }
+
+textarea::placeholder, select:invalid { color: var(--pkc-text-muted); opacity: 0.5; }
+textarea:focus, input[type="date"]:focus, select:focus { border-bottom-color: var(--pkc-accent); }
+
+textarea:focus-visible,
+input[type="date"]:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--pkc-accent);
+  outline-offset: 6px;
+  border-radius: 2px;
+}
+
+/* Date / select native styling — keep the dark, brand the chevron */
+input[type="date"] {
+  color-scheme: dark;
+}
+select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--pkc-accent) 50%),
+                    linear-gradient(135deg, var(--pkc-accent) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+
+.field.invalid textarea,
+.field.invalid input[type="date"],
+.field.invalid select {
+  border-bottom-color: var(--pkc-danger);
+  animation: pkc-shake 160ms steps(4, end);
+}
+
+/* ──────────────────────────────────────────────
+ * Username availability inline state
+ * ────────────────────────────────────────────── */
+#username-availability[data-state="checking"] { color: var(--pkc-text-muted); }
+#username-availability[data-state="available"] { color: var(--pkc-accent); }
+#username-availability[data-state="taken"]     { color: var(--pkc-danger); }
+#username-availability[data-state="invalid"]   { color: var(--pkc-danger); }
+
+/* ──────────────────────────────────────────────
+ * Dropzone — avatar upload
+ * ────────────────────────────────────────────── */
+.dropzone {
+  position: relative;
+  margin-top: 8px;
+  padding: 28px 20px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  border: 2px dashed var(--pkc-accent);
+  background: var(--pkc-surface);
+  border-radius: 2px;
+  cursor: pointer;
+  min-height: 160px;
+  transition:
+    border-style var(--duration-fast) var(--ease-snappy),
+    border-color var(--duration-fast) var(--ease-snappy),
+    background var(--duration-fast) var(--ease-snappy);
+  outline: none;
+}
+
+.dropzone:hover { background: var(--pkc-surface-raised); }
+.dropzone:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 4px; }
+
+.dropzone[data-state="dragover"] {
+  border-style: solid;
+  background: var(--pkc-surface-raised);
+}
+
+.dropzone[data-state="uploading"] { cursor: progress; }
+
+.dropzone[data-state="locked"] {
+  border-style: solid;
+  border-color: var(--pkc-border-strong);
+  padding: 16px;
+  cursor: default;
+}
+
+.dropzone-glyph {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--pkc-accent);
+  line-height: 1;
+}
+
+.dropzone-line {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-text);
+}
+
+.dropzone-line .hl { color: var(--pkc-accent); }
+
+.dropzone-meta {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--pkc-text-muted);
+}
+
+.dropzone-progress {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-bar {
+  width: 100%;
+  max-width: 280px;
+  height: 4px;
+  background: var(--pkc-border);
+  overflow: hidden;
+}
+
+.upload-bar-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--pkc-accent);
+  transition: width var(--duration-snap) var(--ease-snappy);
+}
+
+.dropzone-preview {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+}
+
+.dropzone-preview img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border: 2px solid var(--pkc-accent);
+  border-radius: 2px;
+  display: block;
+}
+
+.dropzone-preview-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.link-btn {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-accent);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-snappy);
+}
+
+.link-btn:hover { color: var(--pkc-text); }
+.link-btn:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 4px; }
+
+/* ──────────────────────────────────────────────
+ * Radio cards — skill level
+ * ────────────────────────────────────────────── */
+.radio-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.radio-card { cursor: pointer; }
+
+.radio-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0; height: 0;
+}
+
+.radio-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 16px;
+  background: var(--pkc-surface);
+  border: 2px solid var(--pkc-border);
+  border-radius: 2px;
+  transition: border-color var(--duration-fast) var(--ease-snappy), background var(--duration-fast) var(--ease-snappy);
+}
+
+.radio-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--pkc-text-muted);
+}
+
+.radio-text {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--pkc-text);
+}
+
+.radio-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+  color: var(--pkc-text-muted);
+}
+
+.radio-card input:checked + .radio-frame {
+  border-color: var(--pkc-accent);
+  background: var(--pkc-bg);
+}
+
+.radio-card input:checked + .radio-frame .radio-tag { color: var(--pkc-accent); }
+.radio-card input:focus-visible + .radio-frame {
+  outline: 2px solid var(--pkc-accent);
+  outline-offset: 4px;
+}
+
+@media (max-width: 600px) {
+  .radio-row { grid-template-columns: 1fr; }
+}
+
+/* ──────────────────────────────────────────────
+ * Tag input
+ * ────────────────────────────────────────────── */
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--pkc-surface);
+  border: 1px solid var(--pkc-border);
+  border-radius: 2px;
+  transition: border-color var(--duration-fast) var(--ease-snappy);
+}
+
+.tag-input:focus-within { border-color: var(--pkc-accent); }
+
+.tag-list {
+  display: contents;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 8px;
+  background: var(--pkc-bg);
+  border: 1px solid var(--pkc-accent);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--pkc-text);
+}
+
+.tag-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--pkc-accent);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.tag-x:hover { color: var(--pkc-text); background: var(--pkc-accent); }
+.tag-x:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 2px; }
+
+.tag-input input {
+  flex: 1;
+  min-width: 140px;
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  font-size: 14px;
+  background: transparent;
+}
+
+.tag-input input:focus-visible { outline: none; }
+
+/* ──────────────────────────────────────────────
+ * Socials grid
+ * ────────────────────────────────────────────── */
+.socials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+  .socials-grid { grid-template-columns: 1fr; }
+}
+
+.social-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border-bottom: 2px solid var(--pkc-border);
+  padding-bottom: 2px;
+  transition: border-color var(--duration-fast) var(--ease-snappy);
+}
+
+.social-cell:focus-within { border-bottom-color: var(--pkc-accent); }
+
+.social-prefix {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--pkc-text-muted);
+}
+
+.social-cell input {
+  flex: 1;
+  margin-top: 0;
+  padding: 10px 0;
+  border-bottom: 0;
+  font-size: 16px;
+}
+
+/* ──────────────────────────────────────────────
+ * Shipping grid
+ * ────────────────────────────────────────────── */
+.shipping-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+  margin-top: 8px;
+}
+
+.shipping-grid > #ship-line1,
+.shipping-grid > #ship-line2 { grid-column: 1 / -1; }
+
+@media (max-width: 600px) {
+  .shipping-grid { grid-template-columns: 1fr; }
+}
+
+/* ──────────────────────────────────────────────
+ * Review grid — section 4
+ * ────────────────────────────────────────────── */
+.review-intro {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--pkc-text-muted);
+}
+
+.review-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 4px;
+  border-top: 1px solid var(--pkc-border);
+}
+
+.review-row {
+  display: grid;
+  grid-template-columns: 160px 1fr auto;
+  gap: 16px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--pkc-border);
+}
+
+@media (max-width: 600px) {
+  .review-row {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+  }
+  .review-row .review-key { grid-column: 1 / -1; }
+}
+
+.review-key {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-text-muted);
+}
+
+.review-val {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--pkc-text);
+  word-break: break-word;
+  white-space: pre-line;
+}
+
+.review-val[data-empty="true"] {
+  color: var(--pkc-text-muted);
+  font-style: italic;
+}
+
+.review-val img.review-avatar {
+  width: 56px; height: 56px;
+  object-fit: cover;
+  border: 2px solid var(--pkc-accent);
+  border-radius: 2px;
+  display: block;
+}
+
+.review-edit {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.review-edit:hover { color: var(--pkc-text); }
+.review-edit:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 4px; }
+
+.adult-stamp {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--pkc-accent);
+  border: 1px solid var(--pkc-accent);
+  border-radius: 2px;
+}
+
+/* ──────────────────────────────────────────────
+ * Commit CTA — emphasize the final action
+ * ────────────────────────────────────────────── */
+.cta--commit {
+  background: var(--pkc-accent);
+  color: var(--pkc-accent-ink);
+  border-color: var(--pkc-accent);
+}
+
+.cta--commit:hover {
+  background: var(--pkc-text);
+  color: var(--pkc-bg);
+  border-color: var(--pkc-text);
+}
+
+/* ──────────────────────────────────────────────
+ * Form state stretches — give the form room
+ * ────────────────────────────────────────────── */
+.state--form { width: 100%; }
+.state--form #profile-form { gap: 0; }
+
+/* ──────────────────────────────────────────────
+ * Phase 2 kill — phase2 incomplete tone
+ * ────────────────────────────────────────────── */
+.kill--phase2 h1 { color: var(--pkc-accent); }
+.kill--phase2 .kill-line { color: var(--pkc-text); }
+
+/* ──────────────────────────────────────────────
+ * Mobile section nav
+ * ────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .section-nav { flex-direction: column-reverse; align-items: stretch; gap: 16px; }
+  .section-nav .cta { width: 100%; justify-content: center; }
+}

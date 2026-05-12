@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // PHASE THREE</title>
+  <meta name="description" content="ProjectKidCreations phase three — configure operator profile.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <noscript>
+    <main class="kill">
+      <h1>JAVASCRIPT REQUIRED</h1>
+      <p class="kill-line">This page needs JavaScript to load.</p>
+      <p class="kill-meta">Please enable it and refresh.</p>
+    </main>
+  </noscript>
+
+  <header class="shell-header" aria-label="profile setup">
+    <div class="progress" aria-label="setup progress">
+      <span class="progress-counter">STEP 03 / 03</span>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="3" aria-valuenow="3">
+        <span class="filled"></span>
+        <span class="filled"></span>
+        <span class="filled"></span>
+      </div>
+    </div>
+    <p class="status" id="status" aria-live="polite">Building your profile</p>
+  </header>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-hidden="true"></div>
+
+  <main id="stage" aria-live="polite">
+
+    <section class="state" data-state="LOADING" data-active="true">
+      <p class="step-label">// LOADING PROFILE BUILD KIT</p>
+      <h1 class="prompt">SPINNING UP</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <section class="state kill kill--invalid" data-state="INVALID" data-active="false" aria-hidden="true">
+      <h1>LINK NOT RECOGNIZED</h1>
+      <p class="kill-line">We couldn't verify this link.</p>
+      <p class="kill-meta" id="invalid-meta">If you think this is a mistake, get in touch with support.</p>
+    </section>
+
+    <section class="state kill kill--expired" data-state="EXPIRED" data-active="false" aria-hidden="true">
+      <h1>LINK EXPIRED</h1>
+      <p class="kill-line">This link has passed its 30&#8209;day window.</p>
+      <p class="kill-meta">Get in touch with support and we'll send you a fresh one.</p>
+    </section>
+
+    <section class="state" data-state="ALREADY_DONE" data-active="false" aria-hidden="true">
+      <p class="step-label">// PROFILE LOCKED IN</p>
+      <h1 class="prompt">YOU'RE ALL SET.</h1>
+      <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="already-username">—</span></p>
+      <p class="momentum">Completed&nbsp;&nbsp;<span class="hl" id="already-completed">—</span></p>
+      <p class="momentum">Your profile is already in the system. No further action needed.</p>
+    </section>
+
+    <section class="state kill kill--phase2" data-state="PHASE2_INCOMPLETE" data-active="false" aria-hidden="true">
+      <h1>// COMPLETE PHASE TWO FIRST</h1>
+      <p class="kill-line">Your email link is still pending.</p>
+      <p class="kill-meta">Check your inbox for the verify email.</p>
+    </section>
+
+    <!-- ──────────────────────────────────────────────
+       FORM STATE — 4 sections, one visible at a time
+       ────────────────────────────────────────────── -->
+    <section class="state state--form" data-state="FORM" data-active="false" aria-hidden="true">
+      <p class="step-label">// CONFIGURE OPERATOR PROFILE</p>
+      <h1 class="prompt" id="form-greeting">OPERATOR ONLINE</h1>
+      <p class="momentum">Email&nbsp;&nbsp;<span class="hl" id="form-email">—</span></p>
+
+      <div class="section-progress" aria-label="section progress">
+        <div class="section-progress-bar" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
+          <span data-section-bar="1" class="filled"></span>
+          <span data-section-bar="2"></span>
+          <span data-section-bar="3"></span>
+          <span data-section-bar="4"></span>
+        </div>
+        <p class="section-progress-label">
+          <span class="hl" id="section-step">1</span>
+          <span> / 4 &nbsp;//&nbsp; </span>
+          <span id="section-name">IDENTITY MARKERS</span>
+        </p>
+      </div>
+
+      <form id="profile-form" novalidate>
+
+        <!-- ───────────────── SECTION 1 — IDENTITY MARKERS ───────────────── -->
+        <fieldset class="section" data-section="identity" data-active="true" aria-hidden="false">
+          <legend class="section-legend">// IDENTITY MARKERS</legend>
+
+          <div class="field" data-field="display_name">
+            <label class="field-label" for="display-name-input">Display name</label>
+            <input
+              id="display-name-input"
+              type="text"
+              name="display_name"
+              autocomplete="nickname"
+              spellcheck="false"
+              placeholder="how it shows on the leaderboard"
+              maxlength="40"
+              required>
+            <div class="error-region" data-field="display_name">
+              <span class="error-msg" id="display_name-error" hidden></span>
+              <span class="error-hint">1–40 characters. Unicode allowed.</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="username">
+            <label class="field-label" for="username-input">Username</label>
+            <input
+              id="username-input"
+              type="text"
+              name="username"
+              autocomplete="username"
+              inputmode="text"
+              spellcheck="false"
+              autocapitalize="off"
+              placeholder="lowercase, 3-20 chars, a-z 0-9 _"
+              maxlength="20"
+              required>
+            <div class="error-region" data-field="username">
+              <span class="error-msg" id="username-error" hidden></span>
+              <span class="error-hint" id="username-availability" data-state="idle">// AVAILABILITY UNKNOWN</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="avatar">
+            <label class="field-label" for="avatar-input">Avatar</label>
+            <div class="dropzone" id="dropzone" data-state="idle" tabindex="0" role="button" aria-label="upload avatar image">
+              <div class="dropzone-idle">
+                <p class="dropzone-glyph" aria-hidden="true">＋</p>
+                <p class="dropzone-line">DROP IMAGE OR <span class="hl">CLICK TO BROWSE</span></p>
+                <p class="dropzone-meta">JPEG / PNG / WEBP &nbsp;//&nbsp; ≤2MB &nbsp;//&nbsp; downscaled to 1024px</p>
+              </div>
+              <div class="dropzone-progress" hidden>
+                <p class="dropzone-line">// UPLOADING</p>
+                <div class="upload-bar"><span class="upload-bar-fill" id="upload-bar-fill"></span></div>
+              </div>
+              <div class="dropzone-preview" hidden>
+                <img id="avatar-preview" alt="avatar preview">
+                <div class="dropzone-preview-meta">
+                  <p class="dropzone-line">// LOCKED IN</p>
+                  <button type="button" class="link-btn" id="avatar-replace">// REPLACE</button>
+                </div>
+              </div>
+              <input
+                id="avatar-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden>
+            </div>
+            <div class="error-region" data-field="avatar">
+              <span class="error-msg" id="avatar-error" hidden></span>
+              <span class="error-hint">Square works best. Optional.</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="bio">
+            <label class="field-label" for="bio-input">Bio</label>
+            <textarea
+              id="bio-input"
+              name="bio"
+              maxlength="160"
+              rows="3"
+              placeholder="160 chars or less. tactical only."></textarea>
+            <div class="error-region" data-field="bio">
+              <span class="error-msg" id="bio-error" hidden></span>
+              <span class="error-hint"><span id="bio-counter">0</span> / 160</span>
+            </div>
+          </div>
+
+          <div class="section-nav">
+            <button type="button" class="cta" data-section-next="maker">
+              CONTINUE
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </fieldset>
+
+        <!-- ───────────────── SECTION 2 — LOADOUT INTERESTS ───────────────── -->
+        <fieldset class="section" data-section="maker" data-active="false" aria-hidden="true">
+          <legend class="section-legend">// LOADOUT INTERESTS</legend>
+
+          <div class="field" data-field="skill_level">
+            <label class="field-label">Skill level</label>
+            <div class="radio-row" role="radiogroup" aria-label="skill level">
+              <label class="radio-card">
+                <input type="radio" name="skill_level" value="beginner">
+                <span class="radio-frame">
+                  <span class="radio-tag">01</span>
+                  <span class="radio-text">BEGINNER</span>
+                  <span class="radio-sub">Just got my first blaster.</span>
+                </span>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="skill_level" value="builder">
+                <span class="radio-frame">
+                  <span class="radio-tag">02</span>
+                  <span class="radio-text">BUILDER</span>
+                  <span class="radio-sub">I mod, print, and iterate.</span>
+                </span>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="skill_level" value="veteran">
+                <span class="radio-frame">
+                  <span class="radio-tag">03</span>
+                  <span class="radio-text">VETERAN</span>
+                  <span class="radio-sub">Years in the kit.</span>
+                </span>
+              </label>
+            </div>
+            <div class="error-region" data-field="skill_level">
+              <span class="error-msg" id="skill_level-error" hidden></span>
+              <span class="error-hint">Pick one. Honest is fine.</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="blasters_owned">
+            <label class="field-label" for="blasters-input">Blasters owned</label>
+            <div class="tag-input" data-field="blasters_owned">
+              <div class="tag-list" id="blasters-list" aria-live="polite"></div>
+              <input
+                id="blasters-input"
+                type="text"
+                placeholder="type and hit Enter — e.g. TM Hi-Capa, AAP-01"
+                maxlength="30"
+                autocomplete="off"
+                spellcheck="false">
+            </div>
+            <div class="error-region" data-field="blasters_owned">
+              <span class="error-msg" id="blasters_owned-error" hidden></span>
+              <span class="error-hint">Up to 10 tags. Optional.</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="accessory_interests">
+            <label class="field-label" for="accessories-input">Accessory interests</label>
+            <div class="tag-input" data-field="accessory_interests">
+              <div class="tag-list" id="accessories-list" aria-live="polite"></div>
+              <input
+                id="accessories-input"
+                type="text"
+                placeholder="e.g. red dots, kydex, suppressors"
+                maxlength="30"
+                autocomplete="off"
+                spellcheck="false">
+            </div>
+            <div class="error-region" data-field="accessory_interests">
+              <span class="error-msg" id="accessory_interests-error" hidden></span>
+              <span class="error-hint">Up to 10 tags. Optional.</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="socials">
+            <label class="field-label">Socials</label>
+            <div class="socials-grid">
+              <div class="social-cell">
+                <span class="social-prefix">IG @</span>
+                <input id="social-insta" type="text" maxlength="30" autocomplete="off" spellcheck="false" placeholder="handle">
+              </div>
+              <div class="social-cell">
+                <span class="social-prefix">YT @</span>
+                <input id="social-yt" type="text" maxlength="30" autocomplete="off" spellcheck="false" placeholder="handle">
+              </div>
+              <div class="social-cell">
+                <span class="social-prefix">TT @</span>
+                <input id="social-tiktok" type="text" maxlength="30" autocomplete="off" spellcheck="false" placeholder="handle">
+              </div>
+            </div>
+            <div class="error-region" data-field="socials">
+              <span class="error-msg" id="socials-error" hidden></span>
+              <span class="error-hint">Handle only — no URLs. Letters, numbers, dot, underscore.</span>
+            </div>
+          </div>
+
+          <div class="section-nav">
+            <button type="button" class="link-btn" data-section-back="identity">// BACK</button>
+            <button type="button" class="cta" data-section-next="contact">
+              CONTINUE
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </fieldset>
+
+        <!-- ───────────────── SECTION 3 — LOGISTICS + COMMS ───────────────── -->
+        <fieldset class="section" data-section="contact" data-active="false" aria-hidden="true">
+          <legend class="section-legend">// LOGISTICS + COMMS</legend>
+
+          <div class="field" data-field="birthday">
+            <label class="field-label" for="birthday-input">Birthday</label>
+            <input
+              id="birthday-input"
+              type="date"
+              name="birthday"
+              required>
+            <div class="error-region" data-field="birthday">
+              <span class="error-msg" id="birthday-error" hidden></span>
+              <span class="error-hint" id="birthday-hint">14+ required. We don't share this.</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="shipping">
+            <label class="field-label">Shipping address (optional)</label>
+            <div class="shipping-grid">
+              <input id="ship-line1" type="text" placeholder="Address line 1" autocomplete="address-line1" maxlength="120">
+              <input id="ship-line2" type="text" placeholder="Address line 2" autocomplete="address-line2" maxlength="120">
+              <input id="ship-city" type="text" placeholder="City" autocomplete="address-level2" maxlength="60">
+              <input id="ship-region" type="text" placeholder="State / region" autocomplete="address-level1" maxlength="60">
+              <input id="ship-postal" type="text" placeholder="Postal code" autocomplete="postal-code" maxlength="20" inputmode="text">
+              <select id="ship-country" autocomplete="country">
+                <option value="">Country</option>
+              </select>
+            </div>
+            <div class="error-region" data-field="shipping">
+              <span class="error-msg" id="shipping-error" hidden></span>
+              <span class="error-hint">If you start an address, line 1 and country are required.</span>
+            </div>
+          </div>
+
+          <div class="field" data-field="prefs">
+            <label class="field-label">Communications</label>
+            <div class="toggle-row">
+              <div class="toggle-group">
+                <label class="toggle">
+                  <input type="checkbox" id="email-drops-input" checked>
+                  <span class="toggle-frame">
+                    <span class="toggle-dot"></span>
+                  </span>
+                  <span class="toggle-text">Email drops&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
+                </label>
+                <p class="toggle-desc">Product drops, restocks, build logs. Turn off for transactional only.</p>
+              </div>
+              <div class="toggle-group">
+                <label class="toggle">
+                  <input type="checkbox" id="sms-optin-input">
+                  <span class="toggle-frame">
+                    <span class="toggle-dot"></span>
+                  </span>
+                  <span class="toggle-text">SMS drops&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
+                </label>
+                <p class="toggle-desc">Optional. Off by default. We text rarely; only for the drops that matter.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-nav">
+            <button type="button" class="link-btn" data-section-back="maker">// BACK</button>
+            <button type="button" class="cta" data-section-next="review">
+              REVIEW
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </fieldset>
+
+        <!-- ───────────────── SECTION 4 — COMMIT BUILD ───────────────── -->
+        <fieldset class="section" data-section="review" data-active="false" aria-hidden="true">
+          <legend class="section-legend">// COMMIT BUILD</legend>
+
+          <p class="review-intro">Last look. Edit anything that's off — then commit.</p>
+
+          <div class="review-grid" id="review-grid"></div>
+
+          <div class="section-nav">
+            <button type="button" class="link-btn" data-section-back="contact">// BACK</button>
+            <button type="submit" class="cta cta--commit" id="submit-btn">
+              COMMIT PROFILE
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </fieldset>
+
+      </form>
+    </section>
+
+    <section class="state" data-state="SUBMITTING" data-active="false" aria-hidden="true">
+      <p class="step-label">// COMMITTING PROFILE</p>
+      <h1 class="prompt">LOCKING IN</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <section class="state state--success" data-state="SUCCESS" data-active="false" aria-hidden="true">
+      <p class="step-label">// PROFILE LOCKED IN</p>
+      <h1 class="prompt" id="success-greeting">WELCOME TO THE REBELLION.</h1>
+      <p class="confirm-line" data-revealed="true">Operator profile committed.</p>
+      <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="success-username">—</span></p>
+      <p class="momentum">Completed&nbsp;&nbsp;<span class="hl" id="success-completed">—</span></p>
+      <p class="kill-meta" id="success-test-banner" hidden>Test mode — your profile was not persisted.</p>
+    </section>
+
+    <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
+      <h1>TRY AGAIN</h1>
+      <p class="kill-line">We couldn't commit your profile just now.</p>
+      <p class="kill-meta" id="error-retry-meta">Hang tight — we'll try again automatically.</p>
+      <button type="button" class="cta" id="retry-btn">
+        TRY AGAIN
+        <span aria-hidden="true">↻</span>
+      </button>
+    </section>
+
+    <section class="state kill kill--fatal" data-state="ERROR_FATAL" data-active="false" aria-hidden="true">
+      <h1>SOMETHING WENT WRONG</h1>
+      <p class="kill-line">We weren't able to commit your profile.</p>
+      <p class="kill-meta" id="error-fatal-meta">If this keeps happening, please contact support.</p>
+    </section>
+
+  </main>
+
+  <script>
+    // Same-origin proxies. n8n base URL + auth key live in Vercel env vars
+    // (PKC_N8N_BASE_URL, PKC_AUTH_KEY) and never reach the browser.
+    window.PKC_PHASE_THREE = {
+      VERIFY_URL:         "/api/phase-three/verify",
+      SAVE_URL:           "/api/phase-three/save",
+      EVENT_URL:          "/api/phase-three/event",
+      CHECK_USERNAME_URL: "/api/phase-three/check-username",
+      AVATAR_UPLOAD_URL:  "/api/avatar-upload",
+      EXPECTED_API_VERSION: "1.0.0",
+      LOADING_TIMEOUT_MS: 12000,
+      AUTO_RETRY_DELAY_MS: 1500,
+      ABANDON_AFTER_MS: 120000,
+      USERNAME_DEBOUNCE_MS: 300,
+      AVATAR_MAX_BYTES: 2 * 1024 * 1024,
+      AVATAR_MAX_DIM: 1024
+    };
+  </script>
+  <script src="upload-worker.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

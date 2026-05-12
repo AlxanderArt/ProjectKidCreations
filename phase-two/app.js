@@ -88,12 +88,12 @@
         if (state === "LOADING") setError(true, "Checking your link took longer than expected.");
       }, CFG.LOADING_TIMEOUT_MS);
     } else if (next === "FORM") {
-      status.textContent = "Choose a username";
+      status.textContent = "Confirm your email";
       status.removeAttribute("data-tone");
       formEnteredAt = Date.now();
       setupAbandonWatcher();
     } else if (next === "SUBMITTING") {
-      status.textContent = "Saving your profile";
+      status.textContent = "Confirming";
       status.removeAttribute("data-tone");
     } else if (next === "SUCCESS") {
       status.textContent = "All set";
@@ -216,85 +216,39 @@
     $("#form-greeting").textContent = greeting ? `HI, ${greeting.toUpperCase()}` : "WELCOME";
     $("#form-email").textContent = data.email || "—";
     setState("FORM");
-    setTimeout(() => { $("#username-input").focus(); }, 200);
-  }
-
-  function readForm() {
-    const username = ($("#username-input").value || "").trim().toLowerCase();
-    const notifications_enabled = $("#notif-input").checked;
-    const theme = $("#theme-input").checked ? "dark" : "light";
-    return { username, notifications_enabled, theme };
-  }
-
-  function validateClient(values) {
-    if (!/^[a-z0-9_-]{3,24}$/.test(values.username)) {
-      return "Username must be 3-24 characters: lowercase letters, numbers, hyphen, or underscore.";
-    }
-    return null;
-  }
-
-  function showFieldError(field, msg) {
-    const fieldEl = document.querySelector(`.field[data-field="${field}"]`);
-    if (!fieldEl) return;
-    fieldEl.classList.add("invalid");
-    const errEl = fieldEl.querySelector(".error-msg");
-    if (errEl) {
-      errEl.textContent = msg || "";
-      errEl.hidden = !msg;
-    }
-  }
-
-  function clearFieldErrors() {
-    $$(".field.invalid").forEach((el) => el.classList.remove("invalid"));
-    $$(".error-msg").forEach((el) => { el.textContent = ""; el.hidden = true; });
+    setTimeout(() => { const btn = $("#submit-btn"); if (btn) btn.focus(); }, 200);
   }
 
   // ──────────────────────────────────────────────
-  // Save
+  // Save (token-only redeem — fields moved to Phase Three)
   // ──────────────────────────────────────────────
 
-  async function runSave(values, isAutoRetry) {
+  async function runSave(isAutoRetry) {
     setState("SUBMITTING");
-    const res = await postJSON(CFG.SAVE_URL, {
-      token: tokenString,
-      username: values.username,
-      notifications_enabled: values.notifications_enabled,
-      theme: values.theme
-    });
+    const res = await postJSON(CFG.SAVE_URL, { token: tokenString });
     if (!res.ok) {
       if (res.code === "INVALID_TOKEN") return setState("INVALID");
       if (res.code === "EXPIRED")       return setState("EXPIRED");
-      if (res.code === "ALREADY_COMPLETED") return showAlreadyDone(res.data || values);
-      if (res.code === "USERNAME_TAKEN") {
-        setState("FORM");
-        showFieldError("username", "That username is taken. Try another.");
-        return;
-      }
-      if (res.code === "VALIDATION_ERROR") {
-        setState("FORM");
-        showFieldError("username", res.message || "Please check your input.");
-        return;
-      }
-      // RATE_LIMITED / SERVER_ERROR / unknown
+      if (res.code === "ALREADY_COMPLETED") return showAlreadyDone(res.data || {});
       if (res.retryable && !isAutoRetry && !autoRetryUsed) {
         autoRetryUsed = true;
         const meta = $("#error-retry-meta");
         if (meta) meta.textContent = "We'll try again in just a moment.";
         setState("ERROR_RETRY");
-        setTimeout(() => { runSave(values, true); }, CFG.AUTO_RETRY_DELAY_MS);
+        setTimeout(() => { runSave(true); }, CFG.AUTO_RETRY_DELAY_MS);
         return;
       }
-      return setError(!!res.retryable, "We weren't able to save your profile.");
+      return setError(!!res.retryable, "We weren't able to confirm your email.");
     }
     showSuccess(res.data || {});
   }
 
   function showSuccess(data) {
-    const u = data.username || "—";
     const greet = (verifyData && verifyData.firstName) ? verifyData.firstName.toUpperCase() : "FRIEND";
     $("#success-greeting").textContent = `WELCOME, ${greet}.`;
-    $("#success-username").textContent = u;
-    if (data.persisted === false) {
+    const usernameEl = $("#success-username");
+    if (usernameEl) usernameEl.textContent = data.email || (verifyData && verifyData.email) || "—";
+    if (data.redeemed === false || data.persisted === false) {
       $("#success-test-banner").hidden = false;
     }
     setState("SUCCESS");
@@ -340,49 +294,20 @@
     runVerify();
 
     const form = $("#profile-form");
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      clearFieldErrors();
-      const values = readForm();
-      const localErr = validateClient(values);
-      if (localErr) {
-        showFieldError("username", localErr);
-        return;
-      }
-      runSave(values, false);
-    });
-
-    const usernameInput = $("#username-input");
-    usernameInput.addEventListener("input", () => {
-      // Live-normalize as user types, but preserve cursor position
-      const v = usernameInput.value;
-      const nv = v.toLowerCase();
-      if (v !== nv) {
-        const pos = usernameInput.selectionStart;
-        usernameInput.value = nv;
-        try { usernameInput.setSelectionRange(pos, pos); } catch (_) {}
-      }
-      clearFieldErrors();
-    });
-
-    const themeInput = $("#theme-input");
-    if (themeInput) {
-      themeInput.addEventListener("change", () => {
-        applyTheme(themeInput.checked ? "dark" : "light");
+    if (form) {
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        runSave(false);
       });
     }
 
-    $("#retry-btn").addEventListener("click", () => {
-      autoRetryUsed = false;
-      const values = readForm();
-      const localErr = validateClient(values);
-      if (localErr) {
-        setState("FORM");
-        showFieldError("username", localErr);
-        return;
-      }
-      runSave(values, false);
-    });
+    const retryBtn = $("#retry-btn");
+    if (retryBtn) {
+      retryBtn.addEventListener("click", () => {
+        autoRetryUsed = false;
+        runSave(false);
+      });
+    }
   }
 
   if (document.readyState === "loading") {
