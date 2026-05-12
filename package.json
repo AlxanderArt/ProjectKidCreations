@@ -1,0 +1,17 @@
+{
+  "name": "project-kid-creations",
+  "version": "1.0.0",
+  "description": "ProjectKidCreations — tactical 3D-printed gel-blaster mods. Onboarding pipeline + product surfaces.",
+  "private": true,
+  "scripts": {
+    "dev": "python3 -m http.server 8765"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlxanderArt/ProjectKidCreations.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/blob": "^2.3.3"
+  }
+}
