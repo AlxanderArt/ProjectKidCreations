@@ -1,4 +1,7 @@
-export const config = { runtime: "edge" };
+// Node runtime — Phase 2 Save now writes redeemed_at + triggers Phase 3 Email Send.
+// Even with fire-and-forget on the email trigger, the Sheets update can push past 25s
+// under retry load. Match Phase 3 Save's runtime config to be safe.
+export const config = { runtime: "nodejs", maxDuration: 60 };
 
 export default async function handler(request) {
   if (request.method !== "POST") {

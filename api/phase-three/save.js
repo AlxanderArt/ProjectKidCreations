@@ -1,4 +1,7 @@
-export const config = { runtime: "edge" };
+// Node runtime with extended maxDuration — Phase 3 Save chains several sequential Sheets
+// reads + 2 appends; server-side it can hit 30-40s under retry load. Edge's 25s ceiling
+// caused 504s + browser auto-retries that wrote duplicate profile rows.
+export const config = { runtime: "nodejs", maxDuration: 60 };
 
 export default async function handler(request) {
   if (request.method !== "POST") {
