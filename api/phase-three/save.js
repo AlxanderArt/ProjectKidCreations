@@ -1,22 +1,32 @@
-// Node runtime with extended maxDuration — Phase 3 Save chains several sequential Sheets
-// reads + 2 appends; server-side it can hit 30-40s under retry load. Edge's 25s ceiling
-// caused 504s + browser auto-retries that wrote duplicate profile rows.
+// Node runtime — Phase 3 Save chains sequential Sheets reads + 2 appends;
+// observed at 39.6s server-side. Edge's 25s ceiling caused 504s + browser
+// auto-retries (idempotency caught the dupes but still wrote events). Node = 60s.
+//
+// Uses Node-style (req, res) handler — NOT the Web Request/Response API used
+// by the Edge proxies. Vercel's nodejs runtime auto-parses JSON request bodies
+// into req.body when Content-Type is application/json.
+
 export const config = { runtime: "nodejs", maxDuration: 60 };
 
-export default async function handler(request) {
-  if (request.method !== "POST") {
-    return json({ error: "method not allowed" }, 405);
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "method not allowed" });
+    return;
   }
 
   const base = process.env.PKC_N8N_BASE_URL;
   const key = process.env.PKC_AUTH_KEY;
-  if (!base) return json({ error: "not configured" }, 502);
+  if (!base) {
+    res.status(502).json({ error: "not configured" });
+    return;
+  }
 
-  let body;
+  let bodyText;
   try {
-    body = await request.text();
+    bodyText = typeof req.body === "string" ? req.body : JSON.stringify(req.body || {});
   } catch {
-    return json({ error: "invalid body" }, 400);
+    res.status(400).json({ error: "invalid body" });
+    return;
   }
 
   try {
@@ -26,27 +36,16 @@ export default async function handler(request) {
         "Content-Type": "application/json",
         ...(key ? { "x-pkc-key": key } : {})
       },
-      body
+      body: bodyText
     });
-    return passthrough(upstream);
+    const text = await upstream.text();
+    res.status(upstream.status);
+    res.setHeader(
+      "Content-Type",
+      upstream.headers.get("Content-Type") || "application/json"
+    );
+    res.send(text);
   } catch {
-    return json({ error: "upstream unreachable" }, 502);
+    res.status(502).json({ error: "upstream unreachable" });
   }
-}
-
-function json(obj, status) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  });
-}
-
-async function passthrough(upstream) {
-  const text = await upstream.text();
-  return new Response(text, {
-    status: upstream.status,
-    headers: {
-      "Content-Type": upstream.headers.get("Content-Type") || "application/json"
-    }
-  });
 }
