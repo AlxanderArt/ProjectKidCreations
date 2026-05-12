@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // DASHBOARD</title>
+  <meta name="description" content="ProjectKidCreations operator dashboard — verified-state HUD.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%2339FF14'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-verified="true">
+  <noscript>
+    <main class="kill">
+      <h1>JAVASCRIPT REQUIRED</h1>
+      <p class="kill-line">This page needs JavaScript to load.</p>
+      <p class="kill-meta">Please enable it and refresh.</p>
+    </main>
+  </noscript>
+
+  <header class="shell-header" aria-label="operator dashboard">
+    <div class="progress" aria-label="access status">
+      <span class="progress-counter">// ACCESS GRANTED</span>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="4">
+        <span class="filled"></span>
+        <span class="filled"></span>
+      </div>
+    </div>
+    <p class="status" id="status" aria-live="polite">Operator online</p>
+  </header>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-hidden="true"></div>
+
+  <main id="stage" aria-live="polite">
+
+    <!-- ───────────────── 1 · LOADING ───────────────── -->
+    <section class="state" data-state="LOADING" data-active="true">
+      <p class="step-label">// CHECKING SESSION</p>
+      <h1 class="prompt">SPINNING UP</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <!-- ───────────────── 2 · BOOTSTRAP ───────────────── -->
+    <section class="state" data-state="BOOTSTRAP" data-active="false" aria-hidden="true">
+      <p class="step-label">// VERIFYING BOOTSTRAP LINK</p>
+      <h1 class="prompt">VERIFYING LINK</h1>
+      <p class="idle-hint">Holding the door open...</p>
+    </section>
+
+    <!-- ───────────────── 3 · SET_PASSWORD ───────────────── -->
+    <section class="state" data-state="SET_PASSWORD" data-active="false" aria-hidden="true">
+      <p class="step-label">// INITIALIZE OPERATOR</p>
+      <h1 class="prompt">SET YOUR PASSWORD</h1>
+      <p class="momentum">Email&nbsp;&nbsp;<span class="hl" id="setpw-email">—</span></p>
+      <p class="momentum">Lock it in. You'll use this every time you sign in.</p>
+
+      <form class="auth-form" id="setpw-form" novalidate>
+        <div class="field" data-field="password">
+          <label class="field-label" for="setpw-input">Password</label>
+          <input id="setpw-input" type="password" name="password" autocomplete="new-password" placeholder="8+ characters" required>
+          <div class="pw-strength" aria-hidden="true">
+            <div class="pw-strength-bar" id="setpw-strength" data-level="0">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <p class="pw-strength-label" id="setpw-strength-label">// STRENGTH —</p>
+          </div>
+          <div class="error-region">
+            <span class="error-msg" id="setpw-error" hidden></span>
+          </div>
+        </div>
+
+        <div class="field" data-field="password_confirm">
+          <label class="field-label" for="setpw-confirm">Confirm password</label>
+          <input id="setpw-confirm" type="password" name="password_confirm" autocomplete="new-password" placeholder="re-type to confirm" required>
+          <div class="error-region">
+            <span class="error-msg" id="setpw-confirm-error" hidden></span>
+          </div>
+        </div>
+
+        <button type="submit" class="cta" id="setpw-submit">
+          INITIALIZE
+          <span aria-hidden="true">→</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ───────────────── 4 · LOGIN ───────────────── -->
+    <section class="state" data-state="LOGIN" data-active="false" aria-hidden="true">
+      <p class="step-label">// OPERATOR SIGN-IN</p>
+      <h1 class="prompt">ENTER</h1>
+      <p class="momentum">Hint: any email, password <span class="hl">mock</span></p>
+
+      <form class="auth-form" id="login-form" novalidate>
+        <div class="field" data-field="email">
+          <label class="field-label" for="login-email">Email</label>
+          <input id="login-email" type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+        </div>
+        <div class="field" data-field="password">
+          <label class="field-label" for="login-password">Password</label>
+          <input id="login-password" type="password" name="password" autocomplete="current-password" placeholder="password" required>
+          <div class="error-region">
+            <span class="error-msg" id="login-error" hidden></span>
+          </div>
+        </div>
+
+        <button type="submit" class="cta" id="login-submit">
+          ENTER
+          <span aria-hidden="true">→</span>
+        </button>
+
+        <p class="auth-meta">// <button type="button" class="link-btn" id="goto-reset">FORGOT PASSWORD</button></p>
+      </form>
+    </section>
+
+    <!-- ───────────────── 5 · RESET_REQUEST ───────────────── -->
+    <section class="state" data-state="RESET_REQUEST" data-active="false" aria-hidden="true">
+      <p class="step-label">// REQUEST RESET LINK</p>
+      <h1 class="prompt">RESET PASSWORD</h1>
+      <p class="momentum">Drop your email. If we recognize it, we'll send a fresh link.</p>
+
+      <form class="auth-form" id="reset-form" novalidate>
+        <div class="field" data-field="email">
+          <label class="field-label" for="reset-email">Email</label>
+          <input id="reset-email" type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+        </div>
+
+        <button type="submit" class="cta" id="reset-submit">
+          SEND RESET LINK
+          <span aria-hidden="true">→</span>
+        </button>
+
+        <p class="auth-meta" id="reset-success" hidden>
+          // LINK SENT — check your inbox. Did not arrive? Try again in 60 seconds.
+        </p>
+
+        <p class="auth-meta">// <button type="button" class="link-btn" id="goto-login">BACK TO SIGN-IN</button></p>
+      </form>
+    </section>
+
+    <!-- ───────────────── 6 · RESET_CONFIRM ───────────────── -->
+    <section class="state" data-state="RESET_CONFIRM" data-active="false" aria-hidden="true">
+      <p class="step-label">// SET NEW PASSWORD</p>
+      <h1 class="prompt">NEW PASSWORD</h1>
+      <p class="momentum">Pick something fresh. You'll be signed in right after.</p>
+
+      <form class="auth-form" id="reset-confirm-form" novalidate>
+        <div class="field" data-field="password">
+          <label class="field-label" for="reset-new-pw">New password</label>
+          <input id="reset-new-pw" type="password" name="password" autocomplete="new-password" placeholder="8+ characters" required>
+          <div class="pw-strength" aria-hidden="true">
+            <div class="pw-strength-bar" id="reset-strength" data-level="0">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <p class="pw-strength-label" id="reset-strength-label">// STRENGTH —</p>
+          </div>
+          <div class="error-region">
+            <span class="error-msg" id="reset-confirm-error" hidden></span>
+          </div>
+        </div>
+
+        <button type="submit" class="cta" id="reset-confirm-submit">
+          COMMIT
+          <span aria-hidden="true">→</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ───────────────── 7 · LOCKOUT ───────────────── -->
+    <section class="state" data-state="LOCKOUT" data-active="false" aria-hidden="true">
+      <p class="step-label">// COOLDOWN</p>
+      <h1 class="prompt">TOO MANY ATTEMPTS — STAND DOWN</h1>
+      <div class="lockout-block">
+        <p class="lockout-line">// RESUME ACCESS IN</p>
+        <p class="lockout-countdown" id="lockout-countdown">05</p>
+        <p class="lockout-line">// SECONDS</p>
+      </div>
+      <p class="auth-meta">// <button type="button" class="link-btn" id="goto-reset-from-lockout">RESET PASSWORD INSTEAD</button></p>
+    </section>
+
+    <!-- ───────────────── 8 · DASHBOARD ───────────────── -->
+    <section class="state" data-state="DASHBOARD" data-active="false" aria-hidden="true">
+
+      <div class="dashboard-grid">
+
+        <!-- Panel 1 · Header -->
+        <div class="dash-panel dash-panel--header">
+          <div class="avatar" id="dash-avatar">M</div>
+          <div class="profile-meta">
+            <h1 class="display-name" id="dash-display-name">MAXWELL</h1>
+            <p class="username-row">
+              <span class="username" id="dash-username">@maxwell</span>
+              <span class="rank-tag" id="dash-rank">// BUILDER</span>
+            </p>
+            <div class="xp-block">
+              <div class="xp-meta">
+                <span>XP&nbsp;&nbsp;<span class="hl" id="dash-xp-current">0</span>&nbsp;/&nbsp;<span id="dash-xp-next">500</span></span>
+                <span>→&nbsp;<span class="hl" id="dash-rank-next">VETERAN</span></span>
+              </div>
+              <div class="xp-bar">
+                <div class="xp-bar-fill" id="xp-bar-fill" data-pct="0"></div>
+                <div class="xp-scanline"></div>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="logout-btn" id="logout-btn">// LOGOUT</button>
+        </div>
+
+        <!-- Panel 2 · Badges -->
+        <div class="dash-panel dash-panel--badges">
+          <p class="panel-label">// BADGES&nbsp;&nbsp;<span class="hl" id="badges-counter">0 / 12</span></p>
+          <div class="badges-grid" id="badges-grid" role="list"></div>
+        </div>
+
+        <!-- Panel 3 · Streak -->
+        <div class="dash-panel dash-panel--streak">
+          <p class="panel-label">// STREAK&nbsp;&nbsp;<span class="hl">LAST 90 DAYS</span></p>
+          <div class="streak-wrap">
+            <div class="streak-dow" aria-hidden="true">
+              <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+            </div>
+            <div class="streak-grid" id="streak-grid"></div>
+          </div>
+          <div class="streak-summary">
+            <span>// CURRENT&nbsp;&nbsp;<span class="hl" id="streak-current">0 DAYS</span></span>
+            <span>// LONGEST&nbsp;&nbsp;<span class="hl" id="streak-longest">0 DAYS</span></span>
+          </div>
+        </div>
+
+        <!-- Panel 4 · Builds -->
+        <div class="dash-panel dash-panel--builds">
+          <p class="panel-label">// BUILDS&nbsp;&nbsp;<span class="hl" id="builds-counter">0</span></p>
+          <div class="builds-grid" id="builds-grid"></div>
+        </div>
+
+        <!-- Panel 5 · Activity -->
+        <div class="dash-panel dash-panel--activity">
+          <p class="panel-label">// ACTIVITY FEED</p>
+          <div class="activity-list" id="activity-list"></div>
+        </div>
+
+        <!-- Panel 6 · Orders -->
+        <div class="dash-panel dash-panel--orders">
+          <p class="panel-label">// ORDERS</p>
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>DATE</th>
+                <th>ITEMS</th>
+                <th>TOTAL</th>
+                <th>STATUS</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="orders-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Panel 7 · Settings -->
+        <div class="dash-panel dash-panel--settings">
+          <div class="settings-rail">
+            <label class="toggle">
+              <input type="checkbox" id="notif-toggle">
+              <span class="toggle-frame"><span class="toggle-dot"></span></span>
+              <span class="toggle-text">// NOTIFICATIONS&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
+            </label>
+            <button type="button" class="link-btn" id="change-pw">// CHANGE PASSWORD</button>
+            <button type="button" class="link-btn link-btn--danger" id="delete-account">// DELETE ACCOUNT</button>
+            <span class="settings-build-tag">// v1.0.0-PREVIEW · MOCK DATA</span>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ───────────────── 9 · ERROR ───────────────── -->
+    <section class="state kill kill--fatal" data-state="ERROR" data-active="false" aria-hidden="true">
+      <h1>SOMETHING WENT WRONG</h1>
+      <p class="kill-line">We couldn't load your dashboard.</p>
+      <p class="kill-meta" id="error-meta">Try again or contact support.</p>
+      <button type="button" class="cta" id="error-retry">
+        TRY AGAIN
+        <span aria-hidden="true">↻</span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- ───────────────── Badge modal ───────────────── -->
+  <div class="badge-modal" id="badge-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="badge-modal-card">
+      <button type="button" class="badge-modal-close" id="badge-modal-close" aria-label="close">// CLOSE</button>
+      <p class="badge-modal-glyph" id="badge-modal-glyph">◆</p>
+      <h2 class="badge-modal-label" id="badge-modal-label">BADGE</h2>
+      <p class="badge-modal-criteria" id="badge-modal-criteria">—</p>
+      <p class="badge-modal-meta" id="badge-modal-meta">—</p>
+      <button type="button" class="cta" id="badge-modal-share">// SHARE (STUB)</button>
+    </div>
+  </div>
+
+  <!-- ───────────────── Dev panel ───────────────── -->
+  <aside class="dev-panel" id="dev-panel" aria-label="dev tools">
+    <p class="dev-panel-title">// DEV PANEL</p>
+    <label class="dev-panel-title" for="dev-state-select" style="opacity:.7;margin:0;">STATE</label>
+    <select id="dev-state-select">
+      <option value="LOADING">LOADING</option>
+      <option value="BOOTSTRAP">BOOTSTRAP</option>
+      <option value="SET_PASSWORD">SET_PASSWORD</option>
+      <option value="LOGIN">LOGIN</option>
+      <option value="RESET_REQUEST">RESET_REQUEST</option>
+      <option value="RESET_CONFIRM">RESET_CONFIRM</option>
+      <option value="LOCKOUT">LOCKOUT</option>
+      <option value="DASHBOARD" selected>DASHBOARD</option>
+      <option value="ERROR">ERROR</option>
+    </select>
+    <div class="dev-panel-row">
+      <button type="button" id="dev-badge-pop">BADGE POP</button>
+      <button type="button" id="dev-xp-tick">XP TICK</button>
+      <button type="button" id="dev-rank-promote">RANK PROMOTE</button>
+      <button type="button" id="dev-streak-flame">STREAK FLAME</button>
+    </div>
+    <button type="button" class="dev-panel-reset" id="dev-reset">RESET MOCK STATE</button>
+  </aside>
+
+  <script>
+    window.PKC_PHASE_FOUR = {
+      EXPECTED_API_VERSION: "1.0.0",
+      LOCKOUT_SECONDS: 5
+    };
+  </script>
+  <script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js" defer></script>
+  <script src="motion.js" defer></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
