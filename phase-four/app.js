@@ -70,12 +70,14 @@ function setState(next) {
 }
 
 function setStatus(text, tone) {
+  if (!status) return;
   status.textContent = text;
   if (tone) status.setAttribute("data-tone", tone);
   else status.removeAttribute("data-tone");
 }
 
 function showToast(text, ms = 2200) {
+  if (!toast) return;
   toast.textContent = text;
   toast.setAttribute("data-visible", "true");
   toast.setAttribute("aria-hidden", "false");
@@ -611,4 +613,6 @@ function relativeTime(iso) {
 }
 
 // ── Go ─────────────────────────────────────────────────────────────
-boot();
+boot().catch((err) => {
+  console.error("[PKC ERROR] boot", err);
+});
