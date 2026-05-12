@@ -12,7 +12,7 @@
 
 [![Vercel](https://img.shields.io/github/deployments/AlxanderArt/ProjectKidCreations/production?style=flat-square&label=VERCEL&color=ff5f1f&labelColor=0a0a0a)](https://vercel.com/maxwell-willis-projects/projectkidcreations) &middot; [![Last commit](https://img.shields.io/github/last-commit/AlxanderArt/ProjectKidCreations?style=flat-square&label=LAST%20COMMIT&color=ff5f1f&labelColor=0a0a0a)](https://github.com/AlxanderArt/ProjectKidCreations/commits/main) &middot; ![Version](https://img.shields.io/badge/VERSION-v0.1.0-ff5f1f?style=flat-square&labelColor=0a0a0a)
 
-![Phase One](https://img.shields.io/badge/PHASE%20ONE-LIVE-39ff14?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Two](https://img.shields.io/badge/PHASE%20TWO-LIVE%20·%20TOKEN--GATED-39ff14?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Three](https://img.shields.io/badge/PHASE%20THREE-LIVE%20·%20TOKEN--GATED-39ff14?style=flat-square&labelColor=0a0a0a) &middot; ![Access Granted](https://img.shields.io/badge/ACCESS%20GRANTED-UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a)
+![Phase One](https://img.shields.io/badge/PHASE%20ONE-LIVE-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Two](https://img.shields.io/badge/PHASE%20TWO-LIVE%20·%20TOKEN--GATED-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Phase Three](https://img.shields.io/badge/PHASE%20THREE-LIVE%20·%20TOKEN--GATED-ff5f1f?style=flat-square&labelColor=0a0a0a) &middot; ![Access Granted](https://img.shields.io/badge/ACCESS%20GRANTED-UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a)
 
 <sub>// STACK</sub>
 
@@ -36,10 +36,10 @@ A three-phase onboarding system for kids who create. Phase One captures intent. 
 
 ## // LIVE
 
-- ![status](https://img.shields.io/badge/LIVE-39ff14?style=flat-square&labelColor=0a0a0a) **Phase One** → https://projectkidcreations.io/
-- ![status](https://img.shields.io/badge/LIVE-39ff14?style=flat-square&labelColor=0a0a0a) **Phase Two** → token-gated (signed link emailed after Phase One)
-- ![status](https://img.shields.io/badge/LIVE-39ff14?style=flat-square&labelColor=0a0a0a) **Phase Three** → token-gated (signed link emailed after Phase Two redemption)
-- ![status](https://img.shields.io/badge/UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a) **Phase Four · ACCESS GRANTED** → verified-state dashboard (planning complete, gated on Supabase)
+- ![LIVE](./assets/badges/live.svg) **Phase One** → https://projectkidcreations.io/
+- ![LIVE](./assets/badges/live.svg) **Phase Two** → token-gated (signed link emailed after Phase One)
+- ![LIVE](./assets/badges/live.svg) **Phase Three** → token-gated (signed link emailed after Phase Two redemption)
+- ![UPCOMING](https://img.shields.io/badge/UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a) **Phase Four · ACCESS GRANTED** → verified-state dashboard (planning complete, gated on Supabase)
 
 > Token-gated phases never expose a bare URL — the only way in is through the signed link.
 
