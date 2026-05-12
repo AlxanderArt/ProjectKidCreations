@@ -202,8 +202,9 @@
   }
 
   function showAlreadyDone(data) {
-    $("#already-username").textContent = data.existing_username || data.username || "—";
-    $("#already-completed").textContent = (data.completed_at || "").replace("T", " ").slice(0, 19) || "—";
+    const completed = (data.completed_at || "").replace("T", " ").slice(0, 19);
+    const el = $("#already-completed");
+    if (el) el.textContent = completed || "—";
     setState("ALREADY_DONE");
   }
 
@@ -244,12 +245,12 @@
   }
 
   function showSuccess(data) {
-    const greet = (verifyData && verifyData.firstName) ? verifyData.firstName.toUpperCase() : "FRIEND";
-    $("#success-greeting").textContent = `WELCOME, ${greet}.`;
-    const usernameEl = $("#success-username");
-    if (usernameEl) usernameEl.textContent = data.email || (verifyData && verifyData.email) || "—";
+    // Heading stays "LINK INCOMING." (set in markup) — no per-user greeting here.
+    const emailEl = $("#success-email");
+    if (emailEl) emailEl.textContent = data.email || (verifyData && verifyData.email) || "—";
     if (data.redeemed === false || data.persisted === false) {
-      $("#success-test-banner").hidden = false;
+      const banner = $("#success-test-banner");
+      if (banner) banner.hidden = false;
     }
     setState("SUCCESS");
   }
