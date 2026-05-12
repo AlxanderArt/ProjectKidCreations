@@ -9,11 +9,21 @@
 {{HERO_LINES}}
 ```
 
+<div align="center">
+
+<sub>// STATUS</sub>
+
 {{BADGE_ROW_DYNAMIC}}
+
+<sub>// STACK</sub>
 
 {{BADGE_ROW_STACK}}
 
+<sub>// LICENSE</sub>
+
 {{BADGE_ROW_LICENSE}}
+
+</div>
 
 ---
 
