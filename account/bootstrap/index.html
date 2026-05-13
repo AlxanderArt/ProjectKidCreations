@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // SET PASSWORD</title>
+  <meta name="description" content="Redeem your ProjectKidCreations bootstrap link.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <noscript>
+    <main class="kill">
+      <h1>JAVASCRIPT REQUIRED</h1>
+      <p class="kill-line">This page needs JavaScript to load.</p>
+      <p class="kill-meta">Please enable it and refresh.</p>
+    </main>
+  </noscript>
+
+  <header class="shell-header" aria-label="set operator password">
+    <div class="progress" aria-label="bootstrap progress">
+      <span class="progress-counter">// ACCOUNT BOOTSTRAP</span>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1">
+        <span class="filled"></span>
+        <span></span>
+      </div>
+    </div>
+    <p class="status" id="status" aria-live="polite">Checking your link</p>
+  </header>
+
+  <main id="stage" aria-live="polite">
+
+    <section class="state" data-state="LOADING" data-active="true">
+      <p class="step-label">// CHECKING LINK</p>
+      <h1 class="prompt">STANDBY</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <section class="state kill kill--invalid" data-state="INVALID" data-active="false" aria-hidden="true">
+      <h1>LINK NOT RECOGNIZED</h1>
+      <p class="kill-line">We couldn't read this bootstrap link.</p>
+      <p class="kill-meta">Use the link from your email, or <a href="/account/forgot">// REQUEST A NEW ONE</a>.</p>
+    </section>
+
+    <section class="state state--form" data-state="FORM" data-active="false" aria-hidden="true">
+      <p class="step-label">// SET YOUR PASSWORD</p>
+      <h1 class="prompt">CLAIM ACCOUNT</h1>
+      <p class="momentum">One-time bootstrap. Pick a password and you're in.</p>
+
+      <form id="bootstrap-form" class="account-form" novalidate>
+
+        <div class="field" data-field="username">
+          <label class="field-label" for="username-display">Username</label>
+          <p class="static-value" id="username-display" aria-readonly="true">—</p>
+        </div>
+
+        <div class="field" data-field="new_password">
+          <label class="field-label" for="new-password-input">New password</label>
+          <input
+            id="new-password-input"
+            type="password"
+            name="new_password"
+            autocomplete="new-password"
+            minlength="8"
+            maxlength="128"
+            placeholder="••••••••"
+            required>
+          <ul class="checklist" aria-label="password requirements" id="password-checklist">
+            <li data-rule="length" data-ok="false">AT LEAST 8 CHARACTERS</li>
+            <li data-rule="variety" data-ok="false">NOT ALL THE SAME CHARACTER</li>
+            <li data-rule="distinct" data-ok="false">NOT THE SAME AS YOUR USERNAME</li>
+          </ul>
+          <div class="error-region" data-field="new_password">
+            <span class="error-msg" id="new_password-error" hidden></span>
+            <span class="error-hint">Keep it somewhere you'll find it. We can reset, but not recover.</span>
+          </div>
+        </div>
+
+        <p class="submit-error" id="submit-error" role="alert" aria-live="assertive" hidden></p>
+
+        <button type="submit" class="cta" id="submit-btn" disabled aria-disabled="true">
+          <span id="submit-label">SET PASSWORD</span>
+          <span aria-hidden="true">→</span>
+        </button>
+
+      </form>
+    </section>
+
+    <section class="state" data-state="SUBMITTING" data-active="false" aria-hidden="true">
+      <p class="step-label">// LOCKING IN PASSWORD</p>
+      <h1 class="prompt">SETTING UP</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <section class="state state--success" data-state="SUCCESS" data-active="false" aria-hidden="true">
+      <p class="step-label">// ACCOUNT CLAIMED</p>
+      <h1 class="prompt">YOU'RE IN.</h1>
+      <p class="confirm-line" data-revealed="true">Routing to your loadout.</p>
+    </section>
+
+    <section class="state kill kill--expired" data-state="ERROR_TOKEN" data-active="false" aria-hidden="true">
+      <h1>LINK EXPIRED</h1>
+      <p class="kill-line">This bootstrap link is no longer valid.</p>
+      <p class="kill-meta">Request a fresh link from <a href="/account/forgot">// FORGOT PASSWORD</a>.</p>
+    </section>
+
+    <section class="state kill kill--phase2" data-state="ERROR_REDEEMED" data-active="false" aria-hidden="true">
+      <h1>// ALREADY CLAIMED</h1>
+      <p class="kill-line">This account already has a password.</p>
+      <p class="kill-meta">Head to <a href="/account/login">// SIGN IN</a> instead.</p>
+    </section>
+
+    <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
+      <h1>TRY AGAIN</h1>
+      <p class="kill-line">We couldn't reach the server just now.</p>
+      <p class="kill-meta" id="error-retry-meta">Hang tight — we'll try again automatically.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">↻</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="state kill kill--fatal" data-state="ERROR_FATAL" data-active="false" aria-hidden="true">
+      <h1>SOMETHING WENT WRONG</h1>
+      <p class="kill-line">We weren't able to set your password.</p>
+      <p class="kill-meta" id="error-fatal-meta">If this keeps happening, please contact support.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="fatal-retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">↻</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    window.PKC_ACCOUNT_CONFIG = {
+      REDEEM_URL:          "/api/account/bootstrap/redeem",
+      ACCOUNT_HOME:        "/account/",
+      LOGIN_URL:           "/account/login",
+      FORGOT_URL:          "/account/forgot",
+      FETCH_TIMEOUT_MS:    12000,
+      AUTO_RETRY_DELAY_MS: 1500
+    };
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

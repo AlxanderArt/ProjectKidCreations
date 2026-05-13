@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // ACCOUNT</title>
+  <meta name="description" content="ProjectKidCreations operator account — profile, security, notifications, activity.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+
+  <!-- Shared shell styles (built by the login/bootstrap agent in parallel).
+       This page does NOT depend on SPA-specific rules living in that file —
+       the SPA layer is fully self-contained in the <style> block below so a
+       race with the other agent can't break us. -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Phase-two tokens — guaranteed source of truth for --pkc-* vars even if
+       the shared styles.css hasn't been written yet by the parallel agent. -->
+  <link rel="stylesheet" href="../phase-two/styles.css">
+
+  <style>
+    /* ─────────────────────────────────────────────────────────────
+     * /account/ SPA — self-contained styles
+     * Reuses --pkc-* tokens from phase-two. Never redefines them.
+     * Mirrors phase-three's brutalist vocabulary: dark + orange,
+     * 2px borders, JetBrains Mono micro-copy, hi-vis underlines.
+     * ───────────────────────────────────────────────────────────── */
+
+    body { display: flex; flex-direction: column; min-height: 100dvh; }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    .account-shell {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 24px;
+      padding: 18px 32px;
+      border-bottom: 2px solid var(--pkc-border);
+      background: var(--pkc-bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .monogram {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .monogram svg {
+      width: 28px;
+      height: 28px;
+      display: block;
+    }
+
+    .monogram-text {
+      font-family: var(--font-display);
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      color: var(--pkc-text);
+    }
+
+    .header-status {
+      justify-self: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text-muted);
+      background: var(--pkc-surface);
+      border: 1px solid var(--pkc-border);
+      border-radius: 2px;
+      min-height: 26px;
+      transition: color var(--duration-fast) var(--ease-snappy),
+                  border-color var(--duration-fast) var(--ease-snappy),
+                  background var(--duration-fast) var(--ease-snappy);
+    }
+    .header-status[data-tone="working"] { color: var(--pkc-accent); border-color: var(--pkc-accent); }
+    .header-status[data-tone="success"] { color: var(--pkc-neon); border-color: var(--pkc-neon); }
+    .header-status[data-tone="error"]   { color: var(--pkc-danger); border-color: var(--pkc-danger); }
+
+    .user-menu { position: relative; justify-self: end; }
+
+    .user-menu-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px 6px 14px;
+      background: transparent;
+      border: 2px solid var(--pkc-border);
+      border-radius: 2px;
+      font-family: var(--font-display);
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      color: var(--pkc-accent);
+      cursor: pointer;
+      transition: border-color var(--duration-fast) var(--ease-snappy);
+    }
+    .user-menu-trigger:hover,
+    .user-menu-trigger[aria-expanded="true"] { border-color: var(--pkc-accent); }
+    .user-menu-trigger:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 2px; }
+
+    .user-menu-caret {
+      width: 0; height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--pkc-accent);
+      transition: transform var(--duration-fast) var(--ease-snappy);
+    }
+    .user-menu-trigger[aria-expanded="true"] .user-menu-caret { transform: rotate(180deg); }
+
+    .user-menu-pop {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 180px;
+      background: var(--pkc-surface);
+      border: 2px solid var(--pkc-border-strong);
+      border-radius: 2px;
+      padding: 4px;
+      display: none;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    }
+    .user-menu-pop[data-open="true"] { display: block; }
+
+    .user-menu-item {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      background: transparent;
+      border: 0;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text);
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-snappy),
+                  color var(--duration-fast) var(--ease-snappy);
+    }
+    .user-menu-item:hover,
+    .user-menu-item:focus-visible { background: var(--pkc-accent); color: var(--pkc-accent-ink); outline: none; }
+    .user-menu-item--danger { color: var(--pkc-danger); }
+    .user-menu-item--danger:hover { background: var(--pkc-danger); color: var(--pkc-bg); }
+
+    /* ── Tab strip ───────────────────────────────────────────── */
+    .tab-strip {
+      display: flex;
+      gap: 0;
+      padding: 0 32px;
+      border-bottom: 2px solid var(--pkc-border);
+      background: var(--pkc-bg);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-strip::-webkit-scrollbar { display: none; }
+
+    .tab {
+      position: relative;
+      padding: 18px 22px;
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color var(--duration-fast) var(--ease-snappy),
+                  border-color var(--duration-fast) var(--ease-snappy);
+    }
+    .tab:hover { color: var(--pkc-text); }
+    .tab[aria-selected="true"] {
+      color: var(--pkc-accent);
+      border-bottom-color: var(--pkc-accent);
+    }
+    .tab:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: -2px; }
+
+    /* ── Main / panels ───────────────────────────────────────── */
+    main.account-main {
+      flex: 1;
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 32px 96px;
+    }
+
+    .tabpanel { display: none; }
+    .tabpanel[data-active="true"] {
+      display: block;
+      animation:
+        pkc-pop-up var(--duration-snap) var(--ease-snappy) both,
+        pkc-scanline-in var(--duration-snap) var(--ease-scan) both;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 0 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--pkc-border);
+    }
+    .panel-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 28px;
+      letter-spacing: -0.01em;
+      color: var(--pkc-text);
+    }
+    .panel-subtitle {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text-muted);
+    }
+
+    /* ── Loading & empty states (brutalist full-state) ───────── */
+    .full-state {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+      padding: 60px 0;
+    }
+    .full-state .step-label {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-accent);
+    }
+    .full-state h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 36px;
+      letter-spacing: -0.01em;
+      color: var(--pkc-text);
+    }
+    .full-state p {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--pkc-text-muted);
+    }
+
+    /* ── Forms — extend phase-two/three patterns ─────────────── */
+    .field {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 28px;
+    }
+    .field-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text-muted);
+    }
+    .input {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px 0;
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid var(--pkc-border);
+      border-radius: 0;
+      color: var(--pkc-text);
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      caret-color: var(--pkc-accent);
+      outline: none;
+      transition: border-color var(--duration-fast) var(--ease-snappy);
+    }
+    .input:focus { border-bottom-color: var(--pkc-accent); }
+    .input:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 6px; border-radius: 2px; }
+    .input:read-only { color: var(--pkc-text-muted); cursor: not-allowed; }
+    textarea.input { min-height: 88px; line-height: 1.5; resize: vertical; }
+
+    .field-hint {
+      margin-top: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--pkc-text-muted);
+    }
+    .field-hint .hl { color: var(--pkc-accent); }
+    .field-error {
+      margin-top: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--pkc-danger);
+    }
+    .field.invalid .input { border-bottom-color: var(--pkc-danger); }
+
+    /* ── Profile grid ────────────────────────────────────────── */
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 40px;
+    }
+    @media (max-width: 720px) {
+      .profile-grid { grid-template-columns: 1fr; gap: 28px; }
+    }
+
+    .avatar-slot {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .avatar-frame {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 2px dashed var(--pkc-border-strong);
+      background: var(--pkc-surface);
+      display: grid;
+      place-items: center;
+      color: var(--pkc-text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 16px;
+    }
+    .avatar-frame[data-has-image="true"] { border-style: solid; border-color: var(--pkc-accent); padding: 0; }
+    .avatar-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .avatar-caption {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--pkc-text-muted);
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 560px) { .row-2 { grid-template-columns: 1fr; gap: 0; } }
+
+    .form-actions {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 24px;
+      border-top: 1px solid var(--pkc-border);
+      flex-wrap: wrap;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 22px;
+      background: var(--pkc-accent);
+      color: var(--pkc-accent-ink);
+      border: 2px solid var(--pkc-accent);
+      border-radius: 2px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-snappy),
+                  color var(--duration-fast) var(--ease-snappy),
+                  border-color var(--duration-fast) var(--ease-snappy),
+                  opacity var(--duration-fast) var(--ease-snappy);
+    }
+    .btn:hover { background: var(--pkc-text); color: var(--pkc-bg); border-color: var(--pkc-text); }
+    .btn:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 4px; }
+    .btn[disabled],
+    .btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+
+    .btn--ghost {
+      background: transparent;
+      color: var(--pkc-text);
+      border-color: var(--pkc-border-strong);
+    }
+    .btn--ghost:hover { background: var(--pkc-surface); color: var(--pkc-text); border-color: var(--pkc-accent); }
+
+    .btn--danger {
+      background: var(--pkc-danger);
+      color: var(--pkc-bg);
+      border-color: var(--pkc-danger);
+    }
+    .btn--danger:hover { background: var(--pkc-text); color: var(--pkc-bg); border-color: var(--pkc-text); }
+
+    .btn--sm { padding: 8px 14px; font-size: 11px; }
+
+    /* ── Inline link ─────────────────────────────────────────── */
+    .inline-link {
+      background: none;
+      border: 0;
+      padding: 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-accent);
+      cursor: pointer;
+    }
+    .inline-link:hover { color: var(--pkc-text); }
+    .inline-link:focus-visible { outline: 2px solid var(--pkc-accent); outline-offset: 2px; }
+
+    /* ── Security subsections ────────────────────────────────── */
+    .sec-card {
+      margin-bottom: 32px;
+      padding: 24px;
+      background: var(--pkc-surface);
+      border: 1px solid var(--pkc-border);
+      border-radius: 2px;
+    }
+    .sec-card h3 {
+      margin: 0 0 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-accent);
+    }
+    .sec-card-sub {
+      margin: 0 0 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--pkc-text-muted);
+    }
+    .sec-card-result {
+      margin-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      min-height: 14px;
+    }
+    .sec-card-result[data-tone="success"] { color: var(--pkc-neon); }
+    .sec-card-result[data-tone="error"]   { color: var(--pkc-danger); }
+
+    /* ── Sessions list ───────────────────────────────────────── */
+    .sessions-list { display: flex; flex-direction: column; gap: 0; }
+    .session-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 16px;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--pkc-border);
+    }
+    .session-row:last-child { border-bottom: 0; }
+    .session-label {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--pkc-text);
+    }
+    .session-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--pkc-text-muted);
+    }
+    .session-badge {
+      padding: 3px 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-accent);
+      border: 1px solid var(--pkc-accent);
+      border-radius: 2px;
+    }
+
+    /* ── Danger zone ─────────────────────────────────────────── */
+    .danger-zone {
+      border: 2px solid var(--pkc-danger);
+      padding: 20px 24px;
+      background: var(--pkc-surface);
+      border-radius: 2px;
+    }
+    .danger-zone[data-expanded="false"] .danger-body { display: none; }
+    .danger-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .danger-head h3 {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-danger);
+    }
+    .danger-body { margin-top: 20px; }
+
+    /* ── Notifications grid ──────────────────────────────────── */
+    .notif-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 560px) { .notif-grid { grid-template-columns: 1fr; } }
+
+    .notif-card {
+      padding: 20px;
+      background: var(--pkc-surface);
+      border: 1px solid var(--pkc-border);
+      border-radius: 2px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color var(--duration-fast) var(--ease-snappy);
+    }
+    .notif-card[data-locked="true"] { opacity: 0.7; }
+
+    .notif-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .notif-card h3 {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text);
+    }
+    .notif-card .desc {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--pkc-text-muted);
+    }
+    .notif-tag {
+      display: inline-block;
+      padding: 2px 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text-muted);
+      border: 1px solid var(--pkc-border);
+      border-radius: 2px;
+    }
+    .notif-tag[data-tone="locked"]  { color: var(--pkc-text-muted); border-color: var(--pkc-border-strong); }
+    .notif-tag[data-tone="soon"]    { color: var(--pkc-accent); border-color: var(--pkc-accent); }
+
+    /* Toggle (replicates phase-two/three vocabulary) */
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+    .toggle-frame {
+      position: relative;
+      width: 44px;
+      height: 22px;
+      background: var(--pkc-surface);
+      border: 2px solid var(--pkc-border-strong);
+      border-radius: 2px;
+      transition: background var(--duration-fast) var(--ease-snappy),
+                  border-color var(--duration-fast) var(--ease-snappy);
+    }
+    .toggle-dot {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 14px; height: 14px;
+      background: var(--pkc-border-strong);
+      transition: transform var(--duration-fast) var(--ease-snappy),
+                  background var(--duration-fast) var(--ease-snappy);
+    }
+    .toggle input:checked + .toggle-frame { border-color: var(--pkc-accent); }
+    .toggle input:checked + .toggle-frame .toggle-dot {
+      transform: translateX(22px);
+      background: var(--pkc-accent);
+    }
+    .toggle input:focus-visible + .toggle-frame {
+      outline: 2px solid var(--pkc-accent);
+      outline-offset: 2px;
+    }
+    .toggle input:disabled + .toggle-frame { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Activity timeline ───────────────────────────────────── */
+    .activity-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 130px 130px 1fr;
+      gap: 20px;
+      align-items: baseline;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--pkc-border);
+    }
+    @media (max-width: 640px) {
+      .timeline-row { grid-template-columns: 1fr; gap: 4px; }
+    }
+    .timeline-time {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--pkc-text-muted);
+    }
+    .timeline-type {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pkc-text);
+    }
+    .timeline-type[data-tone="success"] { color: var(--pkc-neon); }
+    .timeline-type[data-tone="fail"]    { color: var(--pkc-danger); }
+    .timeline-type[data-tone="neutral"] { color: var(--pkc-text-muted); }
+    .timeline-summary {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--pkc-text);
+    }
+
+    /* ── Boot state ──────────────────────────────────────────── */
+    .boot-state {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 96px 32px;
+      max-width: 720px;
+      margin: 0 auto;
+      text-align: left;
+    }
+
+    /* ── Char counter ────────────────────────────────────────── */
+    .char-count { color: var(--pkc-accent); }
+
+    /* ── Tooltip-ish hint on locked toggles ──────────────────── */
+    .lock-icon {
+      display: inline-block;
+      margin-left: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--pkc-text-muted);
+    }
+  </style>
+</head>
+<body>
+  <noscript>
+    <main class="boot-state">
+      <p class="step-label">// JAVASCRIPT REQUIRED</p>
+      <h2>HEAD'S UP</h2>
+      <p>This account page needs JavaScript. Enable it and reload.</p>
+    </main>
+  </noscript>
+
+  <!-- ── BOOT STATE ───────────────────────────────────────────── -->
+  <main class="boot-state" id="boot" aria-live="polite">
+    <p class="step-label">// LOADING ACCOUNT</p>
+    <h2>SPINNING UP</h2>
+    <p>Pulling your profile from the system...</p>
+  </main>
+
+  <!-- ── APP SHELL (hidden until profile resolves) ────────────── -->
+  <header class="account-shell" id="shell" hidden aria-label="account header">
+    <a href="/" class="monogram" aria-label="ProjectKidCreations home">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M0 0h24l8 8v24H0z" fill="#FF5F1F"/>
+      </svg>
+      <span class="monogram-text">PKC</span>
+    </a>
+
+    <div class="header-status" id="status" role="status" aria-live="polite">// IDLE</div>
+
+    <div class="user-menu">
+      <button
+        type="button"
+        class="user-menu-trigger"
+        id="user-menu-trigger"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-controls="user-menu-pop">
+        <span id="username-display">—</span>
+        <span class="user-menu-caret" aria-hidden="true"></span>
+      </button>
+      <div class="user-menu-pop" id="user-menu-pop" role="menu" data-open="false">
+        <button type="button" class="user-menu-item user-menu-item--danger" role="menuitem" id="sign-out-btn">
+          // SIGN OUT
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tab-strip" id="tab-strip" role="tablist" aria-label="account sections" hidden>
+    <button type="button" class="tab" role="tab" id="tab-profile"   aria-controls="panel-profile"  aria-selected="true"  tabindex="0" data-tab="profile">// PROFILE</button>
+    <button type="button" class="tab" role="tab" id="tab-security"  aria-controls="panel-security" aria-selected="false" tabindex="-1" data-tab="security">// SECURITY</button>
+    <button type="button" class="tab" role="tab" id="tab-notifs"    aria-controls="panel-notifs"   aria-selected="false" tabindex="-1" data-tab="notifs">// NOTIFS</button>
+    <button type="button" class="tab" role="tab" id="tab-activity"  aria-controls="panel-activity" aria-selected="false" tabindex="-1" data-tab="activity">// ACTIVITY</button>
+  </nav>
+
+  <main class="account-main" id="main" hidden>
+
+    <!-- ── PANEL 1 — PROFILE ────────────────────────────────── -->
+    <section class="tabpanel" role="tabpanel" id="panel-profile" aria-labelledby="tab-profile" data-active="true">
+      <div class="panel-head">
+        <h1 class="panel-title">Profile</h1>
+        <p class="panel-subtitle">// EDIT-IN-PLACE</p>
+      </div>
+
+      <div class="profile-grid">
+        <div class="avatar-slot">
+          <div class="avatar-frame" id="avatar-frame" data-has-image="false">
+            // AVATAR<br>COMING SOON
+          </div>
+          <p class="avatar-caption">Drop-in upload ships in a follow-up. Hang tight.</p>
+        </div>
+
+        <form id="profile-form" novalidate>
+          <div class="field" data-field="display_name">
+            <label class="field-label" for="display_name">Display name</label>
+            <input class="input" id="display_name" name="display_name" type="text" maxlength="80" autocomplete="nickname" spellcheck="false">
+            <p class="field-hint">1–80 characters. Unicode allowed.</p>
+            <p class="field-error" data-error-for="display_name" hidden></p>
+          </div>
+
+          <div class="row-2">
+            <div class="field" data-field="first_name">
+              <label class="field-label" for="first_name">First name</label>
+              <input class="input" id="first_name" name="first_name" type="text" maxlength="60" autocomplete="given-name" spellcheck="false">
+              <p class="field-error" data-error-for="first_name" hidden></p>
+            </div>
+            <div class="field" data-field="last_name">
+              <label class="field-label" for="last_name">Last name</label>
+              <input class="input" id="last_name" name="last_name" type="text" maxlength="60" autocomplete="family-name" spellcheck="false">
+              <p class="field-error" data-error-for="last_name" hidden></p>
+            </div>
+          </div>
+
+          <div class="field" data-field="pronouns">
+            <label class="field-label" for="pronouns">Pronouns</label>
+            <input class="input" id="pronouns" name="pronouns" type="text" maxlength="60" autocomplete="off" spellcheck="false">
+            <p class="field-hint">Optional. They / them, she / her, he / him, etc.</p>
+            <p class="field-error" data-error-for="pronouns" hidden></p>
+          </div>
+
+          <div class="field" data-field="bio">
+            <label class="field-label" for="bio">Bio</label>
+            <textarea class="input" id="bio" name="bio" maxlength="280" rows="3" placeholder="280 chars or less. tactical only."></textarea>
+            <p class="field-hint"><span class="char-count" id="bio-count">0</span> / 280</p>
+            <p class="field-error" data-error-for="bio" hidden></p>
+          </div>
+
+          <div class="field" data-field="email">
+            <label class="field-label" for="email">Email</label>
+            <input class="input" id="email" name="email" type="email" readonly>
+            <p class="field-hint">
+              <button type="button" class="inline-link" id="change-email-link">// CHANGE EMAIL →</button>
+            </p>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn" id="save-btn" aria-disabled="true" disabled>
+              // SAVE CHANGES
+            </button>
+            <button type="button" class="btn btn--ghost" id="discard-btn" aria-disabled="true" disabled>
+              // DISCARD
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── PANEL 2 — SECURITY ───────────────────────────────── -->
+    <section class="tabpanel" role="tabpanel" id="panel-security" aria-labelledby="tab-security" data-active="false" hidden>
+      <div class="panel-head">
+        <h1 class="panel-title">Security</h1>
+        <p class="panel-subtitle">// LOCKDOWN</p>
+      </div>
+
+      <!-- Change password -->
+      <div class="sec-card" id="sec-password">
+        <h3>// CHANGE PASSWORD</h3>
+        <p class="sec-card-sub">Use a fresh, strong one. Active sessions stay signed in unless you revoke them below.</p>
+        <form id="password-form" novalidate>
+          <div class="field">
+            <label class="field-label" for="current_password">Current password</label>
+            <input class="input" id="current_password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="new_password">New password</label>
+            <input class="input" id="new_password" type="password" autocomplete="new-password" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="confirm_password">Confirm new password</label>
+            <input class="input" id="confirm_password" type="password" autocomplete="new-password" required>
+          </div>
+          <button type="submit" class="btn">// UPDATE PASSWORD</button>
+          <p class="sec-card-result" id="password-result" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <!-- Change email -->
+      <div class="sec-card" id="sec-email">
+        <h3>// CHANGE EMAIL</h3>
+        <p class="sec-card-sub">We'll send confirmations to both your old and new address. The old one keeps working until you confirm.</p>
+        <form id="email-form" novalidate>
+          <div class="field">
+            <label class="field-label" for="email_current_password">Current password</label>
+            <input class="input" id="email_current_password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="new_email">New email</label>
+            <input class="input" id="new_email" type="email" autocomplete="email" required>
+          </div>
+          <button type="submit" class="btn">// REQUEST EMAIL CHANGE</button>
+          <p class="sec-card-result" id="email-result" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <!-- Active sessions -->
+      <div class="sec-card" id="sec-sessions">
+        <h3>// ACTIVE SESSIONS</h3>
+        <p class="sec-card-sub">Devices currently signed into your account. Revoke anything you don't recognize.</p>
+        <div id="sessions-region" aria-live="polite">
+          <p class="field-hint">// LOADING SESSIONS...</p>
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="danger-zone" id="danger-zone" data-expanded="false">
+        <div class="danger-head">
+          <h3>// DELETE ACCOUNT</h3>
+          <button type="button" class="btn btn--ghost btn--sm" id="danger-toggle">// EXPAND</button>
+        </div>
+        <div class="danger-body">
+          <p class="sec-card-sub">This wipes your operator profile, sessions, and history. It cannot be undone.</p>
+          <form id="delete-form" novalidate>
+            <div class="field">
+              <label class="field-label" for="delete_username_confirm">Type your username to confirm</label>
+              <input class="input" id="delete_username_confirm" type="text" autocomplete="off" spellcheck="false" autocapitalize="off">
+              <p class="field-hint">Username: <span class="hl" id="delete-username-hint">—</span></p>
+            </div>
+            <div class="field">
+              <label class="field-label" for="delete_current_password">Current password</label>
+              <input class="input" id="delete_current_password" type="password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn--danger" id="delete-btn" aria-disabled="true" disabled>
+              // DELETE FOREVER
+            </button>
+            <p class="sec-card-result" id="delete-result" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PANEL 3 — NOTIFICATIONS ──────────────────────────── -->
+    <section class="tabpanel" role="tabpanel" id="panel-notifs" aria-labelledby="tab-notifs" data-active="false" hidden>
+      <div class="panel-head">
+        <h1 class="panel-title">Notifications</h1>
+        <p class="panel-subtitle">// COMMS PREFERENCES</p>
+      </div>
+
+      <div class="notif-grid">
+        <div class="notif-card" data-locked="true" data-key="phase">
+          <div class="notif-card-head">
+            <h3>Phase progress</h3>
+            <span class="notif-tag" data-tone="locked">// ALWAYS ON</span>
+          </div>
+          <p class="desc">Onboarding milestones and profile setup confirmations. Required so you can finish setup.</p>
+          <label class="toggle" aria-disabled="true">
+            <input type="checkbox" checked disabled>
+            <span class="toggle-frame"><span class="toggle-dot"></span></span>
+            <span class="lock-icon">// LOCKED</span>
+          </label>
+        </div>
+
+        <div class="notif-card" data-locked="true" data-key="security">
+          <div class="notif-card-head">
+            <h3>Security</h3>
+            <span class="notif-tag" data-tone="locked">// ALWAYS ON</span>
+          </div>
+          <p class="desc">Sign-ins from new devices, password changes, email changes. Required for account safety.</p>
+          <label class="toggle" aria-disabled="true">
+            <input type="checkbox" checked disabled>
+            <span class="toggle-frame"><span class="toggle-dot"></span></span>
+            <span class="lock-icon">// LOCKED</span>
+          </label>
+        </div>
+
+        <div class="notif-card" data-locked="true" data-key="operational">
+          <div class="notif-card-head">
+            <h3>Operational</h3>
+            <span class="notif-tag" data-tone="soon">// COMING SOON</span>
+          </div>
+          <p class="desc">Gamification — XP gains, drops, leaderboard moves. Ships with the rewards system.</p>
+          <label class="toggle" aria-disabled="true">
+            <input type="checkbox" disabled>
+            <span class="toggle-frame"><span class="toggle-dot"></span></span>
+            <span class="lock-icon">// LOCKED</span>
+          </label>
+        </div>
+
+        <div class="notif-card" data-key="marketing">
+          <div class="notif-card-head">
+            <h3>Marketing</h3>
+            <span class="notif-tag">// OPTIONAL</span>
+          </div>
+          <p class="desc">Product drops, restocks, build logs. Turn off any time for transactional only.</p>
+          <label class="toggle">
+            <input type="checkbox" id="notif-marketing">
+            <span class="toggle-frame"><span class="toggle-dot"></span></span>
+            <span class="lock-icon" id="notif-marketing-state">// OFF</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PANEL 4 — ACTIVITY ───────────────────────────────── -->
+    <section class="tabpanel" role="tabpanel" id="panel-activity" aria-labelledby="tab-activity" data-active="false" hidden>
+      <div class="panel-head">
+        <h1 class="panel-title">Activity</h1>
+        <p class="panel-subtitle">// EVENT LOG</p>
+      </div>
+
+      <div class="activity-bar">
+        <p class="field-hint" id="activity-meta">// PULLING ACTIVITY...</p>
+        <button type="button" class="btn btn--ghost btn--sm" id="activity-refresh">// REFRESH</button>
+      </div>
+
+      <div id="activity-region" aria-live="polite">
+        <div class="full-state">
+          <p class="step-label">// LOADING</p>
+          <h2>READING THE LOG</h2>
+          <p>Pulling your recent events...</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    window.PKC_ACCOUNT = {
+      PROFILE_URL:        "/api/account/profile",
+      LOGOUT_URL:         "/api/account/logout",
+      PASSWORD_URL:       "/api/account/password/change",
+      EMAIL_CHANGE_URL:   "/api/account/email-change",
+      SESSIONS_URL:       "/api/account/sessions",
+      SESSIONS_REVOKE_URL:"/api/account/sessions/revoke",
+      DELETE_URL:         "/api/account/delete",
+      ACTIVITY_URL:       "/api/account/activity",
+      LOGIN_REDIRECT:     "/account/login"
+    };
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>

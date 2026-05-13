@@ -1,0 +1,285 @@
+/* ProjectKidCreations — account/styles.css
+ * Shared brutalist styles for /account/login and /account/bootstrap.
+ * Inherits PKC tokens from phase-two and the kill / form / state
+ * patterns from phase-two/phase-three. DO NOT redefine variables here.
+ * Lock dark — do not let any other brand system bleed in.
+ */
+
+@import url("../phase-two/styles.css");
+
+:root { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: dark; }
+
+/* ──────────────────────────────────────────────
+ * Narrow form column for sign-in / bootstrap.
+ * Phase-three's stage maxes at 720px — these
+ * single-purpose pages read better narrower.
+ * ────────────────────────────────────────────── */
+#stage {
+  max-width: 520px;
+  padding: 64px 32px 96px;
+}
+
+@media (max-width: 600px) {
+  #stage { padding: 40px 20px 64px; }
+}
+
+/* ──────────────────────────────────────────────
+ * Account form — vertical rhythm, no fieldset chrome
+ * ────────────────────────────────────────────── */
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin: 24px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.account-form input[type="text"],
+.account-form input[type="password"] {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 16px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--pkc-border);
+  border-radius: 0;
+  color: var(--pkc-text);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  caret-color: var(--pkc-accent);
+  transition: border-color var(--duration-fast) var(--ease-snappy);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.account-form input::placeholder { color: var(--pkc-text-muted); opacity: 0.5; }
+.account-form input:focus { border-bottom-color: var(--pkc-accent); }
+.account-form input:focus-visible {
+  outline: 2px solid var(--pkc-accent);
+  outline-offset: 6px;
+  border-radius: 2px;
+}
+
+.account-form .field.invalid input {
+  border-bottom-color: var(--pkc-danger);
+  animation: pkc-shake 160ms steps(4, end);
+}
+
+/* ──────────────────────────────────────────────
+ * Static read-only field (username on bootstrap)
+ * ────────────────────────────────────────────── */
+.static-value {
+  margin: 4px 0 0;
+  padding: 14px 14px;
+  background: var(--pkc-surface);
+  border: 1px solid var(--pkc-border);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--pkc-text);
+  word-break: break-all;
+}
+
+.static-value[data-empty="true"] {
+  color: var(--pkc-text-muted);
+  font-style: italic;
+}
+
+/* ──────────────────────────────────────────────
+ * CTA — full-width on these pages; the form's
+ * primary action is the only thing that matters.
+ * ────────────────────────────────────────────── */
+.account-form .cta {
+  align-self: stretch;
+  justify-content: center;
+  width: 100%;
+  background: var(--pkc-accent);
+  color: var(--pkc-accent-ink);
+  border-color: var(--pkc-accent);
+}
+
+.account-form .cta:hover {
+  background: var(--pkc-text);
+  color: var(--pkc-bg);
+  border-color: var(--pkc-text);
+}
+
+.account-form .cta[disabled],
+.account-form .cta[aria-busy="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ──────────────────────────────────────────────
+ * Form footer — secondary nav (forgot password etc.)
+ * ────────────────────────────────────────────── */
+.form-footer {
+  margin: 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pkc-text-muted);
+}
+
+.form-footer a {
+  color: var(--pkc-accent);
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color var(--duration-fast) var(--ease-snappy), color var(--duration-fast) var(--ease-snappy);
+}
+
+.form-footer a:hover {
+  color: var(--pkc-text);
+  border-bottom-color: var(--pkc-accent);
+}
+
+.form-footer a:focus-visible {
+  outline: 2px solid var(--pkc-accent);
+  outline-offset: 4px;
+}
+
+/* ──────────────────────────────────────────────
+ * Generic submission error pill — sits above the
+ * submit button, replaces a per-field error when
+ * the API failure isn't field-specific.
+ * ────────────────────────────────────────────── */
+.submit-error {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--pkc-danger);
+  border-radius: 2px;
+  background: rgba(255, 59, 48, 0.06);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pkc-danger);
+}
+
+.submit-error[hidden] { display: none; }
+
+/* ──────────────────────────────────────────────
+ * Live checklist (bootstrap password requirements)
+ * ────────────────────────────────────────────── */
+.checklist {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checklist li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pkc-text-muted);
+  transition: color var(--duration-fast) var(--ease-snappy);
+}
+
+.checklist li::before {
+  content: "// ";
+  color: var(--pkc-text-muted);
+  transition: color var(--duration-fast) var(--ease-snappy);
+}
+
+.checklist li[data-ok="true"] {
+  color: var(--pkc-accent);
+}
+
+.checklist li[data-ok="true"]::before {
+  content: "// ✓ ";
+  color: var(--pkc-accent);
+}
+
+/* ──────────────────────────────────────────────
+ * Locked countdown — account_locked state
+ * ────────────────────────────────────────────── */
+.lock-countdown {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 8vw, 64px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--pkc-danger);
+  font-variant-numeric: tabular-nums;
+}
+
+.lock-meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-text-muted);
+}
+
+.kill--locked h1 { color: var(--pkc-danger); }
+.kill--locked .kill-line { color: var(--pkc-danger); }
+
+/* ──────────────────────────────────────────────
+ * Inline retry button on transient errors
+ * ────────────────────────────────────────────── */
+.retry-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+/* ──────────────────────────────────────────────
+ * Ghost link-button — secondary action that looks
+ * like a brutalist underlined mono token. Used by
+ * /account/forgot's "remember password?" and the
+ * phase-three "didn't get the email?" re-send.
+ * ────────────────────────────────────────────── */
+.link-button {
+  display: inline-block;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pkc-accent);
+  text-decoration: none;
+  border-bottom: 2px solid var(--pkc-accent);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-snappy),
+              border-color var(--duration-fast) var(--ease-snappy);
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  color: var(--pkc-text);
+  border-bottom-color: var(--pkc-text);
+  outline: none;
+}
+
+.link-button[disabled] {
+  color: var(--pkc-text-muted);
+  border-bottom-color: var(--pkc-text-muted);
+  cursor: not-allowed;
+}
