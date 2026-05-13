@@ -283,3 +283,173 @@ html[data-theme="light"] { color-scheme: dark; }
   border-bottom-color: var(--pkc-text-muted);
   cursor: not-allowed;
 }
+
+/* ══════════════════════════════════════════════════════════════
+ * SOFT THEME — scoped to body[data-theme="soft"]
+ * ──────────────────────────────────────────────────────────────
+ * The "living-inside" register for /account/*. Same palette,
+ * same fonts, softer spatial language: 1px borders, rounded
+ * corners, ambient shadows, ease-soft motion. Brutalist
+ * defaults above remain authoritative — these overrides only
+ * activate when <body data-theme="soft"> is set.
+ *
+ * No new hex values. All tokens consumed from phase-two/styles.css
+ * additive block (--pkc-radius-soft-*, --pkc-shadow-soft-*,
+ * --ease-soft, --duration-soft-*).
+ * ══════════════════════════════════════════════════════════════ */
+
+/* ── Page shell — breathing room above/below stage ── */
+body[data-theme="soft"] #stage {
+  padding: 88px 32px 120px;
+}
+@media (max-width: 600px) {
+  body[data-theme="soft"] #stage {
+    padding: 56px 20px 80px;
+  }
+}
+
+/* ── Form fields — inset shadow surface instead of underline ── */
+body[data-theme="soft"] .account-form input[type="text"],
+body[data-theme="soft"] .account-form input[type="password"] {
+  margin-top: 8px;
+  padding: 14px 16px;
+  background: var(--pkc-surface, var(--pkc-ghost));
+  border: 0;
+  border-bottom: 0;
+  border-radius: var(--pkc-radius-soft-input, 4px);
+  box-shadow: var(--pkc-shadow-soft-inset);
+  transition:
+    box-shadow var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    background var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out);
+}
+
+body[data-theme="soft"] .account-form input[type="text"]:focus,
+body[data-theme="soft"] .account-form input[type="password"]:focus {
+  border-bottom: 0;
+  box-shadow:
+    var(--pkc-shadow-soft-inset),
+    var(--pkc-shadow-soft-focus-ring);
+}
+
+body[data-theme="soft"] .account-form input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  border-radius: var(--pkc-radius-soft-input, 4px);
+}
+
+body[data-theme="soft"] .account-form .field.invalid input {
+  box-shadow:
+    inset 0 0 0 1px var(--pkc-danger),
+    0 0 0 2px rgba(255, 59, 48, 0.18);
+}
+
+/* ── CTA button — 8px radius, warm-glow on hover/focus ── */
+body[data-theme="soft"] .cta {
+  border-radius: var(--pkc-radius-soft-cta, 8px);
+  clip-path: none;
+  transition:
+    transform var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    background var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    color var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    box-shadow var(--duration-soft-flow, 480ms) var(--ease-soft, ease-out);
+}
+
+body[data-theme="soft"] .cta:hover,
+body[data-theme="soft"] .cta:focus-visible {
+  box-shadow: var(--pkc-shadow-soft-hover);
+}
+
+body[data-theme="soft"] .cta:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--pkc-shadow-soft-hover),
+    var(--pkc-shadow-soft-focus-ring);
+}
+
+body[data-theme="soft"] .account-form .cta {
+  border-radius: var(--pkc-radius-soft-cta, 8px);
+}
+
+/* ── Status pill — 16px radius + breathing scale on tone change ── */
+body[data-theme="soft"] .status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--pkc-radius-soft-pill, 16px);
+  transition:
+    color var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    transform var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out);
+}
+
+body[data-theme="soft"] .status[data-tone="error"],
+body[data-theme="soft"] .status[data-tone="success"] {
+  animation: pkc-soft-pill-breath var(--duration-soft-flow, 480ms) var(--ease-soft, ease-out);
+}
+
+@keyframes pkc-soft-pill-breath {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* ── Link button — softer 1px underline + hover lift ── */
+body[data-theme="soft"] .link-button {
+  border-bottom-width: 1px;
+  transition:
+    color var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    border-color var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    transform var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out);
+}
+
+body[data-theme="soft"] .link-button:hover,
+body[data-theme="soft"] .link-button:focus-visible {
+  transform: translateY(-1px);
+}
+
+/* ── Form footer links — soft underline treatment ── */
+body[data-theme="soft"] .form-footer a {
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  border-bottom-color: transparent;
+  transition:
+    color var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out),
+    border-color var(--duration-soft-snap, 240ms) var(--ease-soft, ease-out);
+}
+
+body[data-theme="soft"] .form-footer a:hover {
+  border-bottom-color: var(--pkc-accent);
+}
+
+/* ── Static value & submit error — rounded surfaces ── */
+body[data-theme="soft"] .static-value {
+  border-radius: var(--pkc-radius-soft-input, 4px);
+  box-shadow: var(--pkc-shadow-soft-ambient);
+}
+
+body[data-theme="soft"] .submit-error {
+  border-radius: var(--pkc-radius-soft-input, 4px);
+}
+
+/* ── Kill panels stay brutalist within soft theme (per plan §6).
+ *    Kill states (INVALID/LOCKED/FATAL/RETRY) signal urgency —
+ *    sharp edges are the right voice. Explicitly no overrides. ── */
+
+/* ── Reduced motion inside soft theme ── */
+@media (prefers-reduced-motion: reduce) {
+  body[data-theme="soft"] .account-form input[type="text"],
+  body[data-theme="soft"] .account-form input[type="password"],
+  body[data-theme="soft"] .cta,
+  body[data-theme="soft"] .status,
+  body[data-theme="soft"] .link-button,
+  body[data-theme="soft"] .form-footer a {
+    transition: none !important;
+  }
+  body[data-theme="soft"] .status[data-tone="error"],
+  body[data-theme="soft"] .status[data-tone="success"] {
+    animation-duration: 0.001ms !important;
+  }
+  body[data-theme="soft"] .link-button:hover,
+  body[data-theme="soft"] .link-button:focus-visible,
+  body[data-theme="soft"] .cta:hover {
+    transform: none !important;
+  }
+}
