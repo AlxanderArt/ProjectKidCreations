@@ -12,11 +12,11 @@
        This page does NOT depend on SPA-specific rules living in that file —
        the SPA layer is fully self-contained in the <style> block below so a
        race with the other agent can't break us. -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/account/styles.css">
 
   <!-- Phase-two tokens — guaranteed source of truth for --pkc-* vars even if
        the shared styles.css hasn't been written yet by the parallel agent. -->
-  <link rel="stylesheet" href="../phase-two/styles.css">
+  <link rel="stylesheet" href="/phase-two/styles.css">
 
   <style>
     /* ─────────────────────────────────────────────────────────────
@@ -998,6 +998,6 @@
       LOGIN_REDIRECT:     "/account/login"
     };
   </script>
-  <script src="app.js" defer></script>
+  <script src="/account/app.js" defer></script>
 </body>
 </html>

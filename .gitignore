@@ -25,3 +25,5 @@ secrets.json
 
 # Phase B redaction outputs (kept out of repo)
 redaction-report.md
+.vercel
+.env*.local

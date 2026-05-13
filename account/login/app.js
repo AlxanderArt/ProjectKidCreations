@@ -153,6 +153,16 @@
     return { ok: res.ok, status: res.status, networkError: false, data };
   }
 
+  // ?next= must point to a same-origin path; reject anything else to
+  // avoid open-redirect via login.
+  function resolvePostLoginDest() {
+    try {
+      const next = new URL(location.href).searchParams.get("next");
+      if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+    } catch (_) { /* fall through */ }
+    return CFG.ACCOUNT_HOME;
+  }
+
   // ── Probe profile on load ────────────────────────────────────
   async function probeSession() {
     const res = await fetchJSON(CFG.PROFILE_URL, { method: "GET" });
@@ -160,7 +170,7 @@
       // Already signed in — redirect.
       status.textContent = "Already signed in";
       status.setAttribute("data-tone", "success");
-      window.location.replace(CFG.ACCOUNT_HOME);
+      window.location.replace(resolvePostLoginDest());
       return;
     }
     // 401, network error, or any other → show the form. The form itself
@@ -197,7 +207,7 @@
     if (res.ok && res.data && res.data.ok === true) {
       setState("SUCCESS");
       // Brief beat so the SUCCESS scan-line registers, then redirect.
-      setTimeout(() => { window.location.replace(CFG.ACCOUNT_HOME); }, 350);
+      setTimeout(() => { window.location.replace(resolvePostLoginDest()); }, 350);
       return;
     }
 
