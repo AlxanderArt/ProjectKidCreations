@@ -27,3 +27,7 @@ secrets.json
 redaction-report.md
 .vercel
 .env*.local
+
+# Local-only notes + scratch directories
+PHASE-FOUR-SETUP-CHECKLIST.md
+supabase/
