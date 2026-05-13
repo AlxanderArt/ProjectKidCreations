@@ -1,51 +1,61 @@
-// Node runtime — account delete: scrypt confirm + multi-row Sheets updates
-// (soft-delete user, revoke sessions, write audit). Node 60s for the chain.
-// Set-Cookie passthrough clears the JWT once the account is gone.
+// Edge runtime — soft-delete writes status='deleted' + revokes sessions
+// (Sheets work, no scrypt). Typical ~5-15s, well under Edge's 25s ceiling.
+// Promote back to nodejs if a future scale crosses 25s.
 
-export const config = { runtime: "nodejs", maxDuration: 60 };
+export const config = { runtime: "edge" };
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "method_not_allowed" });
-    return;
+export default async function handler(request) {
+  if (request.method !== "POST") {
+    return json({ error: "method_not_allowed" }, 405);
   }
 
   const base = process.env.PKC_N8N_BASE_URL;
   const authKey = process.env.PKC_AUTH_KEY;
-  if (!base) {
-    res.status(502).json({ error: "not_configured" });
-    return;
+  if (!base) return json({ error: "not_configured" }, 502);
+
+  let body = "";
+  try {
+    body = await request.text();
+  } catch {
+    return json({ error: "invalid_body" }, 400);
   }
 
-  let bodyText;
-  try {
-    bodyText = typeof req.body === "string" ? req.body : JSON.stringify(req.body || {});
-  } catch {
-    res.status(400).json({ error: "invalid_body" });
-    return;
-  }
+  const cookie = request.headers.get("cookie");
+  const authz = request.headers.get("authorization");
+  const xff = request.headers.get("x-forwarded-for");
+  const ua = request.headers.get("user-agent");
 
   try {
     const upstream = await fetch(`${base}/webhook/pkc-accounts/delete`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(req.headers.cookie ? { "Cookie": req.headers.cookie } : {}),
-        ...(req.headers.authorization ? { "Authorization": req.headers.authorization } : {}),
+        ...(cookie ? { "Cookie": cookie } : {}),
+        ...(authz ? { "Authorization": authz } : {}),
         ...(authKey ? { "x-pkc-key": authKey } : {}),
-        ...(req.headers["x-forwarded-for"] ? { "x-forwarded-for": req.headers["x-forwarded-for"] } : {}),
-        ...(req.headers["user-agent"] ? { "User-Agent": req.headers["user-agent"] } : {})
+        ...(xff ? { "x-forwarded-for": xff } : {}),
+        ...(ua ? { "User-Agent": ua } : {})
       },
-      body: bodyText
+      body
     });
 
     const text = await upstream.text();
-    res.status(upstream.status);
-    res.setHeader("Content-Type", upstream.headers.get("Content-Type") || "application/json");
-    const setCookie = upstream.headers.get("set-cookie");
-    if (setCookie) res.setHeader("Set-Cookie", setCookie);
-    res.send(text);
+    const headers = new Headers({
+      "Content-Type": upstream.headers.get("Content-Type") || "application/json"
+    });
+    const setCookie = typeof upstream.headers.getSetCookie === "function"
+      ? upstream.headers.getSetCookie()
+      : (upstream.headers.get("set-cookie") ? [upstream.headers.get("set-cookie")] : []);
+    for (const c of setCookie) headers.append("Set-Cookie", c);
+    return new Response(text, { status: upstream.status, headers });
   } catch {
-    res.status(502).json({ error: "upstream_unreachable" });
+    return json({ error: "upstream_unreachable" }, 502);
   }
+}
+
+function json(obj, status) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
 }
