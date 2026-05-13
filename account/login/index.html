@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // OPERATOR SIGN-IN</title>
+  <meta name="description" content="ProjectKidCreations operator sign-in.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <noscript>
+    <main class="kill">
+      <h1>JAVASCRIPT REQUIRED</h1>
+      <p class="kill-line">This page needs JavaScript to load.</p>
+      <p class="kill-meta">Please enable it and refresh.</p>
+    </main>
+  </noscript>
+
+  <header class="shell-header" aria-label="operator sign-in">
+    <div class="progress" aria-label="access status">
+      <span class="progress-counter">// ACCESS PORTAL</span>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1">
+        <span class="filled"></span>
+        <span></span>
+      </div>
+    </div>
+    <p class="status" id="status" aria-live="polite">Checking session</p>
+  </header>
+
+  <main id="stage" aria-live="polite">
+
+    <section class="state" data-state="LOADING" data-active="true">
+      <p class="step-label">// VERIFYING SESSION</p>
+      <h1 class="prompt">STANDBY</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <section class="state state--form" data-state="FORM" data-active="false" aria-hidden="true">
+      <p class="step-label">// ACCESS PORTAL</p>
+      <h1 class="prompt">OPERATOR SIGN-IN</h1>
+      <p class="momentum">Authenticate to reach your loadout.</p>
+
+      <form id="login-form" class="account-form" novalidate>
+
+        <div class="field" data-field="username">
+          <label class="field-label" for="username-input">Username</label>
+          <input
+            id="username-input"
+            type="text"
+            name="username"
+            autocomplete="username"
+            inputmode="text"
+            spellcheck="false"
+            autocapitalize="off"
+            placeholder="lowercase, 3-32 chars"
+            pattern="[a-z0-9_.\-]{3,32}"
+            minlength="3"
+            maxlength="32"
+            required>
+          <div class="error-region" data-field="username">
+            <span class="error-msg" id="username-error" hidden></span>
+            <span class="error-hint">Letters, numbers, dot, underscore, dash.</span>
+          </div>
+        </div>
+
+        <div class="field" data-field="password">
+          <label class="field-label" for="password-input">Password</label>
+          <input
+            id="password-input"
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            minlength="8"
+            maxlength="128"
+            placeholder="••••••••"
+            required>
+          <div class="error-region" data-field="password">
+            <span class="error-msg" id="password-error" hidden></span>
+            <span class="error-hint">8 characters or more.</span>
+          </div>
+        </div>
+
+        <p class="submit-error" id="submit-error" role="alert" aria-live="assertive" hidden></p>
+
+        <button type="submit" class="cta" id="submit-btn">
+          <span id="submit-label">SIGN IN</span>
+          <span aria-hidden="true">→</span>
+        </button>
+
+        <div class="form-footer">
+          <a href="/account/forgot">// FORGOT PASSWORD?</a>
+        </div>
+
+      </form>
+    </section>
+
+    <section class="state" data-state="SUBMITTING" data-active="false" aria-hidden="true">
+      <p class="step-label">// AUTHENTICATING</p>
+      <h1 class="prompt">SIGNING IN</h1>
+      <p class="idle-hint">Verifying credentials...</p>
+    </section>
+
+    <section class="state state--success" data-state="SUCCESS" data-active="false" aria-hidden="true">
+      <p class="step-label">// SESSION ESTABLISHED</p>
+      <h1 class="prompt">WELCOME BACK.</h1>
+      <p class="confirm-line" data-revealed="true">Routing to your loadout.</p>
+    </section>
+
+    <section class="state kill kill--locked" data-state="LOCKED" data-active="false" aria-hidden="true">
+      <h1>ACCOUNT LOCKED</h1>
+      <p class="kill-line">Too many failed attempts.</p>
+      <p class="lock-countdown" id="lock-countdown" aria-live="polite">--:--</p>
+      <p class="lock-meta">Try again after the cooldown.</p>
+      <p class="kill-meta">If you've lost access, use <a href="/account/forgot">// FORGOT PASSWORD</a>.</p>
+    </section>
+
+    <section class="state kill kill--invalid" data-state="ERROR_INVALID" data-active="false" aria-hidden="true">
+      <h1>WRONG CREDENTIALS</h1>
+      <p class="kill-line">Username or password doesn't check out.</p>
+      <p class="kill-meta">We'll let you try again in a moment.</p>
+    </section>
+
+    <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
+      <h1>TRY AGAIN</h1>
+      <p class="kill-line">We couldn't reach the server just now.</p>
+      <p class="kill-meta" id="error-retry-meta">Hang tight — we'll try again automatically.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">↻</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="state kill kill--fatal" data-state="ERROR_FATAL" data-active="false" aria-hidden="true">
+      <h1>SOMETHING WENT WRONG</h1>
+      <p class="kill-line">We weren't able to sign you in.</p>
+      <p class="kill-meta" id="error-fatal-meta">If this keeps happening, please contact support.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="fatal-retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">↻</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Same-origin proxies. The httpOnly session cookie set by /api/account/login
+    // attaches automatically to subsequent same-origin fetches.
+    window.PKC_ACCOUNT_CONFIG = {
+      LOGIN_URL:           "/api/account/login",
+      PROFILE_URL:         "/api/account/profile",
+      ACCOUNT_HOME:        "/account/",
+      FORGOT_URL:          "/account/forgot",
+      FETCH_TIMEOUT_MS:    12000,
+      AUTO_RETRY_DELAY_MS: 1500,
+      INVALID_HOLD_MS:     2000
+    };
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

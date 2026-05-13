@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // SET NEW PASSWORD</title>
+  <meta name="description" content="ProjectKidCreations operator password reset completion.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../styles.css">
+  <!-- Critical fallback styles — see /account/forgot/index.html note.
+       Same legibility floor so a missing styles.css doesn't unmask
+       the page as plain browser default. -->
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      background: #0A0A0A;
+      color: #E8E8E8;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    #stage { max-width: 520px; margin: 0 auto; padding: 64px 32px 96px; }
+    .state[data-active="false"] { display: none; }
+    .step-label { color: #FF5F1F; letter-spacing: 0.08em; font-size: 12px; }
+    .prompt { font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif; font-size: 32px; line-height: 1.05; margin: 8px 0 16px; }
+    .cta { background: #FF5F1F; color: #0A0A0A; border: 0; padding: 16px 20px; font-family: inherit; font-weight: 700; cursor: pointer; }
+    a { color: #FF5F1F; }
+    .checklist { list-style: none; padding: 0; margin: 12px 0 0; font-size: 12px; }
+    .checklist li { padding: 4px 0; color: #9AA0A4; }
+    .checklist li[data-passed="true"] { color: #39FF14; }
+    .checklist li::before { content: "// "; }
+  </style>
+</head>
+<body>
+  <noscript>
+    <main class="kill">
+      <h1>JAVASCRIPT REQUIRED</h1>
+      <p class="kill-line">This page needs JavaScript to load.</p>
+      <p class="kill-meta">Please enable it and refresh.</p>
+    </main>
+  </noscript>
+
+  <header class="shell-header" aria-label="password reset">
+    <div class="progress" aria-label="reset status">
+      <span class="progress-counter">// ACCESS RECOVERY</span>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="2" aria-valuenow="2">
+        <span class="filled"></span>
+        <span class="filled"></span>
+      </div>
+    </div>
+    <p class="status" id="status" aria-live="polite">Checking link</p>
+  </header>
+
+  <main id="stage" aria-live="polite">
+
+    <section class="state" data-state="LOADING" data-active="true">
+      <p class="step-label">// VERIFYING LINK</p>
+      <h1 class="prompt">STANDBY</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <!-- INVALID — the URL is missing the ?token query string entirely.
+         No backend call yet; this is a pure client-side guard so we don't
+         waste a request on a clearly malformed link. -->
+    <section class="state kill kill--invalid" data-state="INVALID" data-active="false" aria-hidden="true">
+      <h1>LINK NOT RECOGNIZED</h1>
+      <p class="kill-line">This reset link is missing its token.</p>
+      <p class="kill-meta">
+        Start over from <a href="/account/forgot">// FORGOT PASSWORD</a>.
+      </p>
+    </section>
+
+    <section class="state state--form" data-state="FORM" data-active="false" aria-hidden="true">
+      <p class="step-label">// SET A NEW PASSWORD</p>
+      <h1 class="prompt">NEW PASSWORD</h1>
+      <p class="momentum">Pick something you'll remember. 8 characters or more.</p>
+
+      <form id="reset-form" class="account-form" novalidate>
+
+        <div class="field" data-field="new_password">
+          <label class="field-label" for="new-password-input">New password</label>
+          <input
+            id="new-password-input"
+            type="password"
+            name="new_password"
+            autocomplete="new-password"
+            minlength="8"
+            maxlength="128"
+            placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+            required>
+          <div class="error-region" data-field="new_password">
+            <span class="error-msg" id="new_password-error" hidden></span>
+            <span class="error-hint">Between 8 and 128 characters.</span>
+          </div>
+        </div>
+
+        <div class="field" data-field="confirm_password">
+          <label class="field-label" for="confirm-password-input">Confirm</label>
+          <input
+            id="confirm-password-input"
+            type="password"
+            name="confirm_password"
+            autocomplete="new-password"
+            minlength="8"
+            maxlength="128"
+            placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+            required>
+          <div class="error-region" data-field="confirm_password">
+            <span class="error-msg" id="confirm_password-error" hidden></span>
+            <span class="error-hint">Type your new password again.</span>
+          </div>
+        </div>
+
+        <ul class="checklist" id="password-checklist" aria-live="polite">
+          <li data-rule="length" data-passed="false">AT LEAST 8 CHARACTERS</li>
+          <li data-rule="variety" data-passed="false">NOT THE SAME CHARACTER REPEATED</li>
+          <li data-rule="match" data-passed="false">MATCHES CONFIRM FIELD</li>
+        </ul>
+
+        <p class="submit-error" id="submit-error" role="alert" aria-live="assertive" hidden></p>
+
+        <button type="submit" class="cta" id="submit-btn">
+          <span id="submit-label">// SET PASSWORD</span>
+          <span aria-hidden="true">&rarr;</span>
+        </button>
+
+      </form>
+    </section>
+
+    <section class="state" data-state="SUBMITTING" data-active="false" aria-hidden="true">
+      <p class="step-label">// COMMITTING</p>
+      <h1 class="prompt">SAVING</h1>
+      <p class="idle-hint">Locking in your new password...</p>
+    </section>
+
+    <section class="state state--success" data-state="SUCCESS" data-active="false" aria-hidden="true">
+      <p class="step-label">// PASSWORD UPDATED</p>
+      <h1 class="prompt">YOU'RE GOOD.</h1>
+      <p class="confirm-line" data-revealed="true">Routing to sign-in.</p>
+      <p class="momentum">If we don't redirect in 2 seconds, <a href="/account/login">go to sign-in</a>.</p>
+    </section>
+
+    <!-- ERROR_TOKEN — 401 invalid_or_expired_token from the backend. Funnel
+         the user back to /account/forgot. We never imply whether the token
+         was wrong vs. expired; backend lumps both together intentionally. -->
+    <section class="state kill kill--expired" data-state="ERROR_TOKEN" data-active="false" aria-hidden="true">
+      <h1>LINK EXPIRED</h1>
+      <p class="kill-line">This reset link is no longer valid.</p>
+      <p class="kill-meta">
+        Request a new one from <a href="/account/forgot">// FORGOT PASSWORD</a>.
+      </p>
+    </section>
+
+    <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
+      <h1>TRY AGAIN</h1>
+      <p class="kill-line">We couldn't reach the server just now.</p>
+      <p class="kill-meta" id="error-retry-meta">Hang tight &mdash; we'll try again automatically.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">&#8635;</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="state kill kill--fatal" data-state="ERROR_FATAL" data-active="false" aria-hidden="true">
+      <h1>SOMETHING WENT WRONG</h1>
+      <p class="kill-line">We weren't able to update your password.</p>
+      <p class="kill-meta" id="error-fatal-meta">If this keeps happening, please contact support.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="fatal-retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">&#8635;</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    window.PKC_RESET_CONFIG = {
+      COMPLETE_RESET_URL:  "/api/account/password/complete-reset",
+      LOGIN_URL:           "/account/login",
+      FORGOT_URL:          "/account/forgot",
+      FETCH_TIMEOUT_MS:    12000,
+      AUTO_RETRY_DELAY_MS: 1500,
+      SUCCESS_REDIRECT_MS: 2000
+    };
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

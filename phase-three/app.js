@@ -822,6 +822,64 @@
     if (data.persisted === false) $("#success-test-banner").hidden = false;
     clearDraft();
     setState("SUCCESS");
+
+    // Phase 4 — Account bootstrap handoff. Phase 4 (operator-account system)
+    // lives on a separate workflow; this POST queues the bootstrap email. We
+    // don't await the response — Phase 3 success doesn't depend on it. If it
+    // fails, the user re-triggers from the "didn't get the email?" button.
+    fireBootstrapHandoff(data);
+    bindBootstrapResend(data);
+  }
+
+  // ── Phase 4 bootstrap handoff ────────────────────────────────
+  // Best-effort POST to /api/account/bootstrap with the four fields the
+  // bootstrap workflow needs. Errors are swallowed; this MUST NOT block or
+  // mutate the Phase 3 SUCCESS state.
+  function buildBootstrapPayload(saveData) {
+    const form = readForm();
+    return {
+      submission_id: (saveData && saveData.submissionId)
+        || (verifyData && verifyData.submissionId)
+        || null,
+      username: (saveData && saveData.username) || form.username || null,
+      email: (verifyData && verifyData.email) || null,
+      first_name: (verifyData && verifyData.firstName) || form.display_name || null
+    };
+  }
+
+  function fireBootstrapHandoff(saveData) {
+    try {
+      const payload = buildBootstrapPayload(saveData);
+      fetch("/api/account/bootstrap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(() => {}); // swallow — best-effort
+    } catch (_) {}
+  }
+
+  function bindBootstrapResend(saveData) {
+    const btn = $("#bootstrap-resend-btn");
+    if (!btn || btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", () => {
+      const statusEl = $("#bootstrap-resend-status");
+      if (statusEl) statusEl.textContent = "// SENDING…";
+      try {
+        const payload = buildBootstrapPayload(saveData);
+        fetch("/api/account/bootstrap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true
+        })
+          .then(() => { if (statusEl) statusEl.textContent = "// SENT — CHECK YOUR INBOX"; })
+          .catch(() => { if (statusEl) statusEl.textContent = "// COULDN'T SEND — TRY AGAIN"; });
+      } catch (_) {
+        if (statusEl) statusEl.textContent = "// COULDN'T SEND — TRY AGAIN";
+      }
+    });
   }
 
   // ── Boot ─────────────────────────────────────────────────────
