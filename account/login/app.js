@@ -14,8 +14,6 @@
  * Generic credential errors — DO NOT enumerate username vs password.
  */
 
-import { enterPage, exitPage, breath } from "../motion-soft.js";
-
 (function () {
   "use strict";
 
@@ -31,53 +29,19 @@ import { enterPage, exitPage, breath } from "../motion-soft.js";
   let lockCountdownTimer = null;
   let lockEndsAt = null;
   let invalidHoldTimer = null;
-  let cancelBreath = null;
 
   const status = $("#status");
-
-  // ── Motion helpers (soft theme) ──────────────────────────────
-  function sectionFor(stateName) {
-    return document.querySelector(`.state[data-state="${stateName}"]`);
-  }
-
-  function stopBreath() {
-    if (cancelBreath) { cancelBreath(); cancelBreath = null; }
-  }
-
-  function startBreathIfLoading(stateName) {
-    stopBreath();
-    if (stateName === "LOADING" || stateName === "SUBMITTING") {
-      const section = sectionFor(stateName);
-      const hint = section && section.querySelector(".idle-hint");
-      if (hint) cancelBreath = breath(hint);
-    }
-  }
 
   // ── State machine ────────────────────────────────────────────
   function setState(next) {
     if (state === next) return;
-    const prev = state;
     state = next;
-
-    // Outgoing exit animation (fire-and-forget; the data-active swap
-    // below happens immediately so the incoming section is visible
-    // for its own entrance choreography).
-    const prevSection = sectionFor(prev);
-    if (prevSection) exitPage(prevSection);
 
     $$(".state").forEach((el) => {
       const active = el.getAttribute("data-state") === next;
       el.setAttribute("data-active", active ? "true" : "false");
       el.setAttribute("aria-hidden", active ? "false" : "true");
     });
-
-    // Incoming entrance choreography (eyebrow → headline → body → CTA)
-    const nextSection = sectionFor(next);
-    if (nextSection) enterPage(nextSection);
-
-    // Cancel any breath from a previous LOADING/SUBMITTING state and
-    // start a fresh one if the new state is itself a wait state.
-    startBreathIfLoading(next);
 
     clearStateTimers();
 
@@ -340,12 +304,6 @@ import { enterPage, exitPage, breath } from "../motion-soft.js";
 
   function init() {
     bindForm();
-    // Initial LOADING section is already data-active="true" in the HTML;
-    // kick off its entrance choreography + breath pulse manually since
-    // setState's no-op guard skips the initial state.
-    const initialSection = sectionFor("LOADING");
-    if (initialSection) enterPage(initialSection);
-    startBreathIfLoading("LOADING");
     probeSession();
   }
 
