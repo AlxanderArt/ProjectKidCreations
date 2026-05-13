@@ -25,7 +25,9 @@
 
   // Swap user-side copy for admin-side copy when ?next= targets /account/admin.
   // Defaults in the HTML are the user-side strings; data-admin-text / data-admin-aria
-  // hold the admin variants so the same page serves both audiences.
+  // hold the admin variants so the same page serves both audiences. Also reveal
+  // a "user sign-in" escape link so anyone who landed on the operator surface
+  // by mistake (stale tab, wrong bookmark) can bail to the regular flow.
   (function applyContextCopy() {
     try {
       const next = new URL(location.href).searchParams.get("next") || "";
@@ -38,6 +40,8 @@
         const v = el.getAttribute("data-admin-aria");
         if (v) el.setAttribute("aria-label", v);
       });
+      const escape = $("#role-switch-link");
+      if (escape) escape.hidden = false;
     } catch (_) { /* keep user defaults */ }
   })();
 
