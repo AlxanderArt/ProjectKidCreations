@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // ADMIN</title>
+  <meta name="description" content="ProjectKidCreations operator-admin console.">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+
+  <!-- Tokens come from phase-two via ../styles.css -->
+  <link rel="stylesheet" href="../phase-two/styles.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <noscript>
+    <main class="boot-state">
+      <p class="step-label">// JAVASCRIPT REQUIRED</p>
+      <h2>HEAD'S UP</h2>
+      <p>The admin console needs JavaScript. Enable it and reload.</p>
+    </main>
+  </noscript>
+
+  <!-- ── BOOT STATE ───────────────────────────────────────────── -->
+  <main class="boot-state" id="boot" aria-live="polite">
+    <p class="step-label">// VERIFYING OPERATOR</p>
+    <h2>CHECKING ACCESS</h2>
+    <p>Pulling your profile and admin scopes...</p>
+  </main>
+
+  <!-- ── ACCESS DENIED kill state ─────────────────────────────── -->
+  <main class="kill--access-denied" id="kill-denied" hidden role="alert" aria-live="polite">
+    <p class="step-label">// ACCESS DENIED — ADMIN ONLY</p>
+    <h1>NOT YOUR FLOOR.</h1>
+    <p>This console is gated to operators flagged <span style="color:var(--pkc-accent)">is_admin</span> in the profile service. If you think that's wrong, hit up another admin to flip the bit.</p>
+    <a href="/account/">// RETURN TO ACCOUNT →</a>
+  </main>
+
+  <!-- ── APP SHELL (hidden until admin verified) ──────────────── -->
+  <header class="account-shell" id="shell" hidden aria-label="admin header">
+    <a href="/" class="monogram" aria-label="ProjectKidCreations home">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M0 0h24l8 8v24H0z" fill="#FF5F1F"/>
+      </svg>
+      <span class="monogram-text">PKC</span>
+    </a>
+
+    <div class="header-status" id="status" role="status" aria-live="polite">// ADMIN DASHBOARD</div>
+
+    <a class="exit-link" href="/account/" id="exit-admin">// EXIT ADMIN →</a>
+  </header>
+
+  <main class="admin-main" id="main" hidden>
+
+    <!-- ── PULSE STRIP ─────────────────────────────────────── -->
+    <section class="pulse-strip" id="pulse-strip" aria-label="operator pulse">
+      <article class="pulse-card" data-tone="neutral" data-stat="total">
+        <p class="pulse-card__label">// TOTAL ACCOUNTS</p>
+        <p class="pulse-card__value" data-value="total">—</p>
+        <p class="pulse-card__trend" data-value="total-trend" data-ghost="false">// ALL TIME</p>
+      </article>
+      <article class="pulse-card" data-tone="locked" data-stat="locked">
+        <p class="pulse-card__label">// LOCKED</p>
+        <p class="pulse-card__value" data-value="locked">—</p>
+        <p class="pulse-card__trend" data-value="locked-trend" data-ghost="false">// TIER ≥ 1</p>
+      </article>
+      <article class="pulse-card" data-tone="neutral" data-stat="logins24h">
+        <p class="pulse-card__label">// 24H LOGINS</p>
+        <p class="pulse-card__value" data-value="logins24h">—</p>
+        <p class="pulse-card__trend" data-value="logins24h-trend" data-ghost="true">// LIVE SOON</p>
+      </article>
+      <article class="pulse-card" data-tone="neutral" data-stat="lockouts7d">
+        <p class="pulse-card__label">// LOCKOUTS 7D</p>
+        <p class="pulse-card__value" data-value="lockouts7d">—</p>
+        <p class="pulse-card__trend" data-value="lockouts7d-trend" data-ghost="true">// LIVE SOON</p>
+      </article>
+    </section>
+
+    <!-- ── 2-COL LAYOUT ─────────────────────────────────────── -->
+    <div class="admin-layout">
+
+      <!-- ── Accounts panel ──────────────────────────────── -->
+      <section class="accounts-panel" aria-label="accounts table">
+        <div class="accounts-head">
+          <h2 class="accounts-head__title">// ACCOUNTS</h2>
+          <p class="accounts-head__meta" id="accounts-meta">// IDLE</p>
+        </div>
+
+        <div class="search-row">
+          <label class="visually-hidden" for="search-input">Search username, email, or display name</label>
+          <input
+            class="search-input"
+            id="search-input"
+            type="search"
+            placeholder="// SEARCH USERNAME, EMAIL, OR DISPLAY NAME"
+            autocomplete="off"
+            spellcheck="false">
+        </div>
+
+        <div class="table-wrap">
+          <table class="accounts-table" role="table" aria-label="accounts">
+            <thead>
+              <tr role="row">
+                <th role="columnheader" tabindex="0" data-sort="username"   aria-sort="none">USERNAME</th>
+                <th role="columnheader" tabindex="0" data-sort="email"      aria-sort="none">EMAIL</th>
+                <th role="columnheader" tabindex="0" data-sort="status"     aria-sort="none">STATUS</th>
+                <th role="columnheader" tabindex="0" data-sort="tier"       aria-sort="none">TIER</th>
+                <th role="columnheader" tabindex="0" data-sort="last_login" aria-sort="descending">LAST LOGIN</th>
+                <th role="columnheader" tabindex="0" data-sort="created_at" aria-sort="none">CREATED</th>
+                <th role="columnheader">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-tbody">
+              <tr><td class="table-state" colspan="7">// LOADING ACCOUNTS...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-foot">
+          <button type="button" class="page-btn" id="prev-page" disabled>← PREV</button>
+          <p class="page-info" id="page-info">// PAGE — / —</p>
+          <button type="button" class="page-btn" id="next-page" disabled>NEXT →</button>
+        </div>
+      </section>
+
+      <!-- ── Chat panel ──────────────────────────────────── -->
+      <section class="chat-panel" id="chat-panel" data-open="false" aria-label="admin agent">
+        <div class="chat-head">
+          <h2 class="chat-head__title">// AGENT</h2>
+          <p class="chat-head__meta" id="chat-meta">// SESSION READY</p>
+          <button type="button" class="chat-toggle" id="chat-toggle" aria-expanded="false">// AGENT</button>
+        </div>
+
+        <div
+          class="chat-log"
+          id="chat-log"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-atomic="false">
+          <div class="chat-message" data-role="system">
+            <div class="chat-message__body">// AGENT ONLINE — ASK ABOUT ANY ACCOUNT</div>
+          </div>
+        </div>
+
+        <form class="chat-input-row" id="chat-form" autocomplete="off">
+          <label class="visually-hidden" for="chat-input">Admin agent message</label>
+          <textarea
+            class="chat-textarea"
+            id="chat-input"
+            rows="1"
+            placeholder="// ASK — e.g. 'show locked accounts' or 'reset lockout for ada'"
+            aria-label="Admin agent message"></textarea>
+          <button type="submit" class="chat-send" id="chat-send">SEND</button>
+        </form>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    /* Visually-hidden helper for labels we don't want rendered */
+    (function () {
+      var s = document.createElement("style");
+      s.textContent = ".visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}";
+      document.head.appendChild(s);
+    })();
+
+    window.PKC_ADMIN = {
+      PROFILE_URL:       "/api/account/profile",
+      LIST_URL:          "/api/account/admin/list",
+      SEARCH_URL:        "/api/account/admin/search",
+      CHAT_URL:          "/api/account/admin/chat",
+      LOGIN_REDIRECT:    "/account/login",
+      ACCOUNT_REDIRECT:  "/account/",
+      PAGE_SIZE:         5
+    };
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>
