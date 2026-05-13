@@ -391,6 +391,16 @@
       <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="success-username">—</span></p>
       <p class="momentum">Completed&nbsp;&nbsp;<span class="hl" id="success-completed">—</span></p>
       <p class="kill-meta" id="success-test-banner" hidden>Test mode — your profile was not persisted.</p>
+      <!-- Phase 4 re-send affordance. The bootstrap email is fired on
+           Phase 3 success as a best-effort POST to /api/account/bootstrap.
+           If the user never sees it, this button re-queues the same payload. -->
+      <p class="momentum" id="bootstrap-resend-row">
+        <button type="button" class="link-button" id="bootstrap-resend-btn"
+                aria-describedby="bootstrap-resend-status">
+          // DIDN'T GET THE EMAIL?
+        </button>
+        <span class="hl" id="bootstrap-resend-status" aria-live="polite"></span>
+      </p>
     </section>
 
     <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">

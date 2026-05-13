@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta name="color-scheme" content="dark">
+  <title>PROJECTKIDCREATIONS // RESET PASSWORD</title>
+  <meta name="description" content="ProjectKidCreations operator password reset request.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../styles.css">
+  <!-- Critical fallback styles — kick in if account/styles.css fails to load.
+       Keeps the page legible (dark + orange) so the user still sees a brutalist
+       brand-locked form instead of unstyled white-on-black browser default. -->
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      background: #0A0A0A;
+      color: #E8E8E8;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    #stage { max-width: 520px; margin: 0 auto; padding: 64px 32px 96px; }
+    .state[data-active="false"] { display: none; }
+    .step-label { color: #FF5F1F; letter-spacing: 0.08em; font-size: 12px; }
+    .prompt { font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif; font-size: 32px; line-height: 1.05; margin: 8px 0 16px; }
+    .cta { background: #FF5F1F; color: #0A0A0A; border: 0; padding: 16px 20px; font-family: inherit; font-weight: 700; cursor: pointer; }
+    a { color: #FF5F1F; }
+  </style>
+</head>
+<body>
+  <noscript>
+    <main class="kill">
+      <h1>JAVASCRIPT REQUIRED</h1>
+      <p class="kill-line">This page needs JavaScript to load.</p>
+      <p class="kill-meta">Please enable it and refresh.</p>
+    </main>
+  </noscript>
+
+  <header class="shell-header" aria-label="password reset">
+    <div class="progress" aria-label="reset status">
+      <span class="progress-counter">// ACCESS RECOVERY</span>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1">
+        <span class="filled"></span>
+        <span></span>
+      </div>
+    </div>
+    <p class="status" id="status" aria-live="polite">Preparing reset</p>
+  </header>
+
+  <main id="stage" aria-live="polite">
+
+    <!-- LOADING is very brief — exists only so the page never flashes empty
+         before app.js wires up. Auto-promotes to FORM immediately on boot. -->
+    <section class="state" data-state="LOADING" data-active="true">
+      <p class="step-label">// LOADING</p>
+      <h1 class="prompt">STANDBY</h1>
+      <p class="idle-hint">Just a second...</p>
+    </section>
+
+    <section class="state state--form" data-state="FORM" data-active="false" aria-hidden="true">
+      <p class="step-label">// ACCESS RECOVERY</p>
+      <h1 class="prompt">FORGOT PASSWORD</h1>
+      <p class="momentum">Enter your email. If we have an account on file, we'll send a reset link.</p>
+
+      <form id="forgot-form" class="account-form" novalidate>
+
+        <div class="field" data-field="email">
+          <label class="field-label" for="email-input">Email</label>
+          <input
+            id="email-input"
+            type="email"
+            name="email"
+            autocomplete="email"
+            inputmode="email"
+            spellcheck="false"
+            autocapitalize="off"
+            placeholder="you@example.com"
+            maxlength="254"
+            required>
+          <div class="error-region" data-field="email">
+            <span class="error-msg" id="email-error" hidden></span>
+            <span class="error-hint">We'll only contact you about your account.</span>
+          </div>
+        </div>
+
+        <p class="submit-error" id="submit-error" role="alert" aria-live="assertive" hidden></p>
+
+        <button type="submit" class="cta" id="submit-btn">
+          <span id="submit-label">// SEND RESET LINK</span>
+          <span aria-hidden="true">→</span>
+        </button>
+
+        <div class="form-footer">
+          <span>// REMEMBER YOUR PASSWORD?</span>
+          <a href="/account/login">SIGN IN</a>
+        </div>
+
+      </form>
+    </section>
+
+    <section class="state" data-state="SUBMITTING" data-active="false" aria-hidden="true">
+      <p class="step-label">// QUEUING RESET</p>
+      <h1 class="prompt">SENDING</h1>
+      <p class="idle-hint">Hang on a moment...</p>
+    </section>
+
+    <!-- SUCCESS is opacity-locked: ALWAYS shown on HTTP 200 regardless of
+         whether the email matched a real account. Copy must NEVER hint at
+         existence. Backend enforces opacity; this UI mirrors it. -->
+    <section class="state state--success" data-state="SUCCESS" data-active="false" aria-hidden="true">
+      <p class="step-label">// REQUEST RECEIVED</p>
+      <h1 class="prompt">CHECK YOUR INBOX.</h1>
+      <p class="confirm-line" data-revealed="true">
+        If an account exists with this email, we sent a reset link.
+      </p>
+      <p class="momentum">Check your inbox &mdash; link valid 30 minutes.</p>
+      <div class="form-footer">
+        <a href="/account/login">// BACK TO SIGN-IN</a>
+      </div>
+    </section>
+
+    <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
+      <h1>TRY AGAIN</h1>
+      <p class="kill-line">We couldn't reach the server just now.</p>
+      <p class="kill-meta" id="error-retry-meta">Hang tight &mdash; we'll try again automatically.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">&#8635;</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="state kill kill--fatal" data-state="ERROR_FATAL" data-active="false" aria-hidden="true">
+      <h1>SOMETHING WENT WRONG</h1>
+      <p class="kill-line">We weren't able to start a reset.</p>
+      <p class="kill-meta" id="error-fatal-meta">If this keeps happening, please contact support.</p>
+      <div class="retry-row">
+        <button type="button" class="cta" id="fatal-retry-btn">
+          TRY AGAIN
+          <span aria-hidden="true">&#8635;</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Same-origin proxy. Backend enforces opacity — every well-formed request
+    // returns 200 regardless of whether the email matched a real account.
+    window.PKC_FORGOT_CONFIG = {
+      REQUEST_RESET_URL:   "/api/account/password/request-reset",
+      LOGIN_URL:           "/account/login",
+      FETCH_TIMEOUT_MS:    12000,
+      AUTO_RETRY_DELAY_MS: 1500
+    };
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
