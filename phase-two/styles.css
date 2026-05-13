@@ -586,32 +586,3 @@ input:focus-visible {
   .idle-hint { animation: none; }
   .state[data-active="true"] { animation: none; }
 }
-
-/* ──────────────────────────────────────────────
- * SOFT theme extensions — additive, scoped via
- * body[data-theme="soft"] on /account/*. Phase 2/3
- * never sets the attribute → zero effect on those
- * pages. Brutalist defaults remain authoritative
- * on body without the attribute.
- *
- * No new hex values introduced. Shadows are
- * rgba composites of pure black or the existing
- * --pkc-hi-vis (#FF5F1F) at low alpha — the
- * palette stays sealed.
- * ────────────────────────────────────────────── */
-:root {
-  --pkc-radius-soft:        12px;
-  --pkc-radius-soft-input:  4px;
-  --pkc-radius-soft-pill:   16px;
-  --pkc-radius-soft-cta:    8px;
-
-  --pkc-shadow-soft-ambient:    0 2px 8px rgba(0, 0, 0, 0.15);
-  --pkc-shadow-soft-hover:      0 4px 16px rgba(255, 95, 31, 0.06);
-  --pkc-shadow-soft-focus-ring: 0 0 0 2px var(--pkc-accent);
-  --pkc-shadow-soft-inset:      inset 0 0 0 1px var(--pkc-border);
-
-  --ease-soft:             cubic-bezier(0.2, 0.6, 0.2, 1);
-  --duration-soft-snap:    240ms;
-  --duration-soft-flow:    480ms;
-  --duration-soft-breathe: 1500ms;
-}
