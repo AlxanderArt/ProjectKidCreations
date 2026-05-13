@@ -23,6 +23,24 @@
 
   const USERNAME_RE = /^[a-z0-9_.\-]{3,32}$/;
 
+  // Swap user-side copy for admin-side copy when ?next= targets /account/admin.
+  // Defaults in the HTML are the user-side strings; data-admin-text / data-admin-aria
+  // hold the admin variants so the same page serves both audiences.
+  (function applyContextCopy() {
+    try {
+      const next = new URL(location.href).searchParams.get("next") || "";
+      if (!next.startsWith("/account/admin")) return;
+      $$("[data-admin-text]").forEach((el) => {
+        const v = el.getAttribute("data-admin-text");
+        if (v) el.textContent = v;
+      });
+      $$("[data-admin-aria]").forEach((el) => {
+        const v = el.getAttribute("data-admin-aria");
+        if (v) el.setAttribute("aria-label", v);
+      });
+    } catch (_) { /* keep user defaults */ }
+  })();
+
   // ── State ────────────────────────────────────────────────────
   let state = "LOADING";
   let autoRetryUsed = false;
