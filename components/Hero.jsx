@@ -84,7 +84,7 @@ function Hero({ accent }) {
             color: '#9AA0A4', lineHeight: 1.6,
             margin: '0 0 32px', maxWidth: 440, letterSpacing: '0.01em',
           }}>
-            Custom-engineered gel blaster mods and tactical accessories. Designed for performance. Built for operators who refuse generic parts.
+            Custom-engineered gel blaster mods and tactical accessories. Designed for performance. Built for those who refuse generic parts.
           </p>
 
           {/* CTAs — matching live site pattern */}
