@@ -154,9 +154,18 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .progress-bar > span { background: var(--pkc-border); transition: background var(--duration-snap) var(--ease-snappy); }
 .progress-bar > span.filled { background: var(--pkc-accent); }
 
+/* Status is absolute-positioned so it centers against the FULL header,
+ * not just the right grid cell. .shell-header is position: sticky which
+ * establishes the containing block. */
 .status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   margin: 0;
   text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
@@ -567,7 +576,13 @@ input:focus-visible {
     padding: 16px;
   }
   .progress { min-width: 0; }
-  .status   { text-align: left; }
+  /* Phone: drop back into normal flow so the status sits below progress. */
+  .status   {
+    position: static;
+    transform: none;
+    text-align: left;
+    white-space: normal;
+  }
 
   #stage { padding: 32px 16px 64px; }
 
@@ -576,11 +591,45 @@ input:focus-visible {
   .cta { width: 100%; justify-content: center; }
 }
 
+/* ──────────────────────────────────────────────
+ * Brand loader bar — orange sweep, matches the root router's chrome.
+ * Drop a `<div class="brand-bar"></div>` into any loading-style state
+ * (LOADING, VERIFYING, SAVING…) and you get the animated indicator.
+ * ────────────────────────────────────────────── */
+.brand-bar {
+  display: block;
+  width: 240px;
+  height: 1px;
+  margin: 24px auto 0;
+  background: rgba(63, 68, 72, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+.brand-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  background: var(--pkc-accent);
+  animation: pkc-bar-sweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes pkc-bar-sweep {
+  from { left: -40%; }
+  to   { left: 100%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+  /* Keep the brand sweep readable as a calm continuous shimmer. */
+  .brand-bar::after {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
   }
   .confirm-line { opacity: 1; transform: none; }
   .idle-hint { animation: none; }
