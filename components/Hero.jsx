@@ -20,6 +20,37 @@ function Hero({ accent }) {
     transition: 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1)',
   });
 
+  // Live verification indicator on the // STATUS: line.
+  const [authState, setAuthState] = React.useState('checking'); // 'checking' | 'verified' | 'unverified'
+  const [flashOn,   setFlashOn]   = React.useState(true);
+
+  React.useEffect(() => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    fetch('/api/account/profile', {
+      method: 'GET', credentials: 'include', cache: 'no-store', signal: ctrl.signal,
+    })
+      .then((r) => { clearTimeout(t); setAuthState(r.ok ? 'verified' : 'unverified'); })
+      .catch(() => { clearTimeout(t); setAuthState('unverified'); });
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, []);
+
+  React.useEffect(() => {
+    if (authState !== 'unverified') return;
+    const reduced = window.matchMedia &&
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+    const id = setInterval(() => setFlashOn((v) => !v), 500);
+    return () => clearInterval(id);
+  }, [authState]);
+
+  const STATUS_TEXT  = authState === 'verified'   ? '// STATUS: VERIFIED'
+                     : authState === 'unverified' ? '// STATUS: UNVERIFIED'
+                     :                              '// STATUS: CHECKING';
+  const STATUS_COLOR = authState === 'verified'   ? '#39FF14'
+                     : authState === 'unverified' ? '#FF3333'
+                     :                              '#3F4448';
+
   return (
     <section style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
@@ -48,12 +79,21 @@ function Hero({ accent }) {
         position: 'relative', zIndex: 2, width: '100%',
       }}>
         <div style={{ flex: isMobile ? 'unset' : '1 1 55%' }}>
-          {/* Comment line */}
+          {/* Live verification indicator —
+              checking = slate, verified = solid green, unverified = 1 Hz red blink */}
           <div style={{
-            ...fade(1),
-            fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
-            color: '#3F4448', letterSpacing: '0.08em', marginBottom: 12,
-          }}>{'// STATUS: UNVERIFIED'}</div>
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            marginBottom: 12,
+            color: STATUS_COLOR,
+            opacity: (authState === 'unverified' && !flashOn) ? 0 : (phase >= 1 ? 1 : 0),
+            transform: phase >= 1 ? 'translateY(0)' : 'translateY(8px)',
+            // Hard cut on/off during flash — no opacity transition in the unverified state.
+            transition: authState === 'unverified'
+              ? 'transform 480ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1)'
+              : 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1)',
+          }}>{STATUS_TEXT}</div>
 
           {/* Tag chip */}
           <div style={{
