@@ -44,6 +44,15 @@
       50%      { opacity: 0; }
     }
 
+    @keyframes pkc-marquee {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+    .pkc-marquee-viewport:hover .pkc-marquee-track,
+    .pkc-marquee-viewport:focus-within .pkc-marquee-track {
+      animation-play-state: paused;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.001ms !important;
