@@ -13,22 +13,10 @@ function Products({ accent }) {
   const a = accent || '#FF5F1F';
 
   const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
-  const [reduced,  setReduced]  = React.useState(false);
   React.useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', onResize);
-
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const updateReduced = () => setReduced(mq.matches);
-    updateReduced();
-    if (mq.addEventListener) mq.addEventListener('change', updateReduced);
-    else if (mq.addListener) mq.addListener(updateReduced);
-
-    return () => {
-      window.removeEventListener('resize', onResize);
-      if (mq.removeEventListener) mq.removeEventListener('change', updateReduced);
-      else if (mq.removeListener) mq.removeListener(updateReduced);
-    };
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const ref = React.useRef(null);
@@ -39,28 +27,11 @@ function Products({ accent }) {
     return () => obs.disconnect();
   }, []);
 
-  // Marquee needs two copies of the list for seamless wrap; reduced-motion uses one.
-  const ROW = reduced ? PKC_PRODUCTS : PKC_PRODUCTS.concat(PKC_PRODUCTS);
+  // Always render the marquee with two copies of the list for a seamless wrap.
+  const ROW = PKC_PRODUCTS.concat(PKC_PRODUCTS);
 
   const onCardActivate = (p) => {
-    // Placeholder for future details navigation. Today the catalog is static.
-    // Keep the > DETAILS text-button visible as the visual affordance.
     if (typeof console !== 'undefined') console.log('[pkc] card activated:', p.name);
-  };
-
-  const viewportStyle = reduced ? {
-    display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 8,
-    scrollSnapType: 'x mandatory', scrollbarWidth: 'none',
-  } : {
-    overflow: 'hidden',
-    maskImage:        'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
-    WebkitMaskImage:  'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
-  };
-
-  const trackStyle = reduced ? { display: 'contents' } : {
-    display: 'flex', gap: 16, width: 'max-content',
-    animation: 'pkc-marquee 60s linear infinite',
-    willChange: 'transform',
   };
 
   return (
@@ -92,9 +63,25 @@ function Products({ accent }) {
         </div>
       </div>
 
-      {/* Marquee viewport — full-bleed so the mask can fade against the page background */}
-      <div className="pkc-marquee-viewport" style={{ ...viewportStyle, padding: reduced ? '0 32px 8px' : '0' }}>
-        <div className="pkc-marquee-track" style={trackStyle}>
+      {/* Full-bleed viewport so the mask can fade against the page background */}
+      <div
+        className="pkc-marquee-viewport"
+        style={{
+          overflow: 'hidden',
+          maskImage:        'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
+          WebkitMaskImage:  'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
+        }}
+      >
+        <div
+          className="pkc-marquee-track"
+          style={{
+            display: 'flex',
+            gap: 16,
+            width: 'max-content',
+            animation: 'pkc-marquee 60s linear infinite',
+            willChange: 'transform',
+          }}
+        >
           {ROW.map((p, i) => {
             const baseIdx = i % PKC_PRODUCTS.length;
             return (
@@ -113,7 +100,6 @@ function Products({ accent }) {
                   minWidth: 260, maxWidth: 300, flex: '0 0 auto',
                   background: '#1A1C1E', border: '1px solid #3F4448',
                   borderRadius: 2, cursor: 'pointer',
-                  scrollSnapAlign: reduced ? 'start' : 'none',
                   outline: 'none',
                   opacity: vis ? 1 : 0,
                   transform: vis ? 'translateY(0)' : 'translateY(12px)',
