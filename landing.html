@@ -136,7 +136,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   const BASE_PITCH = 0;
   const YAW_RANGE = Math.PI * 0.30;  // ±54° around base from full mouse sweep
   const PITCH_RANGE = Math.PI * 0.12;
-  const LERP = 0.08;
+  // Frame-rate-independent exponential damping. Higher = snappier.
+  //   ~10  → ~250ms time-constant, GSAP "power2.out (0.4s)" feel
+  //   ~6   → ~400ms, languid
+  //   ~16  → ~150ms, very snappy
+  const TRACK_RATE = 12;
   const ACCENT = 0xFF5F1F;
 
   // Wait for React to mount the placeholder div
@@ -210,9 +214,18 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     yawPivot.add(model);
   }, undefined, (err) => console.error('[hero-3d] model load failed:', err));
 
+  let prevTime = performance.now() / 1000;
   renderer.setAnimationLoop(() => {
-    current.yaw += (target.yaw - current.yaw) * LERP;
-    current.pitch += (target.pitch - current.pitch) * LERP;
+    const now = performance.now() / 1000;
+    // Clamp dt so a backgrounded tab returning doesn't jolt the model.
+    const dt = Math.min(now - prevTime, 0.1);
+    prevTime = now;
+    // Frame-rate-independent exponential smoothing. At 60 Hz with rate=12,
+    // alpha ≈ 0.18 per frame — snappier than the old fixed 0.08 lerp AND
+    // it stays consistent on 120 Hz / 144 Hz displays.
+    const alpha = 1 - Math.exp(-TRACK_RATE * dt);
+    current.yaw   += (target.yaw   - current.yaw)   * alpha;
+    current.pitch += (target.pitch - current.pitch) * alpha;
     yawPivot.rotation.y = current.yaw;
     if (model) model.rotation.z = current.pitch;
     renderer.render(scene, camera);
