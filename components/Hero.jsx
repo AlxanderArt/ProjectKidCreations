@@ -22,7 +22,6 @@ function Hero({ accent }) {
 
   // Live verification indicator on the // STATUS: line.
   const [authState, setAuthState] = React.useState('checking'); // 'checking' | 'verified' | 'unverified'
-  const [flashOn,   setFlashOn]   = React.useState(true);
 
   React.useEffect(() => {
     const ctrl = new AbortController();
@@ -34,15 +33,6 @@ function Hero({ accent }) {
       .catch(() => { clearTimeout(t); setAuthState('unverified'); });
     return () => { clearTimeout(t); ctrl.abort(); };
   }, []);
-
-  React.useEffect(() => {
-    if (authState !== 'unverified') return;
-    const reduced = window.matchMedia &&
-                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) return;
-    const id = setInterval(() => setFlashOn((v) => !v), 500);
-    return () => clearInterval(id);
-  }, [authState]);
 
   const STATUS_TEXT  = authState === 'verified'   ? '// STATUS: VERIFIED'
                      : authState === 'unverified' ? '// STATUS: UNVERIFIED'
@@ -80,19 +70,21 @@ function Hero({ accent }) {
       }}>
         <div style={{ flex: isMobile ? 'unset' : '1 1 55%' }}>
           {/* Live verification indicator —
-              checking = slate, verified = solid green, unverified = 1 Hz red blink */}
+              checking = slate, verified = solid green, unverified = smooth red pulse.
+              CSS @keyframes pkc-status-pulse lives in landing.html and is suppressed
+              by the existing prefers-reduced-motion rule. */}
           <div style={{
             fontFamily: '"JetBrains Mono", monospace',
             fontSize: 11,
             letterSpacing: '0.08em',
             marginBottom: 12,
             color: STATUS_COLOR,
-            opacity: (authState === 'unverified' && !flashOn) ? 0 : (phase >= 1 ? 1 : 0),
+            opacity: phase >= 1 ? 1 : 0,
             transform: phase >= 1 ? 'translateY(0)' : 'translateY(8px)',
-            // Hard cut on/off during flash — no opacity transition in the unverified state.
-            transition: authState === 'unverified'
-              ? 'transform 480ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1)'
-              : 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1)',
+            transition: 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1)',
+            animation: (authState === 'unverified' && phase >= 1)
+              ? 'pkc-status-pulse 1.6s ease-in-out infinite'
+              : 'none',
           }}>{STATUS_TEXT}</div>
 
           {/* Tag chip */}
