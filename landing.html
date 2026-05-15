@@ -58,6 +58,12 @@
         animation-duration: 0.001ms !important;
         transition-duration: 0.001ms !important;
       }
+      /* Keep the featured-mods marquee running at its full duration; some
+         browsers report reduce-motion even when the OS toggle is off, and
+         the slow 60 s pace is not vestibular-aggressive. */
+      .pkc-marquee-track {
+        animation-duration: 60s !important;
+      }
     }
   </style>
 
