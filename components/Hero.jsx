@@ -83,7 +83,7 @@ function Hero({ accent }) {
             transform: phase >= 1 ? 'translateY(0)' : 'translateY(8px)',
             transition: 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1)',
             animation: (authState === 'unverified' && phase >= 1)
-              ? 'pkc-status-pulse 1.6s ease-in-out infinite'
+              ? 'pkc-status-pulse 3.2s ease-in-out infinite'
               : 'none',
           }}>{STATUS_TEXT}</div>
 
