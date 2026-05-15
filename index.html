@@ -116,24 +116,82 @@
   </div>
 
   <script>
+    // ── Splash hold: floor the splash for HOLD_MS while the auth probe and
+    //    asset prefetches run in parallel. Hold is a FLOOR only — if the probe
+    //    takes longer than HOLD_MS, we wait for it.
+    var HOLD_MS_FULL    = 2000;
+    var HOLD_MS_REDUCED = 300;
+    var HOLD_MS = window.matchMedia &&
+                  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? HOLD_MS_REDUCED : HOLD_MS_FULL;
+    var PROBE_TIMEOUT_MS = 4000;
+
+    function prefetch(href, opts) {
+      opts = opts || {};
+      var link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = href;
+      if (opts.as) link.as = opts.as;
+      if (opts.crossorigin) link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+    }
+
+    // Both destinations' HTML — whichever way we route, the doc is hot.
+    prefetch('/phase-one/',   { as: 'document' });
+    prefetch('/landing.html', { as: 'document' });
+
+    // Landing's React components + tweaks panel (small, cheap to warm).
+    ['/components/Nav.jsx',
+     '/components/Hero.jsx',
+     '/components/Products.jsx',
+     '/components/ValueProps.jsx',
+     '/components/Sections.jsx',
+     '/tweaks-panel.jsx'].forEach(function (p) { prefetch(p, { as: 'script' }); });
+
+    // Three.js + GLTFLoader from unpkg.
+    prefetch('https://unpkg.com/three@0.160.0/build/three.module.js',
+             { as: 'script', crossorigin: true });
+    prefetch('https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
+             { as: 'script', crossorigin: true });
+
+    function prefetchGLB() {
+      // 11 MB — gated on a 200 from the probe so phase-one routes pay nothing.
+      prefetch('/assets/models/splatrball-400.glb', { as: 'fetch' });
+    }
+
     (async function route() {
-      var PHASE_ONE = "/phase-one/";
-      var LANDING   = "/landing.html";
-      var TIMEOUT_MS = 4000;
-      var ctrl = new AbortController();
-      var t = setTimeout(function () { ctrl.abort(); }, TIMEOUT_MS);
-      try {
-        var res = await fetch("/api/account/profile", {
-          method: "GET",
-          credentials: "include",
-          signal: ctrl.signal,
-          cache: "no-store",
-        });
-        clearTimeout(t);
-        location.replace(res.ok ? LANDING : PHASE_ONE);
-      } catch (_err) {
-        location.replace(PHASE_ONE);
-      }
+      var PHASE_ONE = '/phase-one/';
+      var LANDING   = '/landing.html';
+      var startedAt = performance.now();
+
+      var probePromise = (async function () {
+        var ctrl = new AbortController();
+        var t = setTimeout(function () { ctrl.abort(); }, PROBE_TIMEOUT_MS);
+        try {
+          var res = await fetch('/api/account/profile', {
+            method: 'GET',
+            credentials: 'include',
+            signal: ctrl.signal,
+            cache: 'no-store',
+          });
+          clearTimeout(t);
+          return { ok: res.ok };
+        } catch (_err) {
+          clearTimeout(t);
+          return { ok: false };
+        }
+      })();
+
+      // Kick off GLB prefetch the instant we know the user is signed in.
+      probePromise.then(function (r) { if (r.ok) prefetchGLB(); });
+
+      var holdPromise = new Promise(function (resolve) {
+        var elapsed = performance.now() - startedAt;
+        setTimeout(resolve, Math.max(0, HOLD_MS - elapsed));
+      });
+
+      var results = await Promise.all([probePromise, holdPromise]);
+      location.replace(results[0].ok ? LANDING : PHASE_ONE);
     })();
   </script>
 </body>
