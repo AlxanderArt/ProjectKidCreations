@@ -39,6 +39,11 @@
     ::-webkit-scrollbar-track { background: #0A0A0A; }
     ::-webkit-scrollbar-thumb { background: #3F4448; }
 
+    @keyframes pkc-status-pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.001ms !important;
