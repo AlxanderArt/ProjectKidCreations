@@ -147,24 +147,23 @@ export function SpecStrip() {
     }}>
       <div
         className="pkc-marquee-viewport"
-        style={{
-          overflow: 'hidden',
-          maskImage:        'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
-          WebkitMaskImage:  'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
-        }}
+        style={{ overflow: 'hidden' }}
       >
         <div
           className={`pkc-marquee-track ${inView ? '' : 'pkc-paused'}`}
           style={{
             display: 'flex',
-            gap: 48,
-            width: 'max-content',
+            justifyContent: 'space-evenly',
+            // Two copies of the 4-item set, each copy fills one viewport
+            // with space-evenly distribution. Mirrors the original static
+            // bar's justify-content: space-between spacing.
+            width: '200vw',
             animation: 'pkc-marquee 60s linear infinite reverse',
             willChange: inView ? 'transform' : 'auto',
           }}
         >
           {ROW.map(([label, val], i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12, flex: '0 0 auto' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexShrink: 0 }}>
               <span style={{
                 fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
                 color: 'var(--pkc-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 500,
