@@ -18,7 +18,7 @@ export function Showcase() {
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 8,
+          color: 'var(--pkc-text-faint)', letterSpacing: '0.08em', marginBottom: 8,
         }}>{'// GALLERY'}</div>
         <h2 style={{
           fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
@@ -43,7 +43,7 @@ export function Showcase() {
               onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
               <div style={{
                 fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-                color: 'var(--pkc-border-strong)', textTransform: 'uppercase',
+                color: 'var(--pkc-text-faint)', textTransform: 'uppercase',
                 letterSpacing: '0.08em', textAlign: 'center', padding: 20,
               }}>{item.label}</div>
             </div>
@@ -72,7 +72,7 @@ export function Social() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 24,
+          color: 'var(--pkc-text-faint)', letterSpacing: '0.08em', marginBottom: 24,
         }}>{'// INTEL'}</div>
 
         <div style={{
@@ -89,7 +89,7 @@ export function Social() {
           </p>
           <p style={{
             fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
-            color: 'var(--pkc-border-strong)', margin: 0, letterSpacing: '0.05em',
+            color: 'var(--pkc-text-faint)', margin: 0, letterSpacing: '0.05em',
             textTransform: 'uppercase',
           }}>— @tacticalbuilds</p>
         </div>
@@ -106,7 +106,7 @@ export function Social() {
               }}>{n}</div>
               <div style={{
                 fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-                color: 'var(--pkc-border-strong)', textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: 'var(--pkc-text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em',
               }}>{l}</div>
             </div>
           ))}
@@ -200,7 +200,7 @@ export function FinalCTA() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', position: 'relative', zIndex: 2 }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 16,
+          color: 'var(--pkc-text-faint)', letterSpacing: '0.08em', marginBottom: 16,
         }}>{'// READY?'}</div>
 
         <h2 style={{
@@ -238,7 +238,7 @@ export function FinalCTA() {
             textDecoration: 'none', display: 'inline-block',
             transition: 'border-color 120ms',
           }}
-            onMouseEnter={e => e.currentTarget.style.borderColor='var(--pkc-border-strong)'}
+            onMouseEnter={e => e.currentTarget.style.borderColor='var(--pkc-text-faint)'}
             onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
             CONTACT US
           </a>
@@ -274,19 +274,30 @@ export function Footer() {
           </div>
           <div style={{
             fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-            color: 'var(--pkc-border-strong)', letterSpacing: '0.05em',
+            color: 'var(--pkc-text-faint)', letterSpacing: '0.05em',
           }}>{`// ${year} PROJECTKIDCREATIONS. ALL RIGHTS RESERVED.`}</div>
         </div>
         <div style={{ display: 'flex', gap: 20, marginTop: isMobile ? 16 : 0, flexWrap: 'wrap' }}>
-          {['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'PRIVACY', 'TERMS'].map(l => (
-            <a key={l} style={{
+          {[
+            ['INSTAGRAM', null],
+            ['TIKTOK',    'https://www.tiktok.com/@projectkidcreations'],
+            ['YOUTUBE',   null],
+            ['PRIVACY',   '#'],
+            ['TERMS',     '#'],
+          ].map(([l, href]) => (
+            <a key={l}
+               href={href || '#'}
+               aria-disabled={!href || href === '#' ? 'true' : undefined}
+               rel={href && href !== '#' && href.startsWith('http') ? 'noopener noreferrer' : undefined}
+               target={href && href !== '#' && href.startsWith('http') ? '_blank' : undefined}
+               style={{
               fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-              color: 'var(--pkc-border-strong)', textDecoration: 'none', cursor: 'pointer',
+              color: 'var(--pkc-text-muted)', textDecoration: 'none', cursor: 'pointer',
               letterSpacing: '0.05em', textTransform: 'uppercase',
               transition: 'color 120ms cubic-bezier(0.2,0.8,0.2,1)',
             }}
               onMouseEnter={e => e.currentTarget.style.color=a}
-              onMouseLeave={e => e.currentTarget.style.color='var(--pkc-border-strong)'}>{l}</a>
+              onMouseLeave={e => e.currentTarget.style.color='var(--pkc-text-muted)'}>{l}</a>
           ))}
         </div>
       </div>
