@@ -140,19 +140,8 @@
     prefetch('/phase-one/',   { as: 'document' });
     prefetch('/landing.html', { as: 'document' });
 
-    // Landing's React components + tweaks panel (small, cheap to warm).
-    ['/components/Nav.jsx',
-     '/components/Hero.jsx',
-     '/components/Products.jsx',
-     '/components/ValueProps.jsx',
-     '/components/Sections.jsx',
-     '/tweaks-panel.jsx'].forEach(function (p) { prefetch(p, { as: 'script' }); });
-
-    // Three.js + GLTFLoader from unpkg.
-    prefetch('https://unpkg.com/three@0.160.0/build/three.module.js',
-             { as: 'script', crossorigin: true });
-    prefetch('https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js',
-             { as: 'script', crossorigin: true });
+    // Landing's bundled JS — single hashed entry now that the page is built.
+    prefetch('/dist/landing.js', { as: 'script' });
 
     function prefetchGLB() {
       // 11 MB — gated on a 200 from the probe so phase-one routes pay nothing.

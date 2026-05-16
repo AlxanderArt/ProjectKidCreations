@@ -15,6 +15,9 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Build output — Vercel rebuilds on every deploy via the `build` npm script.
+dist/
+
 # Local env / secrets
 .env
 .env.*
