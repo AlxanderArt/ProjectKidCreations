@@ -38,7 +38,7 @@ export function Hero() {
                      :                              '// STATUS: CHECKING';
   const STATUS_COLOR = authState === 'verified'   ? 'var(--pkc-verified)'
                      : authState === 'unverified' ? 'var(--pkc-error)'
-                     :                              'var(--pkc-border-strong)';
+                     :                              'var(--pkc-text-faint)';
 
   // 3D hero: dynamic import + fine-pointer gate (no GPU work on touch).
   // The mount() helper returns a dispose() that we call on unmount.
@@ -151,7 +151,7 @@ export function Hero() {
               textDecoration: 'none', display: 'inline-block',
               transition: 'border-color 120ms, color 120ms',
             }}
-              onMouseEnter={e => e.currentTarget.style.borderColor='var(--pkc-border-strong)'}
+              onMouseEnter={e => e.currentTarget.style.borderColor='var(--pkc-text-faint)'}
               onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
               VIEW COLLECTION
             </a>

@@ -22,7 +22,8 @@
 
   /* ── Type ── */
   --pkc-concrete:        #E8E8E8; /* Primary text on dark */
-  --pkc-text-muted:      #9AA0A4; /* Secondary text on dark */
+  --pkc-text-muted:      #9AA0A4; /* Secondary text on dark — AAA pass */
+  --pkc-text-faint:      #7A7F84; /* Faint micro-labels on dark — AA pass (~4.7:1) */
 
   /* ── Accent (brand orange) ── */
   --pkc-hi-vis:          #FF5F1F;
