@@ -123,24 +123,59 @@ export function SpecStrip() {
     ['INFILL', '60%'], ['MATERIAL', 'PLA+ / PETG'],
   ];
 
+  // Counter-rotating marquee — runs left→right against the products' right→left
+  // at the same 60s cadence. Two copies so translateX(-50%) wraps seamlessly.
+  // Pause-on-hover + pause-when-off-screen inherited via the .pkc-marquee-*
+  // classes.
+  const ref = React.useRef(null);
+  const [inView, setInView] = React.useState(false);
+  React.useEffect(() => {
+    if (!ref.current) return;
+    const obs = new IntersectionObserver(([e]) => setInView(e.isIntersecting), {
+      threshold: 0.05, rootMargin: '120px 0px',
+    });
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const ROW = specs.concat(specs);
+
   return (
-    <section style={{ padding: '32px 0', background: 'var(--pkc-ghost)', borderTop: '1px solid var(--pkc-slate)', borderBottom: '1px solid var(--pkc-slate)' }}>
-      <div style={{
-        maxWidth: 1280, margin: '0 auto', padding: '0 32px',
-        display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px 48px',
-      }}>
-        {specs.map(([label, val], i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-            <span style={{
-              fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-              color: 'var(--pkc-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 500,
-            }}>{label}</span>
-            <span style={{
-              fontFamily: '"JetBrains Mono", monospace', fontSize: 14,
-              color: 'var(--pkc-concrete)', letterSpacing: '0.01em',
-            }}>{val}</span>
-          </div>
-        ))}
+    <section ref={ref} style={{
+      padding: '24px 0', background: 'var(--pkc-ghost)',
+      borderTop: '1px solid var(--pkc-slate)', borderBottom: '1px solid var(--pkc-slate)',
+    }}>
+      <div
+        className="pkc-marquee-viewport"
+        style={{
+          overflow: 'hidden',
+          maskImage:        'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
+          WebkitMaskImage:  'linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)',
+        }}
+      >
+        <div
+          className={`pkc-marquee-track ${inView ? '' : 'pkc-paused'}`}
+          style={{
+            display: 'flex',
+            gap: 48,
+            width: 'max-content',
+            animation: 'pkc-marquee 60s linear infinite reverse',
+            willChange: inView ? 'transform' : 'auto',
+          }}
+        >
+          {ROW.map(([label, val], i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12, flex: '0 0 auto' }}>
+              <span style={{
+                fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
+                color: 'var(--pkc-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 500,
+              }}>{label}</span>
+              <span style={{
+                fontFamily: '"JetBrains Mono", monospace', fontSize: 14,
+                color: 'var(--pkc-concrete)', letterSpacing: '0.01em',
+              }}>{val}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
