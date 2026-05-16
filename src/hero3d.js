@@ -12,7 +12,8 @@ const PITCH_RANGE = Math.PI * 0.12;
 const TRACK_RATE = 12;
 const ACCENT = 0xFF5F1F;
 
-export function mount(el) {
+export function mount(el, opts = {}) {
+  const { trackPointer = true, onReady = null } = opts;
   const modelUrl = el.dataset.modelUrl || '/assets/models/splatrball-400.glb';
 
   const getSize = () => ({ w: el.clientWidth || 380, h: el.clientHeight || 380 });
@@ -57,13 +58,15 @@ export function mount(el) {
   let running = true;
   let disposed = false;
 
+  // Pointer-tracking is opt-in. When reduced-motion is preferred the caller
+  // passes trackPointer=false and the model sits at BASE_YAW.
   const onPointerMove = (e) => {
     const mx = (e.clientX / window.innerWidth) * 2 - 1;
     const my = (e.clientY / window.innerHeight) * 2 - 1;
     target.yaw = BASE_YAW + mx * YAW_RANGE;
     target.pitch = my * PITCH_RANGE;
   };
-  window.addEventListener('pointermove', onPointerMove);
+  if (trackPointer) window.addEventListener('pointermove', onPointerMove);
 
   const loader = new GLTFLoader();
   loader.load(modelUrl, (gltf) => {
@@ -78,6 +81,9 @@ export function mount(el) {
     box.getCenter(center);
     model.position.sub(center);
     yawPivot.add(model);
+    // Force one render so the first paint after fade-in includes the model.
+    renderer.render(scene, camera);
+    if (onReady) onReady();
   }, undefined, (err) => console.error('[hero-3d] model load failed:', err));
 
   let prevTime = performance.now() / 1000;
@@ -124,7 +130,7 @@ export function mount(el) {
     disposed = true;
     running = false;
     renderer.setAnimationLoop(null);
-    window.removeEventListener('pointermove', onPointerMove);
+    if (trackPointer) window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('resize', resize);
     document.removeEventListener('visibilitychange', onVisibility);
     ro.disconnect();

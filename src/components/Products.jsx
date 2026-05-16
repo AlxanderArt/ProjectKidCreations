@@ -1,4 +1,6 @@
 import React from 'react';
+import { useAccent } from '../AccentContext.jsx';
+import { useIsMobile } from '../hooks.js';
 
 const PKC_PRODUCTS = [
   { name: 'VIPER SHROUD', desc: 'Barrel-mounted tactical shroud with integrated rail system.', tag: '// POPULAR' },
@@ -9,17 +11,9 @@ const PKC_PRODUCTS = [
   { name: 'GHOST MAG', desc: 'Extended magazine housing with window cutout.', tag: '// NEW' },
 ];
 
-export function Products({ accent }) {
-  const a = accent || '#FF5F1F';
-
-  const [isMobile, setIsMobile] = React.useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 768 : false
-  );
-  React.useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+export function Products() {
+  const a = useAccent();
+  const isMobile = useIsMobile();
 
   const ref = React.useRef(null);
   const [vis, setVis] = React.useState(false);
@@ -36,7 +30,7 @@ export function Products({ accent }) {
   };
 
   return (
-    <section ref={ref} style={{ padding: '80px 0', background: '#0A0A0A', borderTop: '1px solid #3F4448' }}>
+    <section id="mods" ref={ref} style={{ padding: '80px 0', background: '#0A0A0A', borderTop: '1px solid #3F4448' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-end',
@@ -45,7 +39,7 @@ export function Products({ accent }) {
           <div>
             <div style={{
               fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-              color: '#3F4448', letterSpacing: '0.08em', marginBottom: 8,
+              color: '#5A5F63', letterSpacing: '0.08em', marginBottom: 8,
             }}>{'// CATALOG'}</div>
             <h2 style={{
               fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
@@ -59,8 +53,8 @@ export function Products({ accent }) {
             letterSpacing: '0.05em', textTransform: 'uppercase',
             transition: 'color 120ms',
           }}
-            onMouseEnter={e => e.target.style.color='#E8E8E8'}
-            onMouseLeave={e => e.target.style.color=a}>VIEW ALL →</button>
+            onMouseEnter={e => e.currentTarget.style.color='#E8E8E8'}
+            onMouseLeave={e => e.currentTarget.style.color=a}>VIEW ALL <span aria-hidden="true">→</span></button>
         </div>
       </div>
 
@@ -123,7 +117,7 @@ export function Products({ accent }) {
                   }}>{p.tag}</span>}
                   <span style={{
                     fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-                    color: '#3F4448', textTransform: 'uppercase', letterSpacing: '0.08em',
+                    color: '#5A5F63', textTransform: 'uppercase', letterSpacing: '0.08em',
                   }}>// PRODUCT IMAGE</span>
                 </div>
 

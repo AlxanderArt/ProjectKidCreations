@@ -1,19 +1,18 @@
 import React from 'react';
+import { useAccent } from '../AccentContext.jsx';
+import { useIsMobile, usePrefersReducedMotion } from '../hooks.js';
 
-export function Hero({ accent }) {
-  const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 768 : false
-  );
+export function Hero() {
+  const a = useAccent();
+  const isMobile = useIsMobile();
+  const reducedMotion = usePrefersReducedMotion();
+
   const [phase, setPhase] = React.useState(0);
-
   React.useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', h);
     const t1 = setTimeout(() => setPhase(1), 100);
     const t2 = setTimeout(() => setPhase(2), 400);
     const t3 = setTimeout(() => setPhase(3), 700);
-    return () => { window.removeEventListener('resize', h); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
   const fade = (delay) => ({
@@ -23,11 +22,8 @@ export function Hero({ accent }) {
   });
 
   const [authState, setAuthState] = React.useState('checking');
-
   React.useEffect(() => {
     const ctrl = new AbortController();
-    // 1500ms — fast enough that the chip doesn't visibly hang on slow links,
-    // long enough to cover normal API latency on Vercel.
     const t = setTimeout(() => ctrl.abort(), 1500);
     fetch('/api/account/profile', {
       method: 'GET', credentials: 'include', cache: 'no-store', signal: ctrl.signal,
@@ -42,11 +38,12 @@ export function Hero({ accent }) {
                      :                              '// STATUS: CHECKING';
   const STATUS_COLOR = authState === 'verified'   ? '#39FF14'
                      : authState === 'unverified' ? '#FF3333'
-                     :                              '#3F4448';
+                     :                              '#5A5F63';
 
-  // Lazy-mount the 3D hero only on devices with a fine pointer (skip touch).
-  // The hero3d module is dynamically imported so three.js doesn't block LCP.
+  // 3D hero: dynamic import + fine-pointer gate (no GPU work on touch).
+  // The mount() helper returns a dispose() that we call on unmount.
   const mountRef = React.useRef(null);
+  const [modelReady, setModelReady] = React.useState(false);
   React.useEffect(() => {
     const el = mountRef.current;
     if (!el) return;
@@ -57,25 +54,25 @@ export function Hero({ accent }) {
     let cancelled = false;
     import('../hero3d.js').then(({ mount }) => {
       if (cancelled) return;
-      dispose = mount(el);
+      dispose = mount(el, { trackPointer: !reducedMotion, onReady: () => setModelReady(true) });
     }).catch((err) => console.error('[hero-3d] module load failed:', err));
     return () => { cancelled = true; if (dispose) dispose(); };
-  }, []);
+  }, [reducedMotion]);
 
   return (
-    <section style={{
+    <section id="top" style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
       position: 'relative', overflow: 'hidden', background: '#0A0A0A',
     }}>
-      <div style={{
+      <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, opacity: 0.02, pointerEvents: 'none',
         backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.4) 2px, rgba(255,255,255,0.4) 3px)',
       }} />
-      <div style={{
+      <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, opacity: 0.015, pointerEvents: 'none',
         backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 119px, rgba(255,255,255,0.5) 120px)',
       }} />
-      <div style={{
+      <div aria-hidden="true" style={{
         position: 'absolute', top: '20%', right: '-10%', width: 600, height: 600,
         background: `radial-gradient(circle, ${a}06 0%, transparent 70%)`,
         pointerEvents: 'none',
@@ -87,7 +84,7 @@ export function Hero({ accent }) {
         position: 'relative', zIndex: 2, width: '100%',
       }}>
         <div style={{ flex: isMobile ? 'unset' : '1 1 55%' }}>
-          <div style={{
+          <div role="status" aria-live="polite" style={{
             fontFamily: '"JetBrains Mono", monospace',
             fontSize: 11,
             letterSpacing: '0.08em',
@@ -131,31 +128,33 @@ export function Hero({ accent }) {
           </p>
 
           <div style={{ ...fade(3), display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button style={{
+            <a href="#mods" style={{
               background: 'transparent', color: a, border: `2px solid ${a}`,
               padding: '14px 24px', fontSize: 12, fontWeight: 700,
               fontFamily: '"JetBrains Mono", monospace',
               letterSpacing: '0.05em', textTransform: 'uppercase',
-              cursor: 'pointer', borderRadius: 2,
+              cursor: 'pointer', borderRadius: 2, textDecoration: 'none',
+              display: 'inline-block',
               clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
               transition: 'background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms cubic-bezier(0.2,0.8,0.2,1), transform 120ms',
             }}
-              onMouseEnter={e => { e.target.style.background=a; e.target.style.color='#0A0A0A'; e.target.style.transform='translateY(-1px)'; }}
-              onMouseLeave={e => { e.target.style.background='transparent'; e.target.style.color=a; e.target.style.transform='translateY(0)'; }}>
-              EXPLORE MODS →
-            </button>
-            <button style={{
+              onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='#0A0A0A'; e.currentTarget.style.transform='translateY(-1px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=a; e.currentTarget.style.transform='translateY(0)'; }}>
+              EXPLORE MODS <span aria-hidden="true">→</span>
+            </a>
+            <a href="#gallery" style={{
               background: 'transparent', color: '#E8E8E8',
               border: '1px solid #3F4448', padding: '14px 24px',
               fontSize: 12, fontWeight: 500, fontFamily: '"JetBrains Mono", monospace',
               letterSpacing: '0.05em', textTransform: 'uppercase',
               cursor: 'pointer', borderRadius: 2,
+              textDecoration: 'none', display: 'inline-block',
               transition: 'border-color 120ms, color 120ms',
             }}
-              onMouseEnter={e => e.target.style.borderColor='#5A5F63'}
-              onMouseLeave={e => e.target.style.borderColor='#3F4448'}>
+              onMouseEnter={e => e.currentTarget.style.borderColor='#5A5F63'}
+              onMouseLeave={e => e.currentTarget.style.borderColor='#3F4448'}>
               VIEW COLLECTION
-            </button>
+            </a>
           </div>
         </div>
 
@@ -168,8 +167,10 @@ export function Hero({ accent }) {
             ref={mountRef}
             id="hero-3d-mount"
             data-model-url="/assets/models/splatrball-400.glb"
+            aria-hidden="true"
             style={{
-              ...fade(2),
+              opacity: modelReady ? 1 : 0,
+              transition: 'opacity 600ms cubic-bezier(0.2,0.8,0.2,1)',
               width: isMobile ? '100%' : 380,
               height: isMobile ? 260 : 380,
               position: 'relative',
