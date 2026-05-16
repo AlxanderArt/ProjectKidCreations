@@ -37,7 +37,7 @@ export function Products() {
           <div>
             <div style={{
               fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-              color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 8,
+              color: 'var(--pkc-text-faint)', letterSpacing: '0.08em', marginBottom: 8,
             }}>{'// CATALOG'}</div>
             <h2 style={{
               fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
@@ -77,11 +77,13 @@ export function Products() {
         >
           {ROW.map((p, i) => {
             const baseIdx = i % PRODUCTS.length;
+            const isDuplicate = i >= PRODUCTS.length;
             return (
               <a
                 key={`${p.slug}-${i}`}
                 href={`#mods`}
-                aria-label={`${p.name} — ${p.blurb}`}
+                aria-hidden={isDuplicate ? 'true' : undefined}
+                tabIndex={isDuplicate ? -1 : undefined}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = a; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--pkc-slate)'; }}
                 onFocus={e => { e.currentTarget.style.borderColor = a; }}
@@ -117,9 +119,9 @@ export function Products() {
                     <img src={p.image} alt="" loading="lazy"
                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <span style={{
+                    <span aria-hidden="true" style={{
                       fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-                      color: 'var(--pkc-border-strong)', textTransform: 'uppercase', letterSpacing: '0.08em',
+                      color: 'var(--pkc-text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em',
                     }}>// PRODUCT IMAGE</span>
                   )}
                 </div>

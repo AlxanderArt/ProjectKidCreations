@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "python3 -m http.server 8765",
-    "build": "esbuild src/landing.jsx --bundle --minify --format=esm --jsx=automatic --target=es2020 --outdir=dist --splitting --legal-comments=none --metafile=dist/landing.meta.json --entry-names=[name]",
+    "build": "esbuild src/landing.jsx --bundle --minify --format=esm --jsx=automatic --target=es2020 --outdir=dist --splitting --sourcemap=linked --legal-comments=none --metafile=dist/landing.meta.json --entry-names=[name]",
     "vercel-build": "npm run build"
   },
   "repository": {

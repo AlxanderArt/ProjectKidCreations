@@ -26,7 +26,7 @@ export function ValueProps() {
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 8,
+          color: 'var(--pkc-text-faint)', letterSpacing: '0.08em', marginBottom: 8,
         }}>{'// WHY PKC'}</div>
 
         <h2 style={{
