@@ -1,6 +1,8 @@
 import React from 'react';
+import { useAccent } from '../AccentContext.jsx';
+import { useIsMobile } from '../hooks.js';
 
-const pkcNavStyles = {
+const navStyles = {
   nav: {
     position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
     background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(8px)',
@@ -26,17 +28,8 @@ const pkcNavStyles = {
     cursor: 'pointer', transition: 'color 120ms cubic-bezier(0.2,0.8,0.2,1)',
     textDecoration: 'none', fontFamily: '"JetBrains Mono", monospace',
   },
-  cta: (a) => ({
-    background: 'transparent', color: a, border: `1px solid ${a}`,
-    padding: '8px 18px', fontSize: 12, fontWeight: 700,
-    cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace',
-    letterSpacing: '0.05em', textTransform: 'uppercase',
-    transition: 'background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms cubic-bezier(0.2,0.8,0.2,1)',
-    clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
-    borderRadius: '2px',
-  }),
   mobileToggle: {
-    display: 'none', background: 'none', border: 'none',
+    display: 'block', background: 'none', border: 'none',
     color: '#E8E8E8', fontSize: 16, cursor: 'pointer', padding: 8,
     fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.1em',
   },
@@ -51,53 +44,79 @@ const pkcNavStyles = {
     color: '#9AA0A4', fontSize: 13, fontWeight: 500,
     textTransform: 'uppercase', letterSpacing: '0.05em',
     cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace',
+    textDecoration: 'none',
   },
 };
 
-export function Nav({ accent }) {
-  const a = accent || '#FF5F1F';
+const NAV_ITEMS = [
+  { label: '// MODS',    href: '#mods' },
+  { label: '// ABOUT',   href: '#about' },
+  { label: '// GALLERY', href: '#gallery' },
+  { label: '// CONTACT', href: '#contact' },
+];
+
+function ctaStyle(accent) {
+  return {
+    background: 'transparent', color: accent, border: `1px solid ${accent}`,
+    padding: '8px 18px', fontSize: 12, fontWeight: 700,
+    cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace',
+    letterSpacing: '0.05em', textTransform: 'uppercase',
+    transition: 'background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms cubic-bezier(0.2,0.8,0.2,1)',
+    clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
+    borderRadius: '2px',
+  };
+}
+
+export function Nav() {
+  const a = useAccent();
+  const isMobile = useIsMobile();
   const [open, setOpen] = React.useState(false);
-  const [isMobile, setIsMobile] = React.useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 768 : false
-  );
 
-  React.useEffect(() => {
-    const h = () => { setIsMobile(window.innerWidth < 768); if (window.innerWidth >= 768) setOpen(false); };
-    window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
-  }, []);
-
-  const navItems = ['// MODS', '// ABOUT', '// GALLERY', '// CONTACT'];
+  React.useEffect(() => { if (!isMobile && open) setOpen(false); }, [isMobile, open]);
 
   return (
-    <nav style={pkcNavStyles.nav}>
-      <div style={pkcNavStyles.inner}>
-        <div style={pkcNavStyles.logo}>
+    <nav style={navStyles.nav} aria-label="Primary">
+      <div style={navStyles.inner}>
+        <a href="#top" style={navStyles.logo} aria-label="ProjectKidCreations — home">
           PROJECT<span style={{color: a}}>KID</span>CREATIONS
-        </div>
+        </a>
         {!isMobile ? (
-          <ul style={pkcNavStyles.links}>
-            {navItems.map(l => (
-              <li key={l}><a style={pkcNavStyles.link}
-                onMouseEnter={e => e.target.style.color=a}
-                onMouseLeave={e => e.target.style.color='#9AA0A4'}>{l}</a></li>
+          <ul style={navStyles.links}>
+            {NAV_ITEMS.map(item => (
+              <li key={item.href}>
+                <a href={item.href} style={navStyles.link}
+                   onMouseEnter={e => e.currentTarget.style.color=a}
+                   onMouseLeave={e => e.currentTarget.style.color='#9AA0A4'}>
+                  {item.label}
+                </a>
+              </li>
             ))}
-            <li><button style={pkcNavStyles.cta(a)}
-              onMouseEnter={e => { e.target.style.background=a; e.target.style.color='#0A0A0A'; }}
-              onMouseLeave={e => { e.target.style.background='transparent'; e.target.style.color=a; }}>ENTER</button></li>
+            <li>
+              <a href="#contact" style={ctaStyle(a)} role="button"
+                 onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='#0A0A0A'; }}
+                 onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=a; }}>
+                ENTER
+              </a>
+            </li>
           </ul>
         ) : (
-          <button style={{...pkcNavStyles.mobileToggle, display:'block'}} onClick={() => setOpen(!open)}>
+          <button style={navStyles.mobileToggle}
+                  aria-expanded={open}
+                  aria-controls="pkc-mobile-menu"
+                  aria-label={open ? 'Close menu' : 'Open menu'}
+                  onClick={() => setOpen(!open)}>
             {open ? '[ X ]' : '[ = ]'}
           </button>
         )}
       </div>
       {open && isMobile && (
-        <div style={pkcNavStyles.mobileMenu}>
-          {navItems.map(l => <a key={l} style={pkcNavStyles.mobileLink} onClick={() => setOpen(false)}>{l}</a>)}
-          <button style={{...pkcNavStyles.cta(a), fontSize: 13, padding: '12px 24px', marginTop: 8}}
-            onMouseEnter={e => { e.target.style.background=a; e.target.style.color='#0A0A0A'; }}
-            onMouseLeave={e => { e.target.style.background='transparent'; e.target.style.color=a; }}>ENTER</button>
+        <div id="pkc-mobile-menu" style={navStyles.mobileMenu}>
+          {NAV_ITEMS.map(item => (
+            <a key={item.href} href={item.href} style={navStyles.mobileLink}
+               onClick={() => setOpen(false)}>{item.label}</a>
+          ))}
+          <a href="#contact" style={{...ctaStyle(a), fontSize: 13, padding: '12px 24px', marginTop: 8}}
+             role="button" onClick={() => setOpen(false)}>ENTER</a>
         </div>
       )}
     </nav>
