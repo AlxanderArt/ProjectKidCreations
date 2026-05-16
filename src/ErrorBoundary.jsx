@@ -19,13 +19,13 @@ export class ErrorBoundary extends React.Component {
 
     return (
       <div style={{
-        minHeight: '100vh', background: '#0A0A0A', color: '#E8E8E8',
+        minHeight: '100vh', background: 'var(--pkc-tac-black)', color: 'var(--pkc-concrete)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: '"JetBrains Mono", monospace', padding: 32,
       }}>
         <div style={{ maxWidth: 480, textAlign: 'left' }}>
           <div style={{
-            fontSize: 11, letterSpacing: '0.08em', color: '#FF3333',
+            fontSize: 11, letterSpacing: '0.08em', color: 'var(--pkc-error)',
             marginBottom: 16, textTransform: 'uppercase',
           }}>// SYSTEM ERROR</div>
 
@@ -35,11 +35,11 @@ export class ErrorBoundary extends React.Component {
             textTransform: 'uppercase', letterSpacing: '-0.02em',
           }}>
             SOMETHING<br/>
-            <span style={{ color: '#FF5F1F' }}>BROKE.</span>
+            <span style={{ color: 'var(--pkc-hi-vis)' }}>BROKE.</span>
           </h1>
 
           <p style={{
-            fontSize: 13, color: '#9AA0A4', lineHeight: 1.6, margin: '0 0 24px',
+            fontSize: 13, color: 'var(--pkc-text-muted)', lineHeight: 1.6, margin: '0 0 24px',
           }}>
             The page hit an unexpected error. Reloading usually fixes it.
             If this keeps happening, drop us a note.
@@ -48,7 +48,7 @@ export class ErrorBoundary extends React.Component {
           <button
             onClick={() => window.location.reload()}
             style={{
-              background: 'transparent', color: '#FF5F1F', border: '2px solid #FF5F1F',
+              background: 'transparent', color: 'var(--pkc-hi-vis)', border: '2px solid var(--pkc-hi-vis)',
               padding: '12px 22px', fontSize: 12, fontWeight: 700,
               fontFamily: '"JetBrains Mono", monospace',
               letterSpacing: '0.05em', textTransform: 'uppercase',

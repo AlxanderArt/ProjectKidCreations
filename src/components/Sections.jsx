@@ -14,15 +14,15 @@ export function Showcase() {
   const isMobile = useIsMobile();
 
   return (
-    <section id="gallery" style={{ padding: '80px 0', background: '#0A0A0A', borderTop: '1px solid #3F4448' }}>
+    <section id="gallery" style={{ padding: '80px 0', background: 'var(--pkc-tac-black)', borderTop: '1px solid var(--pkc-slate)' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: '#5A5F63', letterSpacing: '0.08em', marginBottom: 8,
+          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 8,
         }}>{'// GALLERY'}</div>
         <h2 style={{
           fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
-          fontSize: isMobile ? 28 : 40, color: '#E8E8E8', textTransform: 'uppercase',
+          fontSize: isMobile ? 28 : 40, color: 'var(--pkc-concrete)', textTransform: 'uppercase',
           margin: '0 0 40px', letterSpacing: '-0.02em', lineHeight: 1.1,
         }}>THE CRAFT</h2>
         <div style={{
@@ -33,17 +33,17 @@ export function Showcase() {
         }}>
           {PKC_GRID.map((item, i) => (
             <div key={i} style={{
-              background: '#1A1C1E', border: '1px solid #3F4448', borderRadius: 2,
+              background: 'var(--pkc-ghost)', border: '1px solid var(--pkc-slate)', borderRadius: 2,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               position: 'relative', gridColumn: isMobile ? 'auto' : item.span,
               minHeight: 180, transition: 'border-color 120ms cubic-bezier(0.2,0.8,0.2,1)',
               overflow: 'hidden',
             }}
               onMouseEnter={e => e.currentTarget.style.borderColor=a}
-              onMouseLeave={e => e.currentTarget.style.borderColor='#3F4448'}>
+              onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
               <div style={{
                 fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-                color: '#5A5F63', textTransform: 'uppercase',
+                color: 'var(--pkc-border-strong)', textTransform: 'uppercase',
                 letterSpacing: '0.08em', textAlign: 'center', padding: 20,
               }}>{item.label}</div>
             </div>
@@ -68,11 +68,11 @@ export function Social() {
   }, []);
 
   return (
-    <section ref={ref} style={{ padding: '80px 0', background: '#0A0A0A', borderTop: '1px solid #3F4448' }}>
+    <section ref={ref} style={{ padding: '80px 0', background: 'var(--pkc-tac-black)', borderTop: '1px solid var(--pkc-slate)' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: '#5A5F63', letterSpacing: '0.08em', marginBottom: 24,
+          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 24,
         }}>{'// INTEL'}</div>
 
         <div style={{
@@ -82,14 +82,14 @@ export function Social() {
         }}>
           <p style={{
             fontFamily: '"JetBrains Mono", monospace', fontSize: 15,
-            color: '#E8E8E8', lineHeight: 1.7, margin: '0 0 12px',
+            color: 'var(--pkc-concrete)', lineHeight: 1.7, margin: '0 0 12px',
             letterSpacing: '0.01em', opacity: 0.8,
           }}>
             "The fitment is insane — dropped right in, zero modifications. Best mods I've bought."
           </p>
           <p style={{
             fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
-            color: '#5A5F63', margin: 0, letterSpacing: '0.05em',
+            color: 'var(--pkc-border-strong)', margin: 0, letterSpacing: '0.05em',
             textTransform: 'uppercase',
           }}>— @tacticalbuilds</p>
         </div>
@@ -106,7 +106,7 @@ export function Social() {
               }}>{n}</div>
               <div style={{
                 fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-                color: '#5A5F63', textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: 'var(--pkc-border-strong)', textTransform: 'uppercase', letterSpacing: '0.08em',
               }}>{l}</div>
             </div>
           ))}
@@ -124,7 +124,7 @@ export function SpecStrip() {
   ];
 
   return (
-    <section style={{ padding: '32px 0', background: '#1A1C1E', borderTop: '1px solid #3F4448', borderBottom: '1px solid #3F4448' }}>
+    <section style={{ padding: '32px 0', background: 'var(--pkc-ghost)', borderTop: '1px solid var(--pkc-slate)', borderBottom: '1px solid var(--pkc-slate)' }}>
       <div style={{
         maxWidth: 1280, margin: '0 auto', padding: '0 32px',
         display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px 48px',
@@ -133,11 +133,11 @@ export function SpecStrip() {
           <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
             <span style={{
               fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-              color: '#9AA0A4', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 500,
+              color: 'var(--pkc-text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 500,
             }}>{label}</span>
             <span style={{
               fontFamily: '"JetBrains Mono", monospace', fontSize: 14,
-              color: '#E8E8E8', letterSpacing: '0.01em',
+              color: 'var(--pkc-concrete)', letterSpacing: '0.01em',
             }}>{val}</span>
           </div>
         ))}
@@ -154,7 +154,7 @@ export function FinalCTA() {
   return (
     <section id="contact" style={{
       padding: '80px 0', position: 'relative', overflow: 'hidden',
-      background: '#0A0A0A', borderTop: `4px solid ${a}`,
+      background: 'var(--pkc-tac-black)', borderTop: `4px solid ${a}`,
     }}>
       <div aria-hidden="true" style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 200,
@@ -165,18 +165,18 @@ export function FinalCTA() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', position: 'relative', zIndex: 2 }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: '#5A5F63', letterSpacing: '0.08em', marginBottom: 16,
+          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 16,
         }}>{'// READY?'}</div>
 
         <h2 style={{
           fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
-          fontSize: isMobile ? 32 : 48, color: '#E8E8E8', textTransform: 'uppercase',
+          fontSize: isMobile ? 32 : 48, color: 'var(--pkc-concrete)', textTransform: 'uppercase',
           margin: '0 0 12px', lineHeight: 1.1, letterSpacing: '-0.02em',
         }}>BUILD YOUR SETUP</h2>
 
         <p style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 13,
-          color: '#9AA0A4', margin: '0 0 32px', letterSpacing: '0.01em',
+          color: 'var(--pkc-text-muted)', margin: '0 0 32px', letterSpacing: '0.01em',
         }}>{'// Custom mods. Premium quality. Your style.'}</p>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -190,21 +190,21 @@ export function FinalCTA() {
             clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
             transition: 'background 120ms, color 120ms, transform 120ms',
           }}
-            onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='#0A0A0A'; e.currentTarget.style.transform='translateY(-1px)'; }}
+            onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='var(--pkc-tac-black)'; e.currentTarget.style.transform='translateY(-1px)'; }}
             onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=a; e.currentTarget.style.transform='translateY(0)'; }}>
             SHOP MODS <span aria-hidden="true">→</span>
           </a>
           <a href="mailto:hello@projectkidcreations.com" style={{
-            background: 'transparent', color: '#E8E8E8',
-            border: '1px solid #3F4448', padding: '14px 24px',
+            background: 'transparent', color: 'var(--pkc-concrete)',
+            border: '1px solid var(--pkc-slate)', padding: '14px 24px',
             fontSize: 12, fontWeight: 500, fontFamily: '"JetBrains Mono", monospace',
             letterSpacing: '0.05em', textTransform: 'uppercase',
             cursor: 'pointer', borderRadius: 2,
             textDecoration: 'none', display: 'inline-block',
             transition: 'border-color 120ms',
           }}
-            onMouseEnter={e => e.currentTarget.style.borderColor='#5A5F63'}
-            onMouseLeave={e => e.currentTarget.style.borderColor='#3F4448'}>
+            onMouseEnter={e => e.currentTarget.style.borderColor='var(--pkc-border-strong)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
             CONTACT US
           </a>
         </div>
@@ -221,8 +221,8 @@ export function Footer() {
 
   return (
     <footer style={{
-      padding: '32px 0 24px', background: '#0A0A0A',
-      borderTop: '1px solid #3F4448',
+      padding: '32px 0 24px', background: 'var(--pkc-tac-black)',
+      borderTop: '1px solid var(--pkc-slate)',
     }}>
       <div style={{
         maxWidth: 1280, margin: '0 auto', padding: '0 32px',
@@ -232,26 +232,26 @@ export function Footer() {
         <div>
           <div style={{
             fontFamily: '"Archivo Black", sans-serif', fontWeight: 900, fontSize: 13,
-            color: '#E8E8E8', letterSpacing: '-0.01em', textTransform: 'uppercase',
+            color: 'var(--pkc-concrete)', letterSpacing: '-0.01em', textTransform: 'uppercase',
             marginBottom: 4,
           }}>
             PROJECT<span style={{color: a}}>KID</span>CREATIONS
           </div>
           <div style={{
             fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-            color: '#5A5F63', letterSpacing: '0.05em',
+            color: 'var(--pkc-border-strong)', letterSpacing: '0.05em',
           }}>{`// ${year} PROJECTKIDCREATIONS. ALL RIGHTS RESERVED.`}</div>
         </div>
         <div style={{ display: 'flex', gap: 20, marginTop: isMobile ? 16 : 0, flexWrap: 'wrap' }}>
           {['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'PRIVACY', 'TERMS'].map(l => (
             <a key={l} style={{
               fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-              color: '#5A5F63', textDecoration: 'none', cursor: 'pointer',
+              color: 'var(--pkc-border-strong)', textDecoration: 'none', cursor: 'pointer',
               letterSpacing: '0.05em', textTransform: 'uppercase',
               transition: 'color 120ms cubic-bezier(0.2,0.8,0.2,1)',
             }}
               onMouseEnter={e => e.currentTarget.style.color=a}
-              onMouseLeave={e => e.currentTarget.style.color='#5A5F63'}>{l}</a>
+              onMouseLeave={e => e.currentTarget.style.color='var(--pkc-border-strong)'}>{l}</a>
           ))}
         </div>
       </div>
