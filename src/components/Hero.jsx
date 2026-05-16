@@ -36,9 +36,9 @@ export function Hero() {
   const STATUS_TEXT  = authState === 'verified'   ? '// STATUS: VERIFIED'
                      : authState === 'unverified' ? '// STATUS: UNVERIFIED'
                      :                              '// STATUS: CHECKING';
-  const STATUS_COLOR = authState === 'verified'   ? '#39FF14'
-                     : authState === 'unverified' ? '#FF3333'
-                     :                              '#5A5F63';
+  const STATUS_COLOR = authState === 'verified'   ? 'var(--pkc-verified)'
+                     : authState === 'unverified' ? 'var(--pkc-error)'
+                     :                              'var(--pkc-border-strong)';
 
   // 3D hero: dynamic import + fine-pointer gate (no GPU work on touch).
   // The mount() helper returns a dispose() that we call on unmount.
@@ -62,7 +62,7 @@ export function Hero() {
   return (
     <section id="top" style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
-      position: 'relative', overflow: 'hidden', background: '#0A0A0A',
+      position: 'relative', overflow: 'hidden', background: 'var(--pkc-tac-black)',
     }}>
       <div aria-hidden="true" style={{
         position: 'absolute', inset: 0, opacity: 0.02, pointerEvents: 'none',
@@ -111,7 +111,7 @@ export function Hero() {
             ...fade(1),
             fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
             fontSize: isMobile ? 44 : 64, lineHeight: 1.1,
-            color: '#E8E8E8', margin: '0 0 20px', textTransform: 'uppercase',
+            color: 'var(--pkc-concrete)', margin: '0 0 20px', textTransform: 'uppercase',
             letterSpacing: '-0.02em',
           }}>
             ENGINEERED<br/>
@@ -121,7 +121,7 @@ export function Hero() {
           <p style={{
             ...fade(2),
             fontFamily: '"JetBrains Mono", monospace', fontSize: 14,
-            color: '#9AA0A4', lineHeight: 1.6,
+            color: 'var(--pkc-text-muted)', lineHeight: 1.6,
             margin: '0 0 32px', maxWidth: 440, letterSpacing: '0.01em',
           }}>
             Custom-engineered gel blaster mods and tactical accessories. Designed for performance. Built for those who refuse generic parts.
@@ -138,21 +138,21 @@ export function Hero() {
               clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
               transition: 'background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms cubic-bezier(0.2,0.8,0.2,1), transform 120ms',
             }}
-              onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='#0A0A0A'; e.currentTarget.style.transform='translateY(-1px)'; }}
+              onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='var(--pkc-tac-black)'; e.currentTarget.style.transform='translateY(-1px)'; }}
               onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=a; e.currentTarget.style.transform='translateY(0)'; }}>
               EXPLORE MODS <span aria-hidden="true">→</span>
             </a>
             <a href="#gallery" style={{
-              background: 'transparent', color: '#E8E8E8',
-              border: '1px solid #3F4448', padding: '14px 24px',
+              background: 'transparent', color: 'var(--pkc-concrete)',
+              border: '1px solid var(--pkc-slate)', padding: '14px 24px',
               fontSize: 12, fontWeight: 500, fontFamily: '"JetBrains Mono", monospace',
               letterSpacing: '0.05em', textTransform: 'uppercase',
               cursor: 'pointer', borderRadius: 2,
               textDecoration: 'none', display: 'inline-block',
               transition: 'border-color 120ms, color 120ms',
             }}
-              onMouseEnter={e => e.currentTarget.style.borderColor='#5A5F63'}
-              onMouseLeave={e => e.currentTarget.style.borderColor='#3F4448'}>
+              onMouseEnter={e => e.currentTarget.style.borderColor='var(--pkc-border-strong)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
               VIEW COLLECTION
             </a>
           </div>
