@@ -7,9 +7,43 @@
   <title>PROJECTKIDCREATIONS // ENGINEERED REBELLION</title>
   <meta name="description" content="Custom-engineered gel blaster mods and tactical accessories. Precision-printed aggression.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
   <style>
+    /* Self-hosted fonts (latin subset). Drop-in replacements for the
+       Google Fonts CSS that was previously fetched at runtime. */
+    @font-face {
+      font-family: 'Archivo Black';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('/assets/fonts/archivo-black-latin.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('/assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url('/assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('/assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+
     :root {
       color-scheme: dark;
       --pkc-tac-black: #0A0A0A;
@@ -66,181 +100,12 @@
       }
     }
   </style>
-
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
-
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 </head>
 <body>
 
 <div id="root"></div>
 
-<script type="text/babel" src="components/Nav.jsx"></script>
-<script type="text/babel" src="components/Hero.jsx"></script>
-<script type="text/babel" src="components/Products.jsx"></script>
-<script type="text/babel" src="components/ValueProps.jsx"></script>
-<script type="text/babel" src="components/Sections.jsx"></script>
-<script type="text/babel" src="tweaks-panel.jsx"></script>
-
-<script type="text/babel">
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "accentColor": "#FF5F1F",
-  "showSpecStrip": true
-}/*EDITMODE-END*/;
-
-function App() {
-  const tweaks = useTweaks(TWEAK_DEFAULTS);
-  const accent = tweaks.accentColor;
-
-  return (
-    <div>
-      <Nav accent={accent} />
-      <Hero accent={accent} />
-      <Products accent={accent} />
-      {tweaks.showSpecStrip && <SpecStrip accent={accent} />}
-      <ValueProps accent={accent} />
-      <Showcase accent={accent} />
-      <Social accent={accent} />
-      <FinalCTA accent={accent} />
-      <Footer accent={accent} />
-
-      <TweaksPanel title="// TWEAKS">
-        <TweakSection title="Brand">
-          <TweakColor label="Accent" value={tweaks.accentColor} onChange={v => tweaks.set('accentColor', v)}
-            options={['#FF5F1F', '#39FF14', '#E8E8E8']} />
-          <TweakToggle label="Spec Strip" value={tweaks.showSpecStrip} onChange={v => tweaks.set('showSpecStrip', v)} />
-        </TweakSection>
-      </TweaksPanel>
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-</script>
-
-<script type="module">
-  import * as THREE from 'three';
-  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-  // Showcase + interaction tuning
-  const BASE_YAW = Math.PI * 0.25;   // 45° — front-3/4 hero pose
-  const BASE_PITCH = 0;
-  const YAW_RANGE = Math.PI * 0.30;  // ±54° around base from full mouse sweep
-  const PITCH_RANGE = Math.PI * 0.12;
-  // Frame-rate-independent exponential damping. Higher = snappier.
-  //   ~10  → ~250ms time-constant, GSAP "power2.out (0.4s)" feel
-  //   ~6   → ~400ms, languid
-  //   ~16  → ~150ms, very snappy
-  const TRACK_RATE = 12;
-  const ACCENT = 0xFF5F1F;
-
-  // Wait for React to mount the placeholder div
-  const mount = await new Promise(resolve => {
-    const found = document.getElementById('hero-3d-mount');
-    if (found) return resolve(found);
-    const obs = new MutationObserver(() => {
-      const el = document.getElementById('hero-3d-mount');
-      if (el) { obs.disconnect(); resolve(el); }
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-  });
-
-  const modelUrl = mount.dataset.modelUrl || './assets/models/splatrball-400.glb';
-
-  const getSize = () => ({ w: mount.clientWidth || 380, h: mount.clientHeight || 380 });
-  let { w, h } = getSize();
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
-  camera.position.set(0, 0, 5);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(w, h);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.domElement.style.display = 'block';
-  mount.appendChild(renderer.domElement);
-
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
-  keyLight.position.set(3, 4, 5);
-  scene.add(keyLight);
-  const fillLight = new THREE.DirectionalLight(ACCENT, 0.55);
-  fillLight.position.set(-3, 1, 3);
-  scene.add(fillLight);
-  const rimLight = new THREE.DirectionalLight(0x88ccff, 0.5);
-  rimLight.position.set(0, 2, -5);
-  scene.add(rimLight);
-  scene.add(new THREE.PointLight(ACCENT, 0.3, 10).translateY(-2).translateZ(2));
-
-  // yawPivot rotates around world Y → muzzle azimuth.
-  // model.rotation.z (muzzle is along model-local -X) → muzzle elevation.
-  const yawPivot = new THREE.Group();
-  scene.add(yawPivot);
-
-  const target = { yaw: BASE_YAW, pitch: BASE_PITCH };
-  const current = { yaw: BASE_YAW, pitch: BASE_PITCH };
-  let model = null;
-
-  window.addEventListener('pointermove', (e) => {
-    const mx = (e.clientX / window.innerWidth) * 2 - 1;   // -1 left … +1 right
-    const my = (e.clientY / window.innerHeight) * 2 - 1;  // -1 top  … +1 bottom
-    target.yaw = BASE_YAW + mx * YAW_RANGE;               // mouse right → muzzle right
-    target.pitch = my * PITCH_RANGE;                      // mouse up → muzzle up
-  });
-
-  new GLTFLoader().load(modelUrl, (gltf) => {
-    model = gltf.scene;
-    const box = new THREE.Box3().setFromObject(model);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    if (maxDim > 0) model.scale.multiplyScalar(2.6 / maxDim);
-    box.setFromObject(model);
-    box.getCenter(center);
-    model.position.sub(center);
-    yawPivot.add(model);
-  }, undefined, (err) => console.error('[hero-3d] model load failed:', err));
-
-  let prevTime = performance.now() / 1000;
-  renderer.setAnimationLoop(() => {
-    const now = performance.now() / 1000;
-    // Clamp dt so a backgrounded tab returning doesn't jolt the model.
-    const dt = Math.min(now - prevTime, 0.1);
-    prevTime = now;
-    // Frame-rate-independent exponential smoothing. At 60 Hz with rate=12,
-    // alpha ≈ 0.18 per frame — snappier than the old fixed 0.08 lerp AND
-    // it stays consistent on 120 Hz / 144 Hz displays.
-    const alpha = 1 - Math.exp(-TRACK_RATE * dt);
-    current.yaw   += (target.yaw   - current.yaw)   * alpha;
-    current.pitch += (target.pitch - current.pitch) * alpha;
-    yawPivot.rotation.y = current.yaw;
-    if (model) model.rotation.z = current.pitch;
-    renderer.render(scene, camera);
-  });
-
-  const resize = () => {
-    const s = getSize();
-    if (!s.w || !s.h) return;
-    camera.aspect = s.w / s.h;
-    camera.updateProjectionMatrix();
-    renderer.setSize(s.w, s.h);
-  };
-  window.addEventListener('resize', resize);
-  new ResizeObserver(resize).observe(mount);
-</script>
+<script type="module" src="/dist/landing.js"></script>
 
 </body>
 </html>
