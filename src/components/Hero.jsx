@@ -23,6 +23,14 @@ export function Hero() {
 
   const [authState, setAuthState] = React.useState('checking');
   React.useEffect(() => {
+    // Skip the auth probe entirely for visitors with no cookies — they
+    // can't be authed, so a request would just 401 and log a console
+    // error. Anonymous visitor is the overwhelming case for a public
+    // landing page; once the user logs in elsewhere, a cookie lands and
+    // the probe runs on their next visit.
+    const hasCookie = typeof document !== 'undefined' && !!document.cookie;
+    if (!hasCookie) { setAuthState('unverified'); return; }
+
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 1500);
     fetch('/api/account/profile', {
