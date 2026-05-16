@@ -29,13 +29,25 @@
       ]
     },
     {
-      "source": "/dist/landing.js(\\.map)?",
+      "source": "/dist/landing.js",
       "headers": [
         { "key": "Cache-Control", "value": "public, no-cache, must-revalidate" }
       ]
     },
     {
-      "source": "/dist/(.*-[A-Z0-9]+\\.(js|js\\.map|css))",
+      "source": "/dist/landing.js.map",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/dist/:hashed(.*-[A-Z0-9]+).js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/dist/:hashed(.*-[A-Z0-9]+).js.map",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
