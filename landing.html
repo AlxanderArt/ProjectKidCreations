@@ -9,6 +9,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
   <link rel="canonical" href="https://projectkidcreations.com/landing.html">
 
+  <!-- Design tokens — single source of truth for color/motion across surfaces -->
+  <link rel="stylesheet" href="/tokens.css">
+
   <!-- Open Graph — share preview for Discord / iMessage / X / Slack -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="ProjectKidCreations">
@@ -78,34 +81,21 @@
       unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
     }
 
-    :root {
-      color-scheme: dark;
-      --pkc-tac-black: #0A0A0A;
-      --pkc-hi-vis: #FF5F1F;
-      --pkc-slate: #3F4448;
-      --pkc-ghost: #1A1C1E;
-      --pkc-concrete: #E8E8E8;
-      --pkc-text-muted: #9AA0A4;
-      --pkc-border-strong: #5A5F63;
-      --pkc-surface-raised: #24272A;
-      --ease-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
-      --ease-scan: steps(8, end);
-    }
     *, *::before, *::after { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
       margin: 0; padding: 0;
-      background: #0A0A0A; color: #E8E8E8;
+      background: var(--pkc-tac-black); color: var(--pkc-concrete);
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 16px; line-height: 1.5; letter-spacing: 0.01em;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       overflow-x: hidden;
     }
-    ::selection { background: #FF5F1F; color: #0A0A0A; }
+    ::selection { background: var(--pkc-hi-vis); color: var(--pkc-tac-black); }
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #0A0A0A; }
-    ::-webkit-scrollbar-thumb { background: #3F4448; }
+    ::-webkit-scrollbar-track { background: var(--pkc-tac-black); }
+    ::-webkit-scrollbar-thumb { background: var(--pkc-slate); }
 
     /* Keyboard-only focus ring — survives across all anchors, buttons,
        role=button cards. Hidden for mouse clicks via :focus-visible. */
@@ -114,14 +104,14 @@
     button:focus-visible,
     [role="button"]:focus-visible,
     [tabindex]:focus-visible {
-      outline: 2px solid #FF5F1F;
+      outline: 2px solid var(--pkc-hi-vis);
       outline-offset: 2px;
     }
 
     /* Skip link — invisible until keyboard-focused, then anchors to main. */
     .pkc-skip {
       position: absolute; left: -9999px; top: 8px;
-      background: #FF5F1F; color: #0A0A0A;
+      background: var(--pkc-hi-vis); color: var(--pkc-tac-black);
       padding: 8px 14px; font-weight: 700; font-size: 12px;
       letter-spacing: 0.05em; text-transform: uppercase;
       font-family: 'JetBrains Mono', monospace;

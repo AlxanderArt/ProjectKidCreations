@@ -22,16 +22,16 @@ export function ValueProps() {
   }, []);
 
   return (
-    <section id="about" ref={ref} style={{ padding: '80px 0', background: '#0A0A0A', borderTop: '1px solid #3F4448' }}>
+    <section id="about" ref={ref} style={{ padding: '80px 0', background: 'var(--pkc-tac-black)', borderTop: '1px solid var(--pkc-slate)' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: '#5A5F63', letterSpacing: '0.08em', marginBottom: 8,
+          color: 'var(--pkc-border-strong)', letterSpacing: '0.08em', marginBottom: 8,
         }}>{'// WHY PKC'}</div>
 
         <h2 style={{
           fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
-          fontSize: isMobile ? 28 : 40, color: '#E8E8E8', textTransform: 'uppercase',
+          fontSize: isMobile ? 28 : 40, color: 'var(--pkc-concrete)', textTransform: 'uppercase',
           margin: '0 0 48px', maxWidth: 500, lineHeight: 1.1, letterSpacing: '-0.02em',
         }}>
           BUILT DIFFERENT.<br/><span style={{ color: a }}>BY DESIGN.</span>
@@ -44,18 +44,18 @@ export function ValueProps() {
         }}>
           {PKC_VALUES.map((v, i) => (
             <div key={i} style={{
-              padding: '24px 20px', background: '#1A1C1E',
-              border: '1px solid #3F4448', borderRadius: 2,
+              padding: '24px 20px', background: 'var(--pkc-ghost)',
+              border: '1px solid var(--pkc-slate)', borderRadius: 2,
               transition: 'border-color 120ms cubic-bezier(0.2,0.8,0.2,1), opacity 480ms, transform 480ms',
               transitionDelay: `0ms, ${i*80}ms, ${i*80}ms`,
               transitionTimingFunction: 'cubic-bezier(0.2,0.8,0.2,1)',
               opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(16px)',
             }}
               onMouseEnter={e => e.currentTarget.style.borderColor=a}
-              onMouseLeave={e => e.currentTarget.style.borderColor='#3F4448'}>
+              onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
 
               <div aria-hidden="true" style={{
-                width: 36, height: 36, background: '#0A0A0A',
+                width: 36, height: 36, background: 'var(--pkc-tac-black)',
                 border: `1px solid ${a}40`, borderRadius: 2,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 16, color: a, marginBottom: 16,
@@ -63,13 +63,13 @@ export function ValueProps() {
 
               <h3 style={{
                 fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
-                fontSize: 13, color: '#E8E8E8', margin: '0 0 8px',
+                fontSize: 13, color: 'var(--pkc-concrete)', margin: '0 0 8px',
                 textTransform: 'uppercase', letterSpacing: '-0.01em',
               }}>{v.title}</h3>
 
               <p style={{
                 fontFamily: '"JetBrains Mono", monospace', fontSize: 12,
-                color: '#9AA0A4', lineHeight: 1.6, margin: 0,
+                color: 'var(--pkc-text-muted)', lineHeight: 1.6, margin: 0,
                 letterSpacing: '0.01em',
               }}>{v.desc}</p>
             </div>

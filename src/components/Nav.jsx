@@ -6,7 +6,7 @@ const navStyles = {
   nav: {
     position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
     background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(8px)',
-    borderBottom: '1px solid #3F4448',
+    borderBottom: '1px solid var(--pkc-slate)',
   },
   inner: {
     maxWidth: 1280, margin: '0 auto',
@@ -16,32 +16,32 @@ const navStyles = {
   logo: {
     fontFamily: '"Archivo Black", sans-serif',
     fontWeight: 900, fontSize: 15, letterSpacing: '-0.02em',
-    color: '#E8E8E8', textTransform: 'uppercase', cursor: 'pointer',
+    color: 'var(--pkc-concrete)', textTransform: 'uppercase', cursor: 'pointer',
   },
   links: {
     display: 'flex', gap: 28, alignItems: 'center',
     listStyle: 'none', margin: 0, padding: 0,
   },
   link: {
-    color: '#9AA0A4', fontSize: 12, fontWeight: 500,
+    color: 'var(--pkc-text-muted)', fontSize: 12, fontWeight: 500,
     letterSpacing: '0.05em', textTransform: 'uppercase',
     cursor: 'pointer', transition: 'color 120ms cubic-bezier(0.2,0.8,0.2,1)',
     textDecoration: 'none', fontFamily: '"JetBrains Mono", monospace',
   },
   mobileToggle: {
     display: 'block', background: 'none', border: 'none',
-    color: '#E8E8E8', fontSize: 16, cursor: 'pointer', padding: 8,
+    color: 'var(--pkc-concrete)', fontSize: 16, cursor: 'pointer', padding: 8,
     fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.1em',
   },
   mobileMenu: {
     position: 'fixed', top: 56, left: 0, right: 0, bottom: 0,
-    background: '#0A0A0A', zIndex: 99,
+    background: 'var(--pkc-tac-black)', zIndex: 99,
     display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
     padding: '32px', gap: 24,
-    borderTop: '1px solid #3F4448',
+    borderTop: '1px solid var(--pkc-slate)',
   },
   mobileLink: {
-    color: '#9AA0A4', fontSize: 13, fontWeight: 500,
+    color: 'var(--pkc-text-muted)', fontSize: 13, fontWeight: 500,
     textTransform: 'uppercase', letterSpacing: '0.05em',
     cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace',
     textDecoration: 'none',
@@ -86,14 +86,14 @@ export function Nav() {
               <li key={item.href}>
                 <a href={item.href} style={navStyles.link}
                    onMouseEnter={e => e.currentTarget.style.color=a}
-                   onMouseLeave={e => e.currentTarget.style.color='#9AA0A4'}>
+                   onMouseLeave={e => e.currentTarget.style.color='var(--pkc-text-muted)'}>
                   {item.label}
                 </a>
               </li>
             ))}
             <li>
               <a href="#contact" style={ctaStyle(a)} role="button"
-                 onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='#0A0A0A'; }}
+                 onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='var(--pkc-tac-black)'; }}
                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=a; }}>
                 ENTER
               </a>
