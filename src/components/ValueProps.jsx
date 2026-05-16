@@ -1,4 +1,6 @@
 import React from 'react';
+import { useAccent } from '../AccentContext.jsx';
+import { useIsMobile } from '../hooks.js';
 
 const PKC_VALUES = [
   { icon: '◆', title: 'CUSTOM DESIGN', desc: 'Every mod designed in-house. Unique geometry you won\'t find anywhere else.' },
@@ -7,15 +9,9 @@ const PKC_VALUES = [
   { icon: '⬡', title: 'PERFORMANCE FIT', desc: 'Engineered tolerances for drop-in fitment. No filing. No forcing.' },
 ];
 
-export function ValueProps({ accent }) {
-  const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 768 : false
-  );
-  React.useEffect(() => {
-    const h = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', h); return () => window.removeEventListener('resize', h);
-  }, []);
+export function ValueProps() {
+  const a = useAccent();
+  const isMobile = useIsMobile();
 
   const ref = React.useRef(null);
   const [vis, setVis] = React.useState(false);
@@ -26,11 +22,11 @@ export function ValueProps({ accent }) {
   }, []);
 
   return (
-    <section ref={ref} style={{ padding: '80px 0', background: '#0A0A0A', borderTop: '1px solid #3F4448' }}>
+    <section id="about" ref={ref} style={{ padding: '80px 0', background: '#0A0A0A', borderTop: '1px solid #3F4448' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
         <div style={{
           fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: '#3F4448', letterSpacing: '0.08em', marginBottom: 8,
+          color: '#5A5F63', letterSpacing: '0.08em', marginBottom: 8,
         }}>{'// WHY PKC'}</div>
 
         <h2 style={{
@@ -58,7 +54,7 @@ export function ValueProps({ accent }) {
               onMouseEnter={e => e.currentTarget.style.borderColor=a}
               onMouseLeave={e => e.currentTarget.style.borderColor='#3F4448'}>
 
-              <div style={{
+              <div aria-hidden="true" style={{
                 width: 36, height: 36, background: '#0A0A0A',
                 border: `1px solid ${a}40`, borderRadius: 2,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
