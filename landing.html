@@ -97,6 +97,10 @@
     ::-webkit-scrollbar-track { background: var(--pkc-tac-black); }
     ::-webkit-scrollbar-thumb { background: var(--pkc-slate); }
 
+    /* Anchors carry brand styling, never browser-default underline.
+       Every link on this surface is intentionally styled by its component. */
+    a { text-decoration: none; color: inherit; }
+
     /* Keyboard-only focus ring — survives across all anchors, buttons,
        role=button cards. Hidden for mouse clicks via :focus-visible. */
     :focus { outline: none; }
