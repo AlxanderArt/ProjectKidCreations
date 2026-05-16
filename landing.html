@@ -7,6 +7,40 @@
   <title>PROJECTKIDCREATIONS // ENGINEERED REBELLION</title>
   <meta name="description" content="Custom-engineered gel blaster mods and tactical accessories. Precision-printed aggression.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
+  <link rel="canonical" href="https://projectkidcreations.com/landing.html">
+
+  <!-- Open Graph — share preview for Discord / iMessage / X / Slack -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ProjectKidCreations">
+  <meta property="og:title" content="PROJECTKIDCREATIONS // ENGINEERED REBELLION">
+  <meta property="og:description" content="Custom-engineered gel blaster mods and tactical accessories. Precision-printed aggression.">
+  <meta property="og:url" content="https://projectkidcreations.com/landing.html">
+  <meta property="og:image" content="https://projectkidcreations.com/assets/og/landing.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A black-and-orange Splatrball 400 blaster on a tactical-black backdrop with the headline ENGINEERED REBELLION.">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PROJECTKIDCREATIONS // ENGINEERED REBELLION">
+  <meta name="twitter:description" content="Custom-engineered gel blaster mods and tactical accessories. Precision-printed aggression.">
+  <meta name="twitter:image" content="https://projectkidcreations.com/assets/og/landing.png">
+
+  <!-- Theme color for the mobile address bar -->
+  <meta name="theme-color" content="#0A0A0A">
+
+  <!-- Organization schema for branded search -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "ProjectKidCreations",
+    "alternateName": "PKC",
+    "url": "https://projectkidcreations.com",
+    "description": "Custom-engineered gel blaster mods and tactical accessories. 3D-printed precision parts.",
+    "sameAs": []
+  }
+  </script>
 
   <style>
     /* Self-hosted fonts (latin subset). Drop-in replacements for the
@@ -73,6 +107,30 @@
     ::-webkit-scrollbar-track { background: #0A0A0A; }
     ::-webkit-scrollbar-thumb { background: #3F4448; }
 
+    /* Keyboard-only focus ring — survives across all anchors, buttons,
+       role=button cards. Hidden for mouse clicks via :focus-visible. */
+    :focus { outline: none; }
+    a:focus-visible,
+    button:focus-visible,
+    [role="button"]:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid #FF5F1F;
+      outline-offset: 2px;
+    }
+
+    /* Skip link — invisible until keyboard-focused, then anchors to main. */
+    .pkc-skip {
+      position: absolute; left: -9999px; top: 8px;
+      background: #FF5F1F; color: #0A0A0A;
+      padding: 8px 14px; font-weight: 700; font-size: 12px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      text-decoration: none; border-radius: 2px; z-index: 1000;
+    }
+    .pkc-skip:focus-visible {
+      left: 8px;
+    }
+
     @keyframes pkc-status-pulse {
       0%, 100% { opacity: 1; }
       50%      { opacity: 0; }
@@ -103,6 +161,7 @@
 </head>
 <body>
 
+<a href="#mods" class="pkc-skip">Skip to content</a>
 <div id="root"></div>
 
 <script type="module" src="/dist/landing.js"></script>
