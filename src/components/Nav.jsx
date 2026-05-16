@@ -61,6 +61,7 @@ function ctaStyle(accent) {
     padding: '8px 18px', fontSize: 12, fontWeight: 700,
     cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace',
     letterSpacing: '0.05em', textTransform: 'uppercase',
+    textDecoration: 'none', display: 'inline-block',
     transition: 'background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms cubic-bezier(0.2,0.8,0.2,1)',
     clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
     borderRadius: '2px',
