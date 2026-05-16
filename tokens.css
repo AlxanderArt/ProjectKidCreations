@@ -1,0 +1,37 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   PKC Design Tokens — single source of truth for color, motion, and surface.
+
+   Imported by every surface that wants the brand: landing, account, phases.
+   Components reference these as CSS custom properties (var(--pkc-hi-vis))
+   rather than hardcoded hex codes, so a brand-color change is one diff in
+   one file instead of grepping across the codebase.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Surface ── */
+  --pkc-tac-black:       #0A0A0A; /* Page background / negative space */
+  --pkc-ghost:           #1A1C1E; /* Raised cards, marquee tiles */
+  --pkc-surface-sunken:  #141416; /* Inset wells (product-image placeholder) */
+  --pkc-surface-raised:  #24272A; /* Higher-contrast raised surface */
+
+  /* ── Lines & borders ── */
+  --pkc-slate:           #3F4448; /* Default border / divider */
+  --pkc-border-strong:   #5A5F63; /* High-contrast border, muted text */
+
+  /* ── Type ── */
+  --pkc-concrete:        #E8E8E8; /* Primary text on dark */
+  --pkc-text-muted:      #9AA0A4; /* Secondary text on dark */
+
+  /* ── Accent (brand orange) ── */
+  --pkc-hi-vis:          #FF5F1F;
+
+  /* ── Status colors ── */
+  --pkc-verified:        #39FF14;
+  --pkc-error:           #FF3333;
+
+  /* ── Motion ── */
+  --ease-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-scan:   steps(8, end);
+}
