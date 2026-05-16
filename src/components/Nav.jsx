@@ -1,4 +1,4 @@
-/* ── PKC Nav — matches live site exactly ── */
+import React from 'react';
 
 const pkcNavStyles = {
   nav: {
@@ -54,10 +54,12 @@ const pkcNavStyles = {
   },
 };
 
-function Nav({ accent }) {
+export function Nav({ accent }) {
   const a = accent || '#FF5F1F';
   const [open, setOpen] = React.useState(false);
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
 
   React.useEffect(() => {
     const h = () => { setIsMobile(window.innerWidth < 768); if (window.innerWidth >= 768) setOpen(false); };
@@ -101,5 +103,3 @@ function Nav({ accent }) {
     </nav>
   );
 }
-
-window.Nav = Nav;

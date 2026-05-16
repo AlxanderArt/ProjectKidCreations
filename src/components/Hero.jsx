@@ -1,8 +1,10 @@
-/* ── PKC Hero — scan-line reveal, brutalist layout ── */
+import React from 'react';
 
-function Hero({ accent }) {
+export function Hero({ accent }) {
   const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
   const [phase, setPhase] = React.useState(0);
 
   React.useEffect(() => {
@@ -20,12 +22,13 @@ function Hero({ accent }) {
     transition: 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1)',
   });
 
-  // Live verification indicator on the // STATUS: line.
-  const [authState, setAuthState] = React.useState('checking'); // 'checking' | 'verified' | 'unverified'
+  const [authState, setAuthState] = React.useState('checking');
 
   React.useEffect(() => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 4000);
+    // 1500ms — fast enough that the chip doesn't visibly hang on slow links,
+    // long enough to cover normal API latency on Vercel.
+    const t = setTimeout(() => ctrl.abort(), 1500);
     fetch('/api/account/profile', {
       method: 'GET', credentials: 'include', cache: 'no-store', signal: ctrl.signal,
     })
@@ -41,22 +44,37 @@ function Hero({ accent }) {
                      : authState === 'unverified' ? '#FF3333'
                      :                              '#3F4448';
 
+  // Lazy-mount the 3D hero only on devices with a fine pointer (skip touch).
+  // The hero3d module is dynamically imported so three.js doesn't block LCP.
+  const mountRef = React.useRef(null);
+  React.useEffect(() => {
+    const el = mountRef.current;
+    if (!el) return;
+    const finePointer = typeof window !== 'undefined' &&
+      window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+    if (!finePointer) return;
+    let dispose = null;
+    let cancelled = false;
+    import('../hero3d.js').then(({ mount }) => {
+      if (cancelled) return;
+      dispose = mount(el);
+    }).catch((err) => console.error('[hero-3d] module load failed:', err));
+    return () => { cancelled = true; if (dispose) dispose(); };
+  }, []);
+
   return (
     <section style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
       position: 'relative', overflow: 'hidden', background: '#0A0A0A',
     }}>
-      {/* Scan-line texture */}
       <div style={{
         position: 'absolute', inset: 0, opacity: 0.02, pointerEvents: 'none',
         backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.4) 2px, rgba(255,255,255,0.4) 3px)',
       }} />
-      {/* Vertical grid lines */}
       <div style={{
         position: 'absolute', inset: 0, opacity: 0.015, pointerEvents: 'none',
         backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 119px, rgba(255,255,255,0.5) 120px)',
       }} />
-      {/* Accent glow */}
       <div style={{
         position: 'absolute', top: '20%', right: '-10%', width: 600, height: 600,
         background: `radial-gradient(circle, ${a}06 0%, transparent 70%)`,
@@ -69,10 +87,6 @@ function Hero({ accent }) {
         position: 'relative', zIndex: 2, width: '100%',
       }}>
         <div style={{ flex: isMobile ? 'unset' : '1 1 55%' }}>
-          {/* Live verification indicator —
-              checking = slate, verified = solid green, unverified = smooth red pulse.
-              CSS @keyframes pkc-status-pulse lives in landing.html and is suppressed
-              by the existing prefers-reduced-motion rule. */}
           <div style={{
             fontFamily: '"JetBrains Mono", monospace',
             fontSize: 11,
@@ -87,7 +101,6 @@ function Hero({ accent }) {
               : 'none',
           }}>{STATUS_TEXT}</div>
 
-          {/* Tag chip */}
           <div style={{
             ...fade(1),
             display: 'inline-flex', padding: '2px 8px',
@@ -97,7 +110,6 @@ function Hero({ accent }) {
             textTransform: 'uppercase', marginBottom: 24, borderRadius: 2,
           }}>3D PRINTED PRECISION</div>
 
-          {/* H1 */}
           <h1 style={{
             ...fade(1),
             fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
@@ -109,7 +121,6 @@ function Hero({ accent }) {
             <span style={{ color: a }}>REBELLION.</span>
           </h1>
 
-          {/* Body — JetBrains Mono */}
           <p style={{
             ...fade(2),
             fontFamily: '"JetBrains Mono", monospace', fontSize: 14,
@@ -119,7 +130,6 @@ function Hero({ accent }) {
             Custom-engineered gel blaster mods and tactical accessories. Designed for performance. Built for those who refuse generic parts.
           </p>
 
-          {/* CTAs — matching live site pattern */}
           <div style={{ ...fade(3), display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button style={{
               background: 'transparent', color: a, border: `2px solid ${a}`,
@@ -149,15 +159,15 @@ function Hero({ accent }) {
           </div>
         </div>
 
-        {/* 3D model mount — bootstrapped by the <script type="module"> in the host HTML */}
         <div style={{
           flex: isMobile ? 'unset' : '1 1 45%',
           marginTop: isMobile ? 40 : 0,
           display: 'flex', justifyContent: 'center',
         }}>
           <div
+            ref={mountRef}
             id="hero-3d-mount"
-            data-model-url="./assets/models/splatrball-400.glb"
+            data-model-url="/assets/models/splatrball-400.glb"
             style={{
               ...fade(2),
               width: isMobile ? '100%' : 380,
@@ -170,5 +180,3 @@ function Hero({ accent }) {
     </section>
   );
 }
-
-window.Hero = Hero;

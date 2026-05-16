@@ -4,7 +4,9 @@
   "description": "ProjectKidCreations — tactical 3D-printed gel-blaster mods. Onboarding pipeline + product surfaces.",
   "private": true,
   "scripts": {
-    "dev": "python3 -m http.server 8765"
+    "dev": "python3 -m http.server 8765",
+    "build": "esbuild src/landing.jsx --bundle --minify --format=esm --jsx=automatic --target=es2020 --outdir=dist --splitting --legal-comments=none --metafile=dist/landing.meta.json --entry-names=[name]",
+    "vercel-build": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -12,6 +14,12 @@
   },
   "license": "ISC",
   "dependencies": {
-    "@vercel/blob": "^2.3.3"
+    "@vercel/blob": "^2.3.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
   }
 }

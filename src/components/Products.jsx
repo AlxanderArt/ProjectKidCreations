@@ -1,4 +1,4 @@
-/* ── PKC Products — infinite right-to-left marquee, brutalist cards ── */
+import React from 'react';
 
 const PKC_PRODUCTS = [
   { name: 'VIPER SHROUD', desc: 'Barrel-mounted tactical shroud with integrated rail system.', tag: '// POPULAR' },
@@ -9,10 +9,12 @@ const PKC_PRODUCTS = [
   { name: 'GHOST MAG', desc: 'Extended magazine housing with window cutout.', tag: '// NEW' },
 ];
 
-function Products({ accent }) {
+export function Products({ accent }) {
   const a = accent || '#FF5F1F';
 
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
   React.useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', onResize);
@@ -27,7 +29,6 @@ function Products({ accent }) {
     return () => obs.disconnect();
   }, []);
 
-  // Always render the marquee with two copies of the list for a seamless wrap.
   const ROW = PKC_PRODUCTS.concat(PKC_PRODUCTS);
 
   const onCardActivate = (p) => {
@@ -63,7 +64,6 @@ function Products({ accent }) {
         </div>
       </div>
 
-      {/* Full-bleed viewport so the mask can fade against the page background */}
       <div
         className="pkc-marquee-viewport"
         style={{
@@ -151,5 +151,3 @@ function Products({ accent }) {
     </section>
   );
 }
-
-window.Products = Products;
