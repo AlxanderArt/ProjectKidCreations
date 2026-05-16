@@ -1,6 +1,5 @@
-/* ── PKC Showcase + Social + CTA + Footer ── */
+import React from 'react';
 
-/* Gallery */
 const PKC_GRID = [
   { label: '// DETAIL SHOT — TEXTURE CLOSE-UP', span: 'span 2' },
   { label: '// MOUNTED ON BLASTER', span: 'auto' },
@@ -8,9 +7,11 @@ const PKC_GRID = [
   { label: '// FULL MOD LINEUP', span: 'span 2' },
 ];
 
-function Showcase({ accent }) {
+export function Showcase({ accent }) {
   const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
   React.useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h); return () => window.removeEventListener('resize', h);
@@ -58,10 +59,11 @@ function Showcase({ accent }) {
 }
 
 
-/* Social Proof + Stats */
-function Social({ accent }) {
+export function Social({ accent }) {
   const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
   React.useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h); return () => window.removeEventListener('resize', h);
@@ -83,7 +85,6 @@ function Social({ accent }) {
           color: '#3F4448', letterSpacing: '0.08em', marginBottom: 24,
         }}>{'// INTEL'}</div>
 
-        {/* Quote with bold left border */}
         <div style={{
           borderLeft: `4px solid ${a}`, paddingLeft: 20, marginBottom: 48,
           opacity: vis ? 1 : 0, transform: vis ? 'translateX(0)' : 'translateX(-12px)',
@@ -103,7 +104,6 @@ function Social({ accent }) {
           }}>— @tacticalbuilds</p>
         </div>
 
-        {/* Stats row */}
         <div style={{ display: 'flex', gap: isMobile ? 32 : 56, flexWrap: 'wrap' }}>
           {[['500+', 'MODS SOLD'], ['50+', 'UNIQUE DESIGNS'], ['4.9', 'AVG RATING']].map(([n, l], i) => (
             <div key={i} style={{
@@ -127,8 +127,7 @@ function Social({ accent }) {
 }
 
 
-/* Spec Strip — horizontal spec row */
-function SpecStrip({ accent }) {
+export function SpecStrip({ accent }) {
   const a = accent || '#FF5F1F';
   const specs = [
     ['LAYER HEIGHT', '0.12mm'], ['TOLERANCE', '±0.1mm'],
@@ -159,10 +158,11 @@ function SpecStrip({ accent }) {
 }
 
 
-/* Final CTA */
-function FinalCTA({ accent }) {
+export function FinalCTA({ accent }) {
   const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
   React.useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h); return () => window.removeEventListener('resize', h);
@@ -173,7 +173,6 @@ function FinalCTA({ accent }) {
       padding: '80px 0', position: 'relative', overflow: 'hidden',
       background: '#0A0A0A', borderTop: `4px solid ${a}`,
     }}>
-      {/* Subtle accent gradient */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 200,
         background: `linear-gradient(180deg, ${a}08, transparent)`,
@@ -229,10 +228,11 @@ function FinalCTA({ accent }) {
 }
 
 
-/* Footer */
-function Footer({ accent }) {
+export function Footer({ accent }) {
   const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
   React.useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h); return () => window.removeEventListener('resize', h);
@@ -277,9 +277,3 @@ function Footer({ accent }) {
     </footer>
   );
 }
-
-window.Showcase = Showcase;
-window.Social = Social;
-window.SpecStrip = SpecStrip;
-window.FinalCTA = FinalCTA;
-window.Footer = Footer;

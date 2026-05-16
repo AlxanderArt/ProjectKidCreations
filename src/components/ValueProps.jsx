@@ -1,4 +1,4 @@
-/* ── PKC Value Props — staggered reveal, spec-row style ── */
+import React from 'react';
 
 const PKC_VALUES = [
   { icon: '◆', title: 'CUSTOM DESIGN', desc: 'Every mod designed in-house. Unique geometry you won\'t find anywhere else.' },
@@ -7,9 +7,11 @@ const PKC_VALUES = [
   { icon: '⬡', title: 'PERFORMANCE FIT', desc: 'Engineered tolerances for drop-in fitment. No filing. No forcing.' },
 ];
 
-function ValueProps({ accent }) {
+export function ValueProps({ accent }) {
   const a = accent || '#FF5F1F';
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
   React.useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h); return () => window.removeEventListener('resize', h);
@@ -81,5 +83,3 @@ function ValueProps({ accent }) {
     </section>
   );
 }
-
-window.ValueProps = ValueProps;
