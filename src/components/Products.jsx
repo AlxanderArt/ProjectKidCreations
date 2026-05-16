@@ -66,13 +66,12 @@ export function Products() {
       >
         <div
           ref={trackRef}
-          className="pkc-marquee-track"
+          className={`pkc-marquee-track ${inView ? '' : 'pkc-paused'}`}
           style={{
             display: 'flex',
             gap: 16,
             width: 'max-content',
             animation: 'pkc-marquee 60s linear infinite',
-            animationPlayState: inView ? 'running' : 'paused',
             willChange: inView ? 'transform' : 'auto',
           }}
         >
