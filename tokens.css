@@ -7,6 +7,27 @@
    one file instead of grepping across the codebase.
    ───────────────────────────────────────────────────────────────────────── */
 
+/* ── Self-hosted brand fonts ──────────────────────────────────────────────────
+   Served from same-origin /assets/fonts so the strict CSP (font-src 'self')
+   never has to allow a third-party font CDN. Latin subsets; both are static
+   single-weight files, so the mono face covers the whole weight range and the
+   browser synthesizes heavier weights where the brand asks for 500/700.
+   ───────────────────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/assets/fonts/jetbrains-mono-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Archivo Black";
+  src: url("/assets/fonts/archivo-black-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
 
