@@ -132,34 +132,23 @@
             </div>
           </div>
 
+          <!-- Avatar upload is deferred until Vercel Blob storage is provisioned.
+               The dropzone, file input, and upload-worker.js are intentionally
+               omitted so no upload can be triggered against the missing
+               /api/avatar-upload route. The field stays visible (optional) with
+               a disabled "coming soon" panel. Restore from git history +
+               .deferred/avatar-upload.js.gated-on-supabase when Blob is ready. -->
           <div class="field" data-field="avatar">
-            <label class="field-label" for="avatar-input">Avatar</label>
-            <div class="dropzone" id="dropzone" data-state="idle" tabindex="0" role="button" aria-label="upload avatar image">
+            <span class="field-label">Avatar</span>
+            <div class="dropzone" data-state="disabled" aria-disabled="true">
               <div class="dropzone-idle">
-                <p class="dropzone-glyph" aria-hidden="true">＋</p>
-                <p class="dropzone-line">DROP IMAGE OR <span class="hl">CLICK TO BROWSE</span></p>
-                <p class="dropzone-meta">JPEG / PNG / WEBP &nbsp;//&nbsp; ≤2MB &nbsp;//&nbsp; downscaled to 1024px</p>
+                <p class="dropzone-glyph" aria-hidden="true">⏳</p>
+                <p class="dropzone-line">AVATAR UPLOAD <span class="hl">COMING SOON</span></p>
+                <p class="dropzone-meta">// you can finish setup without one</p>
               </div>
-              <div class="dropzone-progress" hidden>
-                <p class="dropzone-line">// UPLOADING</p>
-                <div class="upload-bar"><span class="upload-bar-fill" id="upload-bar-fill"></span></div>
-              </div>
-              <div class="dropzone-preview" hidden>
-                <img id="avatar-preview" alt="avatar preview">
-                <div class="dropzone-preview-meta">
-                  <p class="dropzone-line">// LOCKED IN</p>
-                  <button type="button" class="link-btn" id="avatar-replace">// REPLACE</button>
-                </div>
-              </div>
-              <input
-                id="avatar-input"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                hidden>
             </div>
             <div class="error-region" data-field="avatar">
-              <span class="error-msg" id="avatar-error" hidden></span>
-              <span class="error-hint">Square works best. Optional.</span>
+              <span class="error-hint">Optional. You'll be able to add one later.</span>
             </div>
           </div>
 
@@ -393,6 +382,16 @@
       <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="success-username">—</span></p>
       <p class="momentum">Completed&nbsp;&nbsp;<span class="hl" id="success-completed">—</span></p>
       <p class="kill-meta" id="success-test-banner" hidden>Test mode — your profile was not persisted.</p>
+      <!-- Direct hand-off into the site. Revealed only when the bootstrap POST
+           returns a redeem token, so completion isn't stranded waiting on the
+           email. Without a token this stays hidden and the email (resend below)
+           is the path — the bootstrap page needs a token to set a password. -->
+      <p class="momentum" id="enter-site-row" hidden>
+        <a class="cta" id="enter-site-link" href="#">
+          ENTER THE SITE
+          <span aria-hidden="true">→</span>
+        </a>
+      </p>
       <!-- Phase 4 re-send affordance. The bootstrap email is fired on
            Phase 3 success as a best-effort POST to /api/account/bootstrap.
            If the user never sees it, this button re-queues the same payload. -->
@@ -431,19 +430,17 @@
       SAVE_URL:           "/api/phase-three/save",
       EVENT_URL:          "/api/phase-three/event",
       CHECK_USERNAME_URL: "/api/phase-three/check-username",
-      AVATAR_UPLOAD_URL:  "/api/avatar-upload",
       EXPECTED_API_VERSION: "1.0.0",
       LOADING_TIMEOUT_MS: 12000,
       AUTO_RETRY_DELAY_MS: 1500,
       ABANDON_AFTER_MS: 120000,
-      USERNAME_DEBOUNCE_MS: 300,
-      AVATAR_MAX_BYTES: 2 * 1024 * 1024,
-      AVATAR_MAX_DIM: 1024
+      USERNAME_DEBOUNCE_MS: 300
+      // Avatar upload config (AVATAR_UPLOAD_URL / AVATAR_MAX_*) and the
+      // upload-worker.js include are deferred until Vercel Blob is provisioned.
     };
   </script>
-  <script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js" defer></script>
+  <script src="/assets/vendor/gsap.min.js" defer></script>
   <script src="motion.js" defer></script>
-  <script src="upload-worker.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
