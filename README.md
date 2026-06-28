@@ -38,10 +38,17 @@ A three-phase onboarding system for kids who create. Phase One captures intent. 
 
 - ![LIVE](./assets/badges/live.svg) **Phase One** → https://projectkidcreations.io/
 - ![LIVE](./assets/badges/live.svg) **Phase Two** → token-gated (signed link emailed after Phase One)
-- ![LIVE](./assets/badges/live.svg) **Phase Three** → token-gated (signed link emailed after Phase Two redemption)
-- ![UPCOMING](https://img.shields.io/badge/UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a) **Phase Four · ACCESS GRANTED** → verified-state dashboard (planning complete, gated on Supabase)
+- ![LIVE](./assets/badges/live.svg) **Phase Three** → token-gated (signed link emailed after Phase Two redemption). On completion, a bootstrap email mints the operator account; if the bootstrap response carries a redeem token the success screen also offers a direct **ENTER THE SITE →** hand-off.
+- ![LIVE](./assets/badges/live.svg) **Account system** (`/account/*`) → real login, profile, sessions, password, email-change, delete, admin. Wired to n8n. This is the account-management layer, distinct from the Phase Four dashboard.
+- ![UPCOMING](https://img.shields.io/badge/UPCOMING-ff5f1f?style=flat-square&labelColor=0a0a0a) **Phase Four · ACCESS GRANTED** (`/phase-four/`) → verified-state dashboard (XP, ranks, streak grid, badges, builds, orders). **Currently mock-only** — runs on `phase-four/mock-data.js`; no `/api/dashboard/*` backend yet and not a routing destination. Plan: [`docs/phase-four-access-granted.md`](./docs/phase-four-access-granted.md); schema: [`supabase/migrations/0001_phase_four_init.sql`](./supabase/migrations/0001_phase_four_init.sql). Gated on Supabase (blocked on billing).
+- `landing.html` → post-auth **showcase** (marketing brochure with mock products; not yet a storefront — no cart/checkout).
 
 > Token-gated phases never expose a bare URL — the only way in is through the signed link.
+>
+> **Honest status:** completing all three phases mints an account but does not yet
+> unlock a real storefront — `/landing.html` is a brochure and `/phase-four/` is a
+> mock. Closing that gap (real commerce + live dashboard backend) is tracked in
+> [`docs/phase-four-access-granted.md`](./docs/phase-four-access-granted.md).
 
 ---
 
@@ -143,7 +150,9 @@ Phase One signs its payload with **SHA-256** over sorted-key JSON for tamper det
 | `phase-three/app.js` | 11-state machine + 4-section form |
 | `phase-three/styles.css` | Phase 3 styling (extends phase-two tokens) |
 | `phase-three/motion.js` | GSAP entrance + section transitions |
-| `phase-three/upload-worker.js` | Avatar client-side pipeline (parked until Vercel Blob is wired) |
+| `.deferred/upload-worker.js.gated-on-supabase` | Avatar client-side pipeline — **deferred** until Vercel Blob is wired (dropzone disabled in Phase Three; see `.deferred/README.md`) |
+| `assets/vendor/gsap.min.js` | Self-hosted GSAP 3.12.5 (phases load it same-origin; keeps CSP `script-src 'self'`) |
+| `assets/fonts/*.woff2` | Self-hosted brand fonts (JetBrains Mono, Archivo Black); `@font-face` in `tokens.css` |
 | `api/phase-two/{verify,save,event}.js` | Vercel proxies to n8n (save is Node runtime · 60s) |
 | `api/phase-three/{verify,save,event,check-username}.js` | Vercel proxies to n8n |
 | `assets/badges/` | Bespoke flat-square SVG badges |

@@ -33,4 +33,9 @@ redaction-report.md
 
 # Local-only notes + scratch directories
 PHASE-FOUR-SETUP-CHECKLIST.md
-supabase/
+
+# Supabase: ignore CLI local state, but DO track migrations (source of truth)
+supabase/.branches/
+supabase/.temp/
+supabase/config.toml
+!supabase/migrations/

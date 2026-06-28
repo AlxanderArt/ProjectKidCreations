@@ -850,13 +850,35 @@
   function fireBootstrapHandoff(saveData) {
     try {
       const payload = buildBootstrapPayload(saveData);
+      // Best-effort: the POST queues the bootstrap email regardless. If the
+      // upstream also returns a redeem token, we reveal a direct "ENTER THE
+      // SITE" button so completion isn't stranded waiting on the inbox. No
+      // token → button stays hidden and the email is the path (the bootstrap
+      // page needs a token to set a password, so a tokenless link can't work).
       fetch("/api/account/bootstrap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true
-      }).catch(() => {}); // swallow — best-effort
+        body: JSON.stringify(payload)
+      })
+        .then((r) => (r.ok ? r.json().catch(() => null) : null))
+        .then((res) => revealEnterSite(res, payload))
+        .catch(() => {}); // swallow — best-effort
     } catch (_) {}
+  }
+
+  // Reveal the direct site hand-off only when we actually have a redeem token.
+  function revealEnterSite(res, payload) {
+    if (!res) return;
+    const token = res.token || res.bootstrap_token || (res.data && res.data.token);
+    if (!token) return;
+    const username = res.username || (res.data && res.data.username) || payload.username || "";
+    const row = $("#enter-site-row");
+    const link = $("#enter-site-link");
+    if (!row || !link) return;
+    const qs = "token=" + encodeURIComponent(token) +
+      (username ? "&u=" + encodeURIComponent(username) : "");
+    link.setAttribute("href", "/account/bootstrap?" + qs);
+    row.hidden = false;
   }
 
   function bindBootstrapResend(saveData) {
