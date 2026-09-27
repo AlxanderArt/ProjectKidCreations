@@ -43,6 +43,7 @@ test('normal boot owns the viewport, loads the native globe, then removes cleanl
   const overlayPresentation = await page.locator('.pkc-boot__chrome').evaluate((element) => {
     const style = getComputedStyle(element);
     const track = element.querySelector('.pkc-boot__track');
+    const bounds = element.getBoundingClientRect();
     return {
       backgroundColor: style.backgroundColor,
       borderTopWidth: style.borderTopWidth,
@@ -50,18 +51,22 @@ test('normal boot owns the viewport, loads the native globe, then removes cleanl
       boxShadow: style.boxShadow,
       backdropFilter: style.backdropFilter,
       padding: style.padding,
+      textAlign: style.textAlign,
       trackDisplay: track ? getComputedStyle(track).display : null,
+      centerDelta: Math.abs(bounds.left + bounds.width / 2 - window.innerWidth / 2),
     };
   });
-  expect(overlayPresentation).toEqual({
+  expect(overlayPresentation).toMatchObject({
     backgroundColor: 'rgba(0, 0, 0, 0)',
     borderTopWidth: '0px',
     borderLeftWidth: '0px',
     boxShadow: 'none',
     backdropFilter: 'none',
     padding: '0px',
-    trackDisplay: 'none',
+    textAlign: 'center',
+    trackDisplay: 'block',
   });
+  expect(overlayPresentation.centerDelta).toBeLessThanOrEqual(1);
   await expect(page.locator('.pkc-boot__meta')).toBeVisible();
   await expect(page.locator('.pkc-boot__status')).toBeVisible();
   await expect(boot).toHaveAttribute('data-frame-ready', /renderer|load|fallback/, { timeout: 2_000 });

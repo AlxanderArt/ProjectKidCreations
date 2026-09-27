@@ -58,7 +58,9 @@ html.pkc-boot-pending #pkc-boot {
   grid-column: 1;
   grid-row: 2;
   align-self: end;
-  margin: 0 clamp(16px, 3vw, 42px) clamp(16px, 3vw, 34px);
+  width: min(calc(100% - 32px), 760px);
+  margin: 0 auto clamp(16px, 3vw, 34px);
+  text-align: center;
 }
 
 .pkc-boot__meta,
@@ -82,7 +84,10 @@ html.pkc-boot-pending #pkc-boot {
 }
 
 .pkc-boot__track {
-  display: none;
+  height: 2px;
+  margin-top: 11px;
+  overflow: hidden;
+  background: rgba(242, 242, 240, 0.17);
 }
 
 .pkc-boot__progress {
@@ -153,8 +158,8 @@ html[data-pkc-motion-ready='boot-complete-fail-visible'] :is(nav, h1, .pkc-hero_
 
 @media (max-width: 600px) {
   .pkc-boot__chrome {
-    margin: 0 12px calc(12px + env(safe-area-inset-bottom));
-    padding: 12px;
+    width: calc(100% - 24px);
+    margin-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }
 
