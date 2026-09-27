@@ -252,7 +252,7 @@ test("landing keeps vertical sections while the desktop hero and two-row header 
 
     if (usesPcLayout) {
       expect(geometry.heroVisualDisplay).toBe("flex");
-      expect(geometry.heroVisual.right, `${viewport.name} visual before copy`).toBeLessThanOrEqual(geometry.heroCopy.left);
+      expect(geometry.heroCopy.right, `${viewport.name} copy before visual`).toBeLessThanOrEqual(geometry.heroVisual.left);
       expect(geometry.heroTextAlign).toBe("left");
       expect(geometry.actionDirection).toBe("row");
     } else {
