@@ -75,6 +75,11 @@ test("direct PC landing entry reaches the chooser while Browse Projects intentio
   await expect.poll(() => new URL(page.url()).pathname).toBe("/landing.html");
   await expect.poll(() => new URL(page.url()).search).toBe("");
   await expect(page.locator(".pkc-nav__logo")).toHaveAttribute("href", "#top");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/landing.html");
+  await expect.poll(() => new URL(page.url()).search).toBe("");
+  await expect(page.locator(".pkc-nav__logo")).toHaveAttribute("href", "#top");
 });
 
 test("customer and Founder states are server-routed without identity inference", async ({ page }) => {
