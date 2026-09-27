@@ -217,19 +217,27 @@
   position: fixed;
   inset: 0 0 auto;
   z-index: 100;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  padding: 0 32px;
   border-bottom: 1px solid var(--pkc-slate);
   background: rgba(10, 10, 10, 0.95);
   backdrop-filter: blur(8px);
 }
-.pkc-nav__inner {
+.pkc-nav__brand-row {
   display: flex;
-  width: 100%;
-  max-width: 1280px;
+  width: auto;
   height: 56px;
   align-items: center;
-  justify-content: space-between;
-  margin: 0 auto;
-  padding: 0 32px;
+  justify-content: flex-start;
+}
+.pkc-nav__tabs {
+  display: flex;
+  width: auto;
+  height: 56px;
+  align-items: center;
+  justify-content: flex-end;
 }
 .pkc-nav__logo {
   color: var(--pkc-concrete);
@@ -868,6 +876,74 @@
 
 @media (pointer: coarse) {
   .pkc-hero__visual { display: none; }
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .pkc-nav {
+    display: block;
+    padding: 0;
+  }
+  .pkc-nav__brand-row {
+    width: 100%;
+    max-width: 1280px;
+    justify-content: center;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+  .pkc-nav__tabs {
+    width: 100%;
+    height: 48px;
+    justify-content: center;
+    border-top: 1px solid rgb(90 95 99 / 55%);
+  }
+  .pkc-hero {
+    padding-top: calc(104px + env(safe-area-inset-top, 0px));
+  }
+  #mods,
+  #about,
+  #gallery,
+  #contact {
+    scroll-margin-top: calc(104px + 16px);
+  }
+  .pkc-hero__inner {
+    min-height: calc(100dvh - 104px);
+    flex-direction: row;
+    gap: clamp(48px, 6vw, 96px);
+    padding: 48px;
+    text-align: left;
+  }
+  .pkc-hero__visual {
+    order: -1;
+    width: auto;
+    flex: 1 1 48%;
+    justify-content: flex-end;
+    margin: 0;
+  }
+  .pkc-hero__model {
+    width: min(100%, 500px);
+    height: clamp(360px, 38vw, 500px);
+  }
+  .pkc-hero__copy {
+    width: auto;
+    flex: 1 1 52%;
+    margin: 0;
+    text-align: left;
+  }
+  .pkc-hero__status,
+  .pkc-hero__badge { margin-inline: 0; }
+  .pkc-hero__description {
+    width: auto;
+    max-width: 520px;
+    margin: 0 0 32px;
+  }
+  .pkc-hero__actions {
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0;
+  }
+  .pkc-hero__actions .pkc-button { width: auto; }
 }
 
 @media (max-width: 767px) {
