@@ -878,7 +878,7 @@
   .pkc-hero__visual { display: none; }
 }
 
-@media (min-width: 1024px) and (pointer: fine) {
+@media (min-width: 1200px) {
   .pkc-nav {
     display: block;
     padding: 0;
@@ -913,6 +913,7 @@
     text-align: left;
   }
   .pkc-hero__visual {
+    display: flex;
     order: -1;
     width: auto;
     flex: 1 1 48%;

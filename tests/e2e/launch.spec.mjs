@@ -209,7 +209,6 @@ test("landing keeps vertical sections while the desktop hero and two-row header 
       const buttons = [...document.querySelectorAll(".pkc-hero__actions .pkc-button")]
         .map((button) => button.getBoundingClientRect());
       return {
-        finePointer: matchMedia("(pointer: fine)").matches,
         brandCenter: centerWithin(".pkc-nav__logo", ".pkc-nav__brand-row"),
         brand: rect(".pkc-nav__logo"),
         navLinksCenter: centerWithin(".pkc-nav__links", ".pkc-nav__tabs"),
@@ -237,7 +236,7 @@ test("landing keeps vertical sections while the desktop hero and two-row header 
       };
     });
 
-    const usesPcLayout = viewport.width >= 1024 && geometry.finePointer;
+    const usesPcLayout = viewport.width >= 1200;
     if (usesPcLayout) {
       expect(geometry.brandCenter, `${viewport.name} centered brand`).toBeLessThanOrEqual(2);
       expect(geometry.navLinksDisplay).toBe("flex");
@@ -278,8 +277,6 @@ test("landing keeps vertical sections while the desktop hero and two-row header 
 test("PC section navigation and skip link clear the fixed two-row header", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  const finePointer = await page.evaluate(() => matchMedia("(pointer: fine)").matches);
-  test.skip(!finePointer, "PC-only fine-pointer navigation contract");
   await page.goto("/landing.html");
   await waitForBootHandoff(page);
 

@@ -11,6 +11,13 @@ export function Nav() {
   const [open, setOpen] = React.useState(false);
   const toggleRef = React.useRef(null);
   const menuRef = React.useRef(null);
+  const restoreToggleFocusRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (open || !restoreToggleFocusRef.current) return;
+    restoreToggleFocusRef.current = false;
+    toggleRef.current?.focus();
+  }, [open]);
 
   React.useEffect(() => {
     if (!open) return undefined;
@@ -19,8 +26,8 @@ export function Nav() {
     focusable[0]?.focus();
     const dismiss = (event) => {
       if (event.key === 'Escape') {
+        restoreToggleFocusRef.current = true;
         setOpen(false);
-        toggleRef.current?.focus();
         return;
       }
       if (event.key !== 'Tab' || focusable.length === 0) return;
