@@ -31,17 +31,43 @@ test("public root exposes explicit launch choices under strict CSP", async ({ pa
   await expect(page.getByRole("heading", { name: "WHAT ARE YOU HERE TO DO?" })).toBeVisible();
   await expect(page.getByRole("link", { name: /browse projects/i })).toHaveAttribute("href", "/landing.html?entry=browse");
   await expect(page.getByRole("link", { name: /start onboarding/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /founder sign-in/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /returning customer sign-in/i })).toHaveAttribute("href", "/account/login/");
+  await expect(page.locator("#public-state .actions").getByRole("link", { name: /founder sign-in/i })).toHaveCount(0);
+  const founderEntry = page.locator(".brand .mark");
+  await expect(founderEntry).toHaveAttribute("href", "/account/login/?next=%2Faccount%2Fadmin%2F");
+  await expect(founderEntry).toHaveAttribute("aria-label", "ProjectKidCreations founder sign-in");
+  await expect(founderEntry).toHaveAttribute("title", "Founder sign-in");
+  await waitForBootHandoff(page);
+  await page.keyboard.press("Tab");
+  await expect(founderEntry).toBeFocused();
+  expect(await founderEntry.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      height: element.getBoundingClientRect().height,
+      outlineColor: style.outlineColor,
+      outlineWidth: style.outlineWidth,
+      outlineStyle: style.outlineStyle,
+    };
+  })).toMatchObject({
+    height: 44,
+    outlineColor: "rgb(255, 95, 31)",
+    outlineWidth: "3px",
+    outlineStyle: "solid",
+  });
   expect(response.headers()["content-security-policy"]).toContain("script-src 'self'");
   expect(response.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
   expect(failures).toEqual([]);
 });
 
-test("public-entry brand is centered on phone and tablet", async ({ page }) => {
+test("public-entry brand is centered on phone, tablet, and PC", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await mockEntry(page, { ok: true, state: "public" });
 
-  for (const viewport of [{ width: 390, height: 844 }, { width: 1024, height: 768 }]) {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1024, height: 768 },
+    { width: 1440, height: 1000 },
+  ]) {
     await page.setViewportSize(viewport);
     await page.goto("/");
     await waitForBootHandoff(page);
@@ -53,11 +79,13 @@ test("public-entry brand is centered on phone and tablet", async ({ page }) => {
       return {
         markDelta: Math.abs(mark.left + mark.width / 2 - center),
         statusDelta: Math.abs(status.left + status.width / 2 - center),
+        stackGap: status.top - mark.bottom,
         textAlign: getComputedStyle(brand).textAlign,
       };
     });
     expect(alignment.markDelta).toBeLessThanOrEqual(1);
     expect(alignment.statusDelta).toBeLessThanOrEqual(1);
+    expect(alignment.stackGap).toBeGreaterThanOrEqual(0);
     expect(alignment.textAlign).toBe("center");
   }
 });
