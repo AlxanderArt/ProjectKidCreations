@@ -39,6 +39,31 @@ test('normal boot owns the viewport, loads the native globe, then removes cleanl
   });
   await expect(boot).toHaveAttribute('role', 'status');
   await expect(boot).toHaveAttribute('aria-live', 'polite');
+
+  const overlayPresentation = await page.locator('.pkc-boot__chrome').evaluate((element) => {
+    const style = getComputedStyle(element);
+    const track = element.querySelector('.pkc-boot__track');
+    return {
+      backgroundColor: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      borderLeftWidth: style.borderLeftWidth,
+      boxShadow: style.boxShadow,
+      backdropFilter: style.backdropFilter,
+      padding: style.padding,
+      trackDisplay: track ? getComputedStyle(track).display : null,
+    };
+  });
+  expect(overlayPresentation).toEqual({
+    backgroundColor: 'rgba(0, 0, 0, 0)',
+    borderTopWidth: '0px',
+    borderLeftWidth: '0px',
+    boxShadow: 'none',
+    backdropFilter: 'none',
+    padding: '0px',
+    trackDisplay: 'none',
+  });
+  await expect(page.locator('.pkc-boot__meta')).toBeVisible();
+  await expect(page.locator('.pkc-boot__status')).toBeVisible();
   await expect(boot).toHaveAttribute('data-frame-ready', /renderer|load|fallback/, { timeout: 2_000 });
 
   const frameElement = page.locator('.pkc-boot__globe');
