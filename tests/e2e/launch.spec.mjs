@@ -29,12 +29,57 @@ test("public root exposes explicit launch choices under strict CSP", async ({ pa
   await mockEntry(page, { ok: true, state: "public" });
   const response = await page.goto("/");
   await expect(page.getByRole("heading", { name: "WHAT ARE YOU HERE TO DO?" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /browse projects/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /browse projects/i })).toHaveAttribute("href", "/landing.html?entry=browse");
   await expect(page.getByRole("link", { name: /start onboarding/i })).toBeVisible();
   await expect(page.getByRole("link", { name: /founder sign-in/i })).toBeVisible();
   expect(response.headers()["content-security-policy"]).toContain("script-src 'self'");
   expect(response.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
   expect(failures).toEqual([]);
+});
+
+test("public-entry brand is centered on phone and tablet", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mockEntry(page, { ok: true, state: "public" });
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1024, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await waitForBootHandoff(page);
+    const alignment = await page.locator(".brand").evaluate((brand) => {
+      const mark = brand.querySelector(".mark").getBoundingClientRect();
+      const status = brand.querySelector(".status").getBoundingClientRect();
+      const bounds = brand.getBoundingClientRect();
+      const center = bounds.left + bounds.width / 2;
+      return {
+        markDelta: Math.abs(mark.left + mark.width / 2 - center),
+        statusDelta: Math.abs(status.left + status.width / 2 - center),
+        textAlign: getComputedStyle(brand).textAlign,
+      };
+    });
+    expect(alignment.markDelta).toBeLessThanOrEqual(1);
+    expect(alignment.statusDelta).toBeLessThanOrEqual(1);
+    expect(alignment.textAlign).toBe("center");
+  }
+});
+
+test("direct PC landing entry reaches the chooser while Browse Projects intentionally enters the landing", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await mockEntry(page, { ok: true, state: "public" });
+
+  await page.goto("/landing.html");
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+  await expect(page.getByRole("heading", { name: "WHAT ARE YOU HERE TO DO?" })).toBeVisible();
+
+  await page.getByRole("link", { name: /browse projects/i }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/landing.html");
+  await expect.poll(() => new URL(page.url()).search).toBe("");
+  await expect(page.locator(".pkc-nav__logo")).toHaveAttribute("href", "#top");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/landing.html");
+  await expect.poll(() => new URL(page.url()).search).toBe("");
+  await expect(page.locator(".pkc-nav__logo")).toHaveAttribute("href", "#top");
 });
 
 test("customer and Founder states are server-routed without identity inference", async ({ page }) => {
@@ -84,7 +129,7 @@ test("landing hydrates without runtime inline styles", async ({ page }) => {
     (response) => response.url().endsWith("/assets/models/splatrball-400.glb"),
     { timeout: 3_000 },
   ).catch(() => null);
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   await expect(page.locator("#root")).not.toBeEmpty();
   await modelLoaded;
   await page.waitForTimeout(500);
@@ -96,7 +141,7 @@ test("landing hydrates without runtime inline styles", async ({ page }) => {
 });
 
 test("landing catalog is an honest static article grid with a main landmark", async ({ page }) => {
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
 
   const main = page.getByRole("main");
   await expect(main).toHaveCount(1);
@@ -120,7 +165,7 @@ test("landing catalog is an honest static article grid with a main landmark", as
 
 test("landing honors reduced motion for every decorative loop", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   await waitForBootHandoff(page);
   const animationNames = await page.locator(".pkc-spec-strip__track, .pkc-status--unverified").evaluateAll((elements) =>
     elements.map((element) => getComputedStyle(element).animationName),
@@ -130,7 +175,7 @@ test("landing honors reduced motion for every decorative loop", async ({ page })
 
 test("landing fails fully visible when the optional motion runtime cannot load", async ({ page }) => {
   await page.route("**/dist/pkc-motion.js", (route) => route.abort("failed"));
-  await page.goto("/landing.html", { waitUntil: "domcontentloaded" });
+  await page.goto("/landing.html?entry=browse", { waitUntil: "domcontentloaded" });
 
   await expect(page.locator("#pkc-boot")).toHaveCount(0, { timeout: 8_000 });
   await expect(page.locator("html")).toHaveClass(/pkc-motion-ready/);
@@ -152,7 +197,7 @@ test("landing fails fully visible when the optional motion runtime cannot load",
 
 test("secondary CTA has a perceivable boundary", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   await waitForBootHandoff(page);
   const ratio = await page.locator(".pkc-hero__actions .pkc-button--secondary").evaluate((element) => {
     const parse = (value) => value.match(/\d+(?:\.\d+)?/g).slice(0, 3).map(Number);
@@ -184,7 +229,7 @@ test("landing keeps vertical sections while the desktop hero and two-row header 
     { name: "wide-desktop", width: 1920, height: 1080 },
   ];
   await page.setViewportSize(viewports[0]);
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   await waitForBootHandoff(page);
 
   for (const viewport of viewports) {
@@ -277,7 +322,7 @@ test("landing keeps vertical sections while the desktop hero and two-row header 
 test("PC section navigation and skip link clear the fixed two-row header", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   await waitForBootHandoff(page);
 
   const assertTargetClearsHeader = async () => {
@@ -298,7 +343,7 @@ test("PC section navigation and skip link clear the fixed two-row header", async
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "// MODS" }).click();
   await assertTargetClearsHeader();
 
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   await waitForBootHandoff(page);
   const skip = page.locator(".pkc-skip");
   await skip.focus();
@@ -308,7 +353,7 @@ test("PC section navigation and skip link clear the fixed two-row header", async
 
 test("landing controls expose focus and the mobile menu dismisses with Escape", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   await waitForBootHandoff(page);
 
   const toggle = page.locator(".pkc-nav__toggle");
@@ -368,7 +413,7 @@ for (const phase of ["phase-two", "phase-three"]) {
 }
 
 test("footer exposes only real social destinations", async ({ page }) => {
-  await page.goto("/landing.html");
+  await page.goto("/landing.html?entry=browse");
   const footer = page.getByRole("contentinfo");
   await expect(footer.getByRole("link", { name: "INSTAGRAM" })).toHaveCount(0);
   await expect(footer.getByRole("link", { name: "YOUTUBE" })).toHaveCount(0);
