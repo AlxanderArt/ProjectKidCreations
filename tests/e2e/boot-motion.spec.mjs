@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
 
 test('normal boot owns the viewport, loads the native globe, then removes cleanly', async ({ page }) => {
   const errors = cspErrors(page);
-  await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
 
   const boot = page.locator('#pkc-boot');
   await expect(boot).toBeVisible();
@@ -115,7 +115,7 @@ test('the page fails visible when animation frames are suspended', async ({ page
     window.cancelAnimationFrame = () => {};
   });
 
-  await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#pkc-boot')).toHaveCount(0, { timeout: 8_500 });
   await expect(page.locator('html')).toHaveClass(/pkc-motion-ready/, { timeout: 2_000 });
   await expect(page.locator('html')).not.toHaveClass(/pkc-motion-prep/);
@@ -167,7 +167,7 @@ test('reduced motion reaches the same ready state on the bounded path', async ({
 
 test('boot inerting prevents hidden-page focus and restores focusability after removal', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
 
   const focusWhileInert = await page.evaluate(() => {
     const root = document.querySelector('#root');
@@ -207,7 +207,7 @@ test('every configured launch entry exposes an executable boot host', async ({ p
     '/account/login/',
   ];
 
-  await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
   const results = await page.evaluate(async (paths) => {
     const checks = [];
     for (const entry of paths) {
@@ -232,7 +232,7 @@ test('every configured launch entry exposes an executable boot host', async ({ p
 });
 
 test('persisted page transitions cannot strand the overlay or inert content', async ({ page }) => {
-  await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#pkc-boot')).toBeVisible();
 
   await page.evaluate(() => {
@@ -274,7 +274,7 @@ test('low-frame-rate WebKit timing reaches the globe before parent exit', async 
     };
   });
 
-  await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
   const frame = page.frameLocator('.pkc-boot__globe');
   await expect(frame.locator('#pkc-globe-canvas')).toBeVisible();
   await page.waitForTimeout(3_800);

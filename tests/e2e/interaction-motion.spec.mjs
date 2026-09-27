@@ -8,7 +8,7 @@ const styleAttributeCount = (page) => page.locator('[style]').count();
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
   await waitForMotionReady(page);
 });
 

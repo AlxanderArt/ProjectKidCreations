@@ -5,7 +5,7 @@
   const LOGOUT_ENDPOINT = "/api/account/logout";
   const TIMEOUT_MS = 8000;
   const ROUTES = Object.freeze({
-    browse: "/landing.html",
+    browse: "/landing.html?entry=browse",
     onboard: "/phase-one/",
     login: "/account/login/",
     founderLogin: "/account/login/?next=%2Faccount%2Fadmin%2F",
