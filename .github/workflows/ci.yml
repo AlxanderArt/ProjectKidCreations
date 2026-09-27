@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  build-contracts-security:
+    name: Build, contracts, and security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Run contract and security tests
+        run: npm run test:contracts
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  browser-motion-accessibility:
+    name: Browser motion and accessibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run secretless browser verification
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/pkc-ci-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:4173/landing.html; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/pkc-ci-server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent --output /dev/null http://127.0.0.1:4173/landing.html
+          npx playwright test \
+            tests/e2e/boot-motion.spec.mjs \
+            tests/e2e/interaction-motion.spec.mjs \
+            --project=desktop-chromium
+          npx playwright test tests/e2e/launch.spec.mjs \
+            --project=desktop-chromium \
+            --grep 'landing hydrates|landing catalog|landing honors reduced motion|landing fails fully visible|secondary CTA|landing stays centered|landing controls expose focus'
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-failure-evidence
+          path: |
+            playwright-report/
+            test-results/
+            /tmp/pkc-ci-server.log
+          if-no-files-found: ignore
+          retention-days: 7
