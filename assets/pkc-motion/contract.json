@@ -16,7 +16,7 @@
     "muted": "#9B9B95"
   },
   "boot": {
-    "normal": { "exitMs": 4380, "removeMs": 5000, "statusCadenceMs": 625 },
+    "normal": { "exitMs": 6380, "removeMs": 7000, "statusCadenceMs": 625, "operationalHoldMs": 2000, "operationalFps": 30 },
     "reduced": { "exitMs": 950, "removeMs": 1570, "statusCadenceMs": 135 },
     "fadeMs": 620,
     "frameReadyMs": 220,

@@ -12,7 +12,9 @@ const MOTION  = {quiet:{spin:0.028,pulse:0.6}, standard:{spin:0.075,pulse:1}, pr
 const TIER = {core:{r:5.2,glow:12}, hub:{r:3.3,glow:8}, edge:{r:2.4,glow:6}};
 const LAND_URL = './pkc-land-topology.json';
 const STEPS = 48;                        // smooth at boot-globe scale without overworking mobile frames
-const T = {in:0.95, snap:0.28, hold:1.0, out:0.7, assemble:1.45};
+const T = {in:0.95, snap:0.28, hold:1.0, out:0.7, assemble:1.45, operationalHold:2.0};
+const OPERATIONAL_FPS = 30;
+const OPERATIONAL_FRAME_INTERVAL_MS = 1000 / OPERATIONAL_FPS;
 const IOS_SAFARI = /iP(hone|ad|od)/.test(navigator.platform || '') && /Safari/.test(navigator.userAgent || '') && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent || '');
 
 function hexRGB(hex){
@@ -116,6 +118,8 @@ class PkcBootGlobe {
   }
   start(){
     this.yaw = -38; this.pitch = 14; this.flowT = 0; this.clock = 0; this.land = null; this.landFade = 0;
+    this.assemblyAnnounced = false;
+    this.lastOperationalDrawAt = 0;
     this.destroyed = false; this.landTimer = null; this.backgroundTimer = null;
     this.timelineStartedAt = performance.now();
     this.reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -136,17 +140,50 @@ class PkcBootGlobe {
     if(window.visualViewport){ window.visualViewport.addEventListener('resize', resize, {passive:true}); window.visualViewport.addEventListener('scroll', resize, {passive:true}); }
     this._resize = resize;
     if(this.props.showCoastlines ?? true) this.loadLand();
+    const assembledAt = T.in + T.snap + T.hold + T.out + T.assemble;
+    this._loop = ts => {
+      if(this.destroyed){ this.raf = null; return; }
+      const operational = this.clock >= assembledAt;
+      if (!operational || ts - this.lastOperationalDrawAt >= OPERATIONAL_FRAME_INTERVAL_MS) {
+        this.frame(ts);
+        if (operational) this.lastOperationalDrawAt = ts;
+      }
+      this.raf = requestAnimationFrame(this._loop);
+    };
     if(this.reduced){
       this.timelineStartedAt -= T.assemble * 1000;
       this.landFade = 1;
       this.frame(performance.now());
       this.raf = null;
     } else {
-      const loop = ts => { this.frame(ts); this.raf = requestAnimationFrame(loop); };
-      this.raf = requestAnimationFrame(loop);
+      this.raf = requestAnimationFrame(this._loop);
     }
   }
-  destroy(){ this.destroyed = true; if(this.landTimer !== null) clearTimeout(this.landTimer); if(this.backgroundTimer !== null) clearTimeout(this.backgroundTimer); cancelAnimationFrame(this.raf); this.ro && this.ro.disconnect(); window.removeEventListener('resize', this._resize); if(window.visualViewport && this._resize){ window.visualViewport.removeEventListener('resize', this._resize); window.visualViewport.removeEventListener('scroll', this._resize); } }
+  destroy(){
+    if(this.destroyed) return;
+    this.destroyed = true;
+    if(this.landTimer !== null) clearTimeout(this.landTimer);
+    if(this.backgroundTimer !== null) clearTimeout(this.backgroundTimer);
+    cancelAnimationFrame(this.raf);
+    this.raf = null;
+    this.ro?.disconnect();
+    window.removeEventListener('resize', this._resize);
+    if(window.visualViewport && this._resize){
+      window.visualViewport.removeEventListener('resize', this._resize);
+      window.visualViewport.removeEventListener('scroll', this._resize);
+    }
+    if(this.canvas){
+      const ctx = this.canvas.getContext('2d');
+      ctx?.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.canvas.width = 1;
+      this.canvas.height = 1;
+    }
+    this.land = null;
+    this.links = [];
+    this.nodeList = [];
+    this.canvas = null;
+    this.wrap = null;
+  }
 
   /* ── precompute ─────────────────────────────────────────────── */
   buildGraph(){
@@ -501,7 +538,10 @@ class PkcBootGlobe {
     ctx.save();
     ctx.textBaseline = 'middle';
     ctx.font = '400 ' + size.toFixed(1) + "px 'Archivo Black', ui-sans-serif, system-ui, sans-serif";
-    const w1 = ctx.measureText('PROJECT').width, w2 = ctx.measureText('KIDCREATIONS').width;
+    const w1 = ctx.measureText('PROJECT').width;
+    const wKid = ctx.measureText('KID').width;
+    const wCreations = ctx.measureText('CREATIONS').width;
+    const w2 = wKid + wCreations;
     const total = w1 + w2, x1f = cx - total/2, x2f = x1f + w1;
     const off = this.w*0.75 + total;
 
@@ -559,7 +599,8 @@ class PkcBootGlobe {
     }
 
     ctx.fillStyle = '#F6F6F8'; ctx.fillText('PROJECT', x1, cy);
-    ctx.fillStyle = c.accent;  ctx.fillText('KIDCREATIONS', x2, cy);
+    ctx.fillStyle = c.accent;  ctx.fillText('KID', x2, cy);
+    ctx.fillStyle = '#F6F6F8'; ctx.fillText('CREATIONS', x2 + wKid, cy);
     ctx.restore();
   }
 
@@ -607,6 +648,14 @@ class PkcBootGlobe {
       this.routes(ctx, c, ease, dt);
       this.nodes(ctx, c, ease, dt);
       ctx.restore();
+    }
+    if(assemble >= 1 && !this.assemblyAnnounced){
+      this.assemblyAnnounced = true;
+      window.parent.postMessage({
+        type: 'pkc:boot-globe-assembled',
+        rendererRunning: !this.reduced && this.raf !== null,
+        assemble: 1,
+      }, window.location.origin);
     }
     if(introOn) this.intro(ctx, c, this.clock);
   }
@@ -668,9 +717,9 @@ const onVisibility = () => {
     cancelAnimationFrame(globe.raf);
     globe.raf = null;
     globe.last = 0;
+    globe.lastOperationalDrawAt = 0;
   } else if (!globe.reduced && !globe.raf) {
-    const loop = (timestamp) => { globe.frame(timestamp); globe.raf = requestAnimationFrame(loop); };
-    globe.raf = requestAnimationFrame(loop);
+    globe.raf = requestAnimationFrame(globe._loop);
   }
 };
 document.addEventListener('visibilitychange', onVisibility);

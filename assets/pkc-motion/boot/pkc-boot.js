@@ -4,7 +4,7 @@ const root = document.documentElement;
 root.classList.add('pkc-boot-pending', 'pkc-motion-prep');
 
 const BOOT = Object.freeze({
-  normal: Object.freeze({ exitMs: 4380, removeMs: 5000, cadenceMs: 625 }),
+  normal: Object.freeze({ exitMs: 6380, removeMs: 7000, cadenceMs: 625, operationalHoldMs: 2000, failVisibleExitMs: 7500 }),
   reduced: Object.freeze({ exitMs: 950, removeMs: 1570, cadenceMs: 135 }),
   frameReadyMs: 220,
   frameFallbackMs: 1200,
@@ -49,11 +49,28 @@ const beginInteractionMotion = () => {
   let routePending = false;
 
   const later = (delayMs, callback) => {
-    let call;
-    call = gsap.delayedCall(delayMs / 1000, () => {
+    let settled = false;
+    let gsapCall = null;
+    let nativeFallback = null;
+    const call = {
+      kill() {
+        if (settled) return;
+        settled = true;
+        gsapCall?.kill();
+        if (nativeFallback !== null) window.clearTimeout(nativeFallback);
+        delayedCalls.delete(call);
+      },
+    };
+    const complete = () => {
+      if (settled) return;
+      settled = true;
+      gsapCall?.kill();
+      if (nativeFallback !== null) window.clearTimeout(nativeFallback);
       delayedCalls.delete(call);
       callback();
-    });
+    };
+    gsapCall = gsap.delayedCall(delayMs / 1000, complete);
+    nativeFallback = window.setTimeout(complete, Math.max(16, delayMs + 100));
     delayedCalls.add(call);
     return call;
   };
@@ -94,7 +111,10 @@ const beginInteractionMotion = () => {
       }
       card.dataset.pkcCard = reduced ? 'ready' : 'pending';
     });
-    if (motionReady) revealCards(freshCards);
+    if (motionReady || root.classList.contains('pkc-motion-ready')) {
+      motionReady = true;
+      revealCards(freshCards);
+    }
   };
 
   const observer = new MutationObserver((records) => {
@@ -266,6 +286,9 @@ const beginBoot = () => {
   let frameReady = false;
   let frameTelemetry = null;
   let readyDispatched = false;
+  let operationalHoldScheduled = false;
+  let assembledAtMs = null;
+  let readyAtMs = null;
   let settlePageMotion = null;
 
   for (const sibling of [...document.body.children]) {
@@ -289,6 +312,12 @@ const beginBoot = () => {
       };
       setFrameReady('renderer');
     }
+    if (event.data?.type === 'pkc:boot-globe-assembled' && !reduced && !operationalHoldScheduled) {
+      operationalHoldScheduled = true;
+      assembledAtMs = Math.round(performance.now() - bootStartedAt);
+      frameTelemetry = { assemble: 1, running: event.data.rendererRunning === true };
+      schedule(BOOT.normal.operationalHoldMs, () => signalReady('assembled-hold'));
+    }
   };
   window.addEventListener('message', onMessage);
 
@@ -308,6 +337,7 @@ const beginBoot = () => {
   const signalReady = (reason = 'timer') => {
     if (readyDispatched) return;
     readyDispatched = true;
+    readyAtMs = Math.round(performance.now() - bootStartedAt);
     host.dataset.exiting = 'true';
     host.dataset.bootReady = reduced ? 'reduced' : 'true';
     root.classList.add('pkc-boot-ready');
@@ -317,12 +347,14 @@ const beginBoot = () => {
         reduced,
         exitMs: timing.exitMs,
         removeMs: timing.removeMs,
-        elapsedMs: Math.round(performance.now() - bootStartedAt),
+        elapsedMs: readyAtMs,
+        assembledAtMs,
         frameTelemetry,
         reason,
       },
     }));
     settlePageMotion = revealPage(reduced);
+    if (!reduced) schedule(timing.removeMs - timing.exitMs, complete);
   };
 
   const onPageHide = (event) => {
@@ -348,12 +380,24 @@ const beginBoot = () => {
     root.classList.remove('pkc-boot-pending');
     root.classList.add('pkc-boot-ready');
     window.dispatchEvent(new CustomEvent('pkc:boot-complete', {
-      detail: { reduced, removeMs: timing.removeMs, reason },
+      detail: {
+        reduced,
+        removeMs: timing.removeMs,
+        elapsedMs: Math.round(performance.now() - bootStartedAt),
+        readyAtMs,
+        reason,
+      },
     }));
   };
 
-  schedule(timing.exitMs, signalReady);
-  schedule(timing.removeMs, complete);
+  if (reduced) {
+    schedule(timing.exitMs, signalReady);
+    schedule(timing.removeMs, complete);
+  } else {
+    schedule(BOOT.normal.failVisibleExitMs, () => {
+      if (!operationalHoldScheduled) signalReady('fail-visible');
+    });
+  }
 
   window.addEventListener('pagehide', onPageHide);
   window.addEventListener('pageshow', onPageShow);

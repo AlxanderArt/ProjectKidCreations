@@ -88,7 +88,7 @@ try {
 
     const frameElement = page.locator('.pkc-boot__globe');
     await frameElement.waitFor({ state: 'visible', timeout: 2_000 });
-    await page.waitForFunction(() => document.documentElement.classList.contains('pkc-motion-ready'), null, { timeout: 7_000 });
+    await page.waitForFunction(() => document.documentElement.classList.contains('pkc-motion-ready'), null, { timeout: 9_000 });
     await page.waitForTimeout(100);
     const parentMetrics = await page.evaluate(readMetrics);
     if (parentMetrics.motionReadyAt === null) throw new Error(`${viewport.name}: motion-ready timestamp unavailable`);
@@ -108,7 +108,7 @@ try {
       longTaskCount: longTasks.length,
       cumulativeLayoutShift: layoutShifts.reduce((sum, { value }) => sum + value, 0),
       contextsMeasured: ['top-level including descendant-frame tasks'],
-      longTaskBreakdown: { topLevel: parentMetrics.longTasks },
+      longTaskBreakdown: { topLevel: longTasks },
     });
     await context.close();
   }

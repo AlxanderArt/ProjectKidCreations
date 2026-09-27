@@ -21,7 +21,7 @@ async function mockEntry(page, body, status = 200) {
 }
 
 async function waitForBootHandoff(page) {
-  await expect(page.locator("#pkc-boot")).toHaveCount(0, { timeout: 7_500 });
+  await expect(page.locator("#pkc-boot")).toHaveCount(0, { timeout: 10_000 });
 }
 
 test("public root exposes explicit launch choices under strict CSP", async ({ page }) => {
