@@ -17,6 +17,11 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const status = $("#status");
+  const navigateRoute = (url, { replace = false, reason = 'reset' } = {}) => {
+    if (window.PKCMotion?.navigate(url, { replace, reason })) return;
+    if (replace) window.location.replace(url);
+    else window.location.assign(url);
+  };
 
   // ── State ────────────────────────────────────────────────────
   let state = "LOADING";
@@ -160,7 +165,7 @@
       // Hard redirect — the user's session cookie state is now stale, and
       // /account/login is the right next surface to authenticate fresh.
       redirectTimer = setTimeout(() => {
-        window.location.assign(CFG.LOGIN_URL || "/account/login");
+        navigateRoute(CFG.LOGIN_URL || "/account/login", { reason: 'reset-success' });
       }, CFG.SUCCESS_REDIRECT_MS || 2000);
       return;
     }
@@ -249,6 +254,7 @@
   function boot() {
     bind();
     token = safeParseToken();
+    window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     if (!token) {
       setState("INVALID");
       return;

@@ -24,13 +24,13 @@ export function mount(el, opts = {}) {
   camera.position.set(0, 0, 5);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(w, h);
+  renderer.setSize(w, h, false);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.25;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.domElement.style.display = 'block';
+  renderer.domElement.classList.add('pkc-hero__canvas');
   el.appendChild(renderer.domElement);
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -119,7 +119,7 @@ export function mount(el, opts = {}) {
     if (!s.w || !s.h) return;
     camera.aspect = s.w / s.h;
     camera.updateProjectionMatrix();
-    renderer.setSize(s.w, s.h);
+    renderer.setSize(s.w, s.h, false);
   };
   window.addEventListener('resize', resize);
   const ro = new ResizeObserver(resize);

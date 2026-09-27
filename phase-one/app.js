@@ -134,6 +134,7 @@
     perf:          { start: 0, steps: [], submitMs: null, completionMs: null },
     fields:        new Map(),
     liveTimers:    new Map(),
+    pendingSubmission: null,
     booted:        false,
   };
 
@@ -291,12 +292,12 @@
   // Retry queue
   const getQueue = () => {
     try {
-      const raw = localStorage.getItem(QUEUE_KEY);
+      const raw = sessionStorage.getItem(QUEUE_KEY);
       const arr = raw ? JSON.parse(raw) : [];
       const cutoff = Date.now() - CONFIG.QUEUE_TTL;
       const fresh = arr.filter((entry) => (entry?.ts || 0) > cutoff);
       if (fresh.length !== arr.length) {
-        localStorage.setItem(QUEUE_KEY, JSON.stringify(fresh));
+        sessionStorage.setItem(QUEUE_KEY, JSON.stringify(fresh));
       }
       return fresh;
     } catch { return []; }
@@ -305,7 +306,7 @@
   const writeQueue = (q) => {
     try {
       const trimmed = q.slice(-CONFIG.QUEUE_MAX);
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(trimmed));
+      sessionStorage.setItem(QUEUE_KEY, JSON.stringify(trimmed));
     } catch (e) { warn("[PKC] writeQueue failed", e); }
   };
 
@@ -410,7 +411,6 @@
   // ════════════════════════════════════════════════════════════════════
   const buildSections = () => {
     const form = document.getElementById("form");
-    document.documentElement.style.setProperty("--steps", String(TOTAL_STEPS));
 
     const bar = document.getElementById("progress-bar");
     bar.setAttribute("aria-valuemax", String(TOTAL_STEPS));
@@ -634,6 +634,7 @@
     // Pass — persist + advance
     setError(f, null);
     state.answers[q.key] = value;
+    state.pendingSubmission = null;
     writeStore();
     pushAttempt();
     setStatus("SAVED ✓", "saved");
@@ -683,7 +684,6 @@
         location.replace("#" + missing);
         return;
       }
-      render("done");
       submit();
       return;
     }
@@ -704,6 +704,12 @@
   // ════════════════════════════════════════════════════════════════════
   //  Submit (#2 #31 #32 #37 #39 #40)
   // ════════════════════════════════════════════════════════════════════
+  const showSubmitError = (message) => {
+    location.replace("#" + TOTAL_STEPS);
+    setTimeout(() => setStatus(message, "error", { sticky: true }), 0);
+    return false;
+  };
+
   const submit = safeAsync(async () => {
     // Completion guard (#37)
     const missing = firstMissingStep();
@@ -718,24 +724,24 @@
       data[q.key] = cleanValue(q.key, state.answers[q.key] || "");
     }
 
-    const submissionId = uuid();
-    const timestamp    = new Date().toISOString();
-    const confidence   = computeConfidence(data);
-
-    state.perf.submitMs     = performance.now();
-    state.perf.completionMs = state.startTime ? Date.now() - state.startTime : null;
-
-    const payload = {
-      version:      CONFIG.VERSION,
-      submissionId,
-      timestamp,
-      env:          CONFIG.ENV,
-      mode:         CONFIG.MODE,
-      data,
-      confidence,
-      perf:         { ...state.perf },
-      hash:         await sha256(data),
-    };
+    if (!state.pendingSubmission) {
+      const submissionId = uuid();
+      state.perf.submitMs = performance.now();
+      state.perf.completionMs = state.startTime ? Date.now() - state.startTime : null;
+      state.pendingSubmission = {
+        version: CONFIG.VERSION,
+        submissionId,
+        timestamp: new Date().toISOString(),
+        env: CONFIG.ENV,
+        mode: CONFIG.MODE,
+        data,
+        confidence: computeConfidence(data),
+        perf: { ...state.perf },
+        hash: await sha256(data),
+      };
+    }
+    const payload = state.pendingSubmission;
+    const submissionId = payload.submissionId;
 
     log("[PKC] submission payload", payload);
     track("submit", { submissionId, hash: payload.hash });
@@ -745,45 +751,31 @@
       CONFIG.ENDPOINT &&
       (CONFIG.MODE === "prod" || CONFIG.MODE === "staging");
 
-    if (shouldFetch) {
-      try {
-        if (!navigator.onLine) {
-          enqueue(payload);
-          track("submit_failed", { submissionId, reason: "offline" });
-        } else {
-          const res = await fetch(CONFIG.ENDPOINT, {
-            method:  "POST",
-            headers: authHeaders(),
-            body:    JSON.stringify(payload),
-          });
-          if (res.status === 413) {
-            track("payload_too_large", { submissionId });
-            // Won't shrink on retry — surface as hard error
-          } else if (res.status === 503) {
-            track("server_overload", { submissionId });
-            enqueue(payload);
-          } else if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-          } else {
-            // Parse response flags for observability
-            try {
-              const body = await res.json();
-              if (body.executionId) track("ack", { submissionId, executionId: body.executionId });
-              if (body.duplicate) track("duplicate_ack", { submissionId, dedupSource: body.dedupSource });
-              if (body.slow) track("slow_ack", { submissionId, durationMs: body.durationMs });
-              if (body.backpressure) track("backpressure_ack", { submissionId });
-              if (body.degraded) track("degraded_ack", { submissionId });
-            } catch (parseErr) {
-              warn("[PKC] response parse failed", parseErr);
-            }
-          }
-        }
-      } catch (e) {
-        warn("[PKC] submit network error", e);
-        enqueue(payload);
-        track("submit_failed", { submissionId, reason: String(e) });
-      }
+    if (!shouldFetch) return showSubmitError("// SERVICE UNAVAILABLE — YOUR DRAFT IS SAFE");
+    if (!navigator.onLine) return showSubmitError("// OFFLINE — RECONNECT AND TRY AGAIN");
+
+    setStatus("// SENDING…", "working", { sticky: true });
+    let body;
+    try {
+      const res = await fetch(CONFIG.ENDPOINT, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      body = await res.json();
+    } catch (e) {
+      warn("[PKC] submit failed", e);
+      track("submit_failed", { submissionId, reason: String(e) });
+      return showSubmitError("// NOT SAVED — TRY AGAIN");
     }
+    if (!(body && body.ok === true && (body.persisted === true || body.duplicate === true))) {
+      track("submit_failed", { submissionId, reason: "unconfirmed_persistence" });
+      return showSubmitError("// SAVE NOT CONFIRMED — TRY AGAIN");
+    }
+    if (body.executionId) track("ack", { submissionId, executionId: body.executionId });
+    if (body.duplicate) track("duplicate_ack", { submissionId, dedupSource: body.dedupSource });
+    render("done");
 
     // Render thank-you reveal
     const confirmEl = document.getElementById("confirm-line");
@@ -803,6 +795,7 @@
 
     // Clear in-progress storage (run is complete)
     clearStore();
+    state.pendingSubmission = null;
 
     // Final flush
     flushEvents();
@@ -873,7 +866,7 @@
 
   window.PKC_QUEUE = () => getQueue();
   window.PKC_QUEUE.clear = () => {
-    try { localStorage.removeItem(QUEUE_KEY); log("[PKC] queue cleared"); }
+    try { sessionStorage.removeItem(QUEUE_KEY); log("[PKC] queue cleared"); }
     catch (e) { warn("[PKC] queue clear failed", e); }
   };
   window.PKC_QUEUE.drain = () => drainQueue();

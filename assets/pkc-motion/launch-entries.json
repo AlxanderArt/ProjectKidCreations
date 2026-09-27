@@ -1,0 +1,20 @@
+{
+  "entries": [
+    "index.html",
+    "landing.html",
+    "phase-one/index.html",
+    "phase-two/index.html",
+    "phase-three/index.html",
+    "account/index.html",
+    "account/admin/index.html",
+    "account/bootstrap/index.html",
+    "account/forgot/index.html",
+    "account/reset/index.html",
+    "account/login/index.html"
+  ],
+  "excluded": [
+    "privacy/index.html",
+    "terms/index.html",
+    "phase-four/index.html"
+  ]
+}

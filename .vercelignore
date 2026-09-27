@@ -1,0 +1,18 @@
+# Internal verification and deferred source must not ship.
+tests/
+.deferred/
+
+# n8n workflow migration tooling is operator-only.
+scripts/n8n-*.mjs
+evidence/
+reports/
+
+# Local/browser artifacts.
+playwright-report/
+test-results/
+*.log
+
+# Repository and local agent metadata.
+.git/
+.github/
+.hermes/

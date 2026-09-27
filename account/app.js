@@ -16,6 +16,11 @@
   const CFG = window.PKC_ACCOUNT;
   const $  = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const navigateRoute = (url, { replace = true, reason = 'account' } = {}) => {
+    if (window.PKCMotion?.navigate(url, { replace, reason })) return;
+    if (replace) window.location.replace(url);
+    else window.location.assign(url);
+  };
 
   // ── State ──────────────────────────────────────────────────
   let profile = null;          // canonical server copy
@@ -106,7 +111,7 @@
 
     if (result.status === 401) {
       const next = encodeURIComponent(location.pathname + location.search + location.hash);
-      window.location.replace(CFG.LOGIN_REDIRECT + "?next=" + next);
+      navigateRoute(CFG.LOGIN_REDIRECT + "?next=" + next, { reason: 'unauthorized' });
       return;
     }
 
@@ -253,7 +258,7 @@
       }
       flashStatus("// CHECK FIELDS", "error", 3000);
     } else if (r.status === 401) {
-      window.location.replace(CFG.LOGIN_REDIRECT);
+      navigateRoute(CFG.LOGIN_REDIRECT, { reason: 'unauthorized' });
     } else {
       flashStatus("// SAVE FAILED", "error", 3000);
     }
@@ -303,7 +308,7 @@
       $("#password-form").reset();
       flashStatus("// PASSWORD UPDATED", "success");
     } else if (r.status === 401) {
-      window.location.replace(CFG.LOGIN_REDIRECT);
+      navigateRoute(CFG.LOGIN_REDIRECT, { reason: 'unauthorized' });
     } else {
       const msg = (r.data && r.data.error) ? String(r.data.error) : "could_not_update";
       res.setAttribute("data-tone", "error");
@@ -339,7 +344,7 @@
       $("#email-form").reset();
       flashStatus("// EMAIL CHANGE REQUESTED", "success", 2600);
     } else if (r.status === 401) {
-      window.location.replace(CFG.LOGIN_REDIRECT);
+      navigateRoute(CFG.LOGIN_REDIRECT, { reason: 'unauthorized' });
     } else {
       const msg = (r.data && r.data.error) ? String(r.data.error) : "could_not_request";
       res.setAttribute("data-tone", "error");
@@ -353,7 +358,7 @@
     if (sessionsLoaded) return renderSessions(sessionsCache);
     const r = await api(CFG.SESSIONS_URL);
     if (r.status === 401) {
-      window.location.replace(CFG.LOGIN_REDIRECT);
+      navigateRoute(CFG.LOGIN_REDIRECT, { reason: 'unauthorized' });
       return;
     }
     if (!r.ok) {
@@ -444,7 +449,7 @@
       body: { current_password: p, i_am_sure: true }
     });
     if (r.ok) {
-      window.location.replace(CFG.LOGIN_REDIRECT + "?deleted=1");
+      navigateRoute(CFG.LOGIN_REDIRECT + "?deleted=1", { reason: 'account-delete' });
     } else {
       const msg = (r.data && r.data.error) ? String(r.data.error) : "could_not_delete";
       res.setAttribute("data-tone","error");
@@ -534,7 +539,7 @@
     }
     const r = await api(CFG.ACTIVITY_URL);
     if (r.status === 401) {
-      window.location.replace(CFG.LOGIN_REDIRECT);
+      navigateRoute(CFG.LOGIN_REDIRECT, { reason: 'unauthorized' });
       return;
     }
     if (!r.ok) {
@@ -619,7 +624,7 @@
     try {
       await api(CFG.LOGOUT_URL, { method: "POST" });
     } catch (_) { /* sign-out should be best-effort */ }
-    window.location.replace(CFG.LOGIN_REDIRECT);
+    navigateRoute(CFG.LOGIN_REDIRECT, { reason: 'logout' });
   }
 
   // ── Events ─────────────────────────────────────────────────

@@ -13,27 +13,22 @@
   <!-- Critical fallback styles — see /account/forgot/index.html note.
        Same legibility floor so a missing styles.css doesn't unmask
        the page as plain browser default. -->
-  <style>
-    :root { color-scheme: dark; }
-    body {
-      margin: 0;
-      background: #0A0A0A;
-      color: #E8E8E8;
-      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
-    #stage { max-width: 520px; margin: 0 auto; padding: 64px 32px 96px; }
-    .state[data-active="false"] { display: none; }
-    .step-label { color: #FF5F1F; letter-spacing: 0.08em; font-size: 12px; }
-    .prompt { font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif; font-size: 32px; line-height: 1.05; margin: 8px 0 16px; }
-    .cta { background: #FF5F1F; color: #0A0A0A; border: 0; padding: 16px 20px; font-family: inherit; font-weight: 700; cursor: pointer; }
-    a { color: #FF5F1F; }
-    .checklist { list-style: none; padding: 0; margin: 12px 0 0; font-size: 12px; }
-    .checklist li { padding: 4px 0; color: #9AA0A4; }
-    .checklist li[data-passed="true"] { color: #39FF14; }
-    .checklist li::before { content: "// "; }
-  </style>
+  <link rel="stylesheet" href="/account/reset/fallback.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
   <noscript>
     <main class="kill">
       <h1>JAVASCRIPT REQUIRED</h1>
@@ -179,16 +174,7 @@
 
   </main>
 
-  <script>
-    window.PKC_RESET_CONFIG = {
-      COMPLETE_RESET_URL:  "/api/account/password/complete-reset",
-      LOGIN_URL:           "/account/login",
-      FORGOT_URL:          "/account/forgot",
-      FETCH_TIMEOUT_MS:    12000,
-      AUTO_RETRY_DELAY_MS: 1500,
-      SUCCESS_REDIRECT_MS: 2000
-    };
-  </script>
-  <script src="/account/reset/app.js"></script>
+  <script src="/account/reset/config.js" defer></script>
+  <script defer src="/account/reset/app.js"></script>
 </body>
 </html>

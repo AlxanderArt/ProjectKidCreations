@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "scope": "top-level context, including descendant-frame long tasks, through pkc-motion-ready",
+  "engine": "Playwright Chromium",
+  "generatedBy": "npm run audit:boot-performance",
+  "thresholds": {
+    "maxLongTaskMsExclusive": 50,
+    "maxCumulativeLayoutShift": 0.1
+  },
+  "results": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "maxLongTaskMs": 0,
+      "longTaskCount": 0,
+      "cumulativeLayoutShift": 0,
+      "contextsMeasured": [
+        "top-level including descendant-frame tasks"
+      ],
+      "longTaskBreakdown": {
+        "topLevel": []
+      }
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "maxLongTaskMs": 0,
+      "longTaskCount": 0,
+      "cumulativeLayoutShift": 0,
+      "contextsMeasured": [
+        "top-level including descendant-frame tasks"
+      ],
+      "longTaskBreakdown": {
+        "topLevel": []
+      }
+    }
+  ]
+}

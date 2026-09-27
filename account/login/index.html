@@ -9,8 +9,21 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/tokens.css">
   <link rel="stylesheet" href="/account/styles.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
   <noscript>
     <main class="kill">
       <h1>JAVASCRIPT REQUIRED</h1>
@@ -150,19 +163,8 @@
 
   </main>
 
-  <script>
-    // Same-origin proxies. The httpOnly session cookie set by /api/account/login
-    // attaches automatically to subsequent same-origin fetches.
-    window.PKC_ACCOUNT_CONFIG = {
-      LOGIN_URL:           "/api/account/login",
-      PROFILE_URL:         "/api/account/profile",
-      ACCOUNT_HOME:        "/landing.html",
-      FORGOT_URL:          "/account/forgot",
-      FETCH_TIMEOUT_MS:    12000,
-      AUTO_RETRY_DELAY_MS: 1500,
-      INVALID_HOLD_MS:     2000
-    };
-  </script>
-  <script src="/account/login/app.js"></script>
+  <script src="/account/login/config.js" defer></script>
+  <script defer src="/account/login/username-policy.js"></script>
+  <script defer src="/account/login/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,46 @@
+{
+  "version": "1.0.0",
+  "source": {
+    "repository": "AlxanderArt/Rayco.NET",
+    "commit": "af661a07a3713ec5217b76d9ef1df2e30034fe93",
+    "bootComponentSha256": "43746cda0319a54f314efd4c1b4171054310f9a4461add2b8f51848393466161",
+    "bootStylesSha256": "894db083df57e63d982f0ffdb87812b2c5030d957e4d941c1bcff09d34182afc",
+    "globeArtifactSha256": "de46e1a9bdf26ddc85ad253c15557aa792ca6ab2ef0e9fe2c02a0e3878cad35b",
+    "bootTestsSha256": "84117539a150ce7528af7ecdcfdb0fe3d5a8244442ecfd854e4b05a60d61c296"
+  },
+  "palette": {
+    "accent": "#FF5F1F",
+    "canvas": "#050505",
+    "surface": "#101010",
+    "ink": "#F2F2F0",
+    "muted": "#9B9B95"
+  },
+  "boot": {
+    "normal": { "exitMs": 4380, "removeMs": 5000, "statusCadenceMs": 625 },
+    "reduced": { "exitMs": 950, "removeMs": 1570, "statusCadenceMs": 135 },
+    "fadeMs": 620,
+    "frameReadyMs": 220,
+    "frameFallbackMs": 1200,
+    "steps": [
+      "Establishing PKC link",
+      "Loading ProjectKidCreations assets",
+      "Loading onboarding schema",
+      "Compiling launch routing",
+      "Restoring secure session",
+      "Calibrating project experience",
+      "Ready"
+    ]
+  },
+  "presets": {
+    "reveal.shell": { "durationMs": 900, "ease": "power2.out", "reduced": "immediate" },
+    "reveal.navigation": { "durationMs": 700, "delayMs": 100, "ease": "power3.out", "reduced": "immediate" },
+    "reveal.hero-copy": { "durationMs": 1000, "delayMs": 200, "staggerMs": 130, "ease": "power3.out", "reduced": "immediate" },
+    "reveal.hero-stage": { "durationMs": 1150, "ease": "power3.out", "reduced": "immediate" },
+    "reveal.section": { "durationMs": 850, "travelPx": 56, "ease": "power3.out", "reduced": "fade" },
+    "reveal.stagger": { "durationMs": 780, "travelPx": 34, "staggerMs": 110, "ease": "power3.out", "reduced": "immediate" },
+    "reveal.card": { "durationMs": 620, "staggerMs": 70, "ease": "power3.out", "reduced": "immediate" },
+    "transition.state": { "durationMs": 180, "ease": "power3.out", "reduced": "immediate" },
+    "transition.route": { "durationMs": 420, "ease": "power3.out", "reduced": "immediate" },
+    "feedback.control": { "durationMs": 180, "ease": "power3.out", "reduced": "static" }
+  }
+}

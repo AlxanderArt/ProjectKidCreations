@@ -13,8 +13,21 @@
   <!-- Tokens come from phase-two via ../styles.css -->
   <link rel="stylesheet" href="/phase-two/styles.css">
   <link rel="stylesheet" href="/account/admin/styles.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
   <noscript>
     <main class="boot-state">
       <p class="step-label">// JAVASCRIPT REQUIRED</p>
@@ -34,7 +47,7 @@
   <main class="kill--access-denied" id="kill-denied" hidden role="alert" aria-live="polite">
     <p class="step-label">// ACCESS DENIED — ADMIN ONLY</p>
     <h1>NOT YOUR FLOOR.</h1>
-    <p>This console is gated to operators flagged <span style="color:var(--pkc-accent)">is_admin</span> in the profile service. If you think that's wrong, hit up another admin to flip the bit.</p>
+    <p>This console is gated to operators flagged <span class="accent-text">Founder authority</span> in the profile service. If you think that's wrong, hit up another admin to flip the bit.</p>
     <a href="/account/">// RETURN TO ACCOUNT →</a>
   </main>
 
@@ -160,24 +173,7 @@
     </div>
   </main>
 
-  <script>
-    /* Visually-hidden helper for labels we don't want rendered */
-    (function () {
-      var s = document.createElement("style");
-      s.textContent = ".visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}";
-      document.head.appendChild(s);
-    })();
-
-    window.PKC_ADMIN = {
-      PROFILE_URL:       "/api/account/profile",
-      LIST_URL:          "/api/account/admin/list",
-      SEARCH_URL:        "/api/account/admin/search",
-      CHAT_URL:          "/api/account/admin/chat",
-      LOGIN_REDIRECT:    "/account/login",
-      ACCOUNT_REDIRECT:  "/landing.html",
-      PAGE_SIZE:         5
-    };
-  </script>
+  <script src="/account/admin/config.js" defer></script>
   <script src="/account/admin/app.js" defer></script>
 </body>
 </html>

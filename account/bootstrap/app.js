@@ -24,6 +24,11 @@
   const CFG = window.PKC_ACCOUNT_CONFIG;
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const navigateRoute = (url, { replace = true, reason = 'bootstrap' } = {}) => {
+    if (window.PKCMotion?.navigate(url, { replace, reason })) return;
+    if (replace) window.location.replace(url);
+    else window.location.assign(url);
+  };
 
   // ── State ────────────────────────────────────────────────────
   let state = "LOADING";
@@ -190,7 +195,7 @@
 
     if (res.ok && res.data && res.data.ok === true) {
       setState("SUCCESS");
-      setTimeout(() => { window.location.replace(CFG.ACCOUNT_HOME); }, 350);
+      setTimeout(() => { navigateRoute(CFG.ACCOUNT_HOME, { reason: 'bootstrap-success' }); }, 350);
       return;
     }
 
@@ -274,6 +279,7 @@
   function init() {
     bindForm();
     const parsed = parseURL();
+    window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     if (!parsed) {
       setState("INVALID");
       return;

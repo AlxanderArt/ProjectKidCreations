@@ -9,8 +9,21 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/tokens.css">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
   <noscript>
     <main class="kill">
       <h1>JAVASCRIPT REQUIRED</h1>
@@ -46,12 +59,22 @@
       <h1>LINK NOT RECOGNIZED</h1>
       <p class="kill-line">We couldn't verify this link.</p>
       <p class="kill-meta" id="invalid-meta">If you think this is a mistake, get in touch with support.</p>
+      <nav class="recovery-actions" aria-label="Recovery options">
+        <a class="recovery-link recovery-link--primary" href="/phase-one/">RESTART ONBOARDING →</a>
+        <a class="recovery-link" href="/account/login/">SIGN IN →</a>
+        <a class="recovery-link" href="/landing.html">BROWSE PROJECTS →</a>
+      </nav>
     </section>
 
     <section class="state kill kill--expired" data-state="EXPIRED" data-active="false" aria-hidden="true">
       <h1>LINK EXPIRED</h1>
       <p class="kill-line">This link has passed its 30&#8209;day window.</p>
       <p class="kill-meta">Get in touch with support and we'll send you a fresh one.</p>
+      <nav class="recovery-actions" aria-label="Recovery options">
+        <a class="recovery-link recovery-link--primary" href="/phase-one/">RESTART ONBOARDING →</a>
+        <a class="recovery-link" href="/account/login/">SIGN IN →</a>
+        <a class="recovery-link" href="/landing.html">BROWSE PROJECTS →</a>
+      </nav>
     </section>
 
     <section class="state" data-state="ALREADY_DONE" data-active="false" aria-hidden="true">
@@ -132,35 +155,9 @@
             </div>
           </div>
 
-          <div class="field" data-field="avatar">
-            <label class="field-label" for="avatar-input">Avatar</label>
-            <div class="dropzone" id="dropzone" data-state="idle" tabindex="0" role="button" aria-label="upload avatar image">
-              <div class="dropzone-idle">
-                <p class="dropzone-glyph" aria-hidden="true">＋</p>
-                <p class="dropzone-line">DROP IMAGE OR <span class="hl">CLICK TO BROWSE</span></p>
-                <p class="dropzone-meta">JPEG / PNG / WEBP &nbsp;//&nbsp; ≤2MB &nbsp;//&nbsp; downscaled to 1024px</p>
-              </div>
-              <div class="dropzone-progress" hidden>
-                <p class="dropzone-line">// UPLOADING</p>
-                <div class="upload-bar"><span class="upload-bar-fill" id="upload-bar-fill"></span></div>
-              </div>
-              <div class="dropzone-preview" hidden>
-                <img id="avatar-preview" alt="avatar preview">
-                <div class="dropzone-preview-meta">
-                  <p class="dropzone-line">// LOCKED IN</p>
-                  <button type="button" class="link-btn" id="avatar-replace">// REPLACE</button>
-                </div>
-              </div>
-              <input
-                id="avatar-input"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                hidden>
-            </div>
-            <div class="error-region" data-field="avatar">
-              <span class="error-msg" id="avatar-error" hidden></span>
-              <span class="error-hint">Square works best. Optional.</span>
-            </div>
+          <div class="field field--deferred" data-field="avatar">
+            <p class="field-label">Avatar</p>
+            <p class="error-hint">// AVATAR UPLOAD WILL OPEN AFTER THE CORE ACCOUNT FLOW IS VERIFIED.</p>
           </div>
 
           <div class="field" data-field="bio">
@@ -259,27 +256,6 @@
             </div>
           </div>
 
-          <div class="field" data-field="socials">
-            <label class="field-label">Socials</label>
-            <div class="socials-grid">
-              <div class="social-cell">
-                <span class="social-prefix">IG @</span>
-                <input id="social-insta" type="text" maxlength="30" autocomplete="off" spellcheck="false" placeholder="handle">
-              </div>
-              <div class="social-cell">
-                <span class="social-prefix">YT @</span>
-                <input id="social-yt" type="text" maxlength="30" autocomplete="off" spellcheck="false" placeholder="handle">
-              </div>
-              <div class="social-cell">
-                <span class="social-prefix">TT @</span>
-                <input id="social-tiktok" type="text" maxlength="30" autocomplete="off" spellcheck="false" placeholder="handle">
-              </div>
-            </div>
-            <div class="error-region" data-field="socials">
-              <span class="error-msg" id="socials-error" hidden></span>
-              <span class="error-hint">Handle only — no URLs. Letters, numbers, dot, underscore.</span>
-            </div>
-          </div>
 
           <div class="section-nav">
             <button type="button" class="link-btn" data-section-back="identity">// BACK</button>
@@ -290,64 +266,31 @@
           </div>
         </fieldset>
 
-        <!-- ───────────────── SECTION 3 — LOGISTICS + COMMS ───────────────── -->
+        <!-- ───────────────── SECTION 3 — ACCOUNT CONSENT ───────────────── -->
         <fieldset class="section" data-section="contact" data-active="false" aria-hidden="true">
-          <legend class="section-legend">// LOGISTICS + COMMS</legend>
+          <legend class="section-legend">// ACCOUNT CONSENT</legend>
 
-          <div class="field" data-field="birthday">
-            <label class="field-label" for="birthday-input">Birthday</label>
-            <input
-              id="birthday-input"
-              type="date"
-              name="birthday"
-              required>
-            <div class="error-region" data-field="birthday">
-              <span class="error-msg" id="birthday-error" hidden></span>
-              <span class="error-hint" id="birthday-hint">14+ required. We don't share this.</span>
+          <div class="field" data-field="age_confirmed">
+            <label class="toggle">
+              <input type="checkbox" id="age-confirm-input" required>
+              <span class="toggle-frame"><span class="toggle-dot"></span></span>
+              <span class="toggle-text">I confirm I am at least 18 years old.</span>
+            </label>
+            <div class="error-region" data-field="age_confirmed">
+              <span class="error-msg" id="age_confirmed-error" hidden></span>
+              <span class="error-hint">Accounts are available to adults only at launch.</span>
             </div>
           </div>
 
-          <div class="field" data-field="shipping">
-            <label class="field-label">Shipping address (optional)</label>
-            <div class="shipping-grid">
-              <input id="ship-line1" type="text" placeholder="Address line 1" autocomplete="address-line1" maxlength="120">
-              <input id="ship-line2" type="text" placeholder="Address line 2" autocomplete="address-line2" maxlength="120">
-              <input id="ship-city" type="text" placeholder="City" autocomplete="address-level2" maxlength="60">
-              <input id="ship-region" type="text" placeholder="State / region" autocomplete="address-level1" maxlength="60">
-              <input id="ship-postal" type="text" placeholder="Postal code" autocomplete="postal-code" maxlength="20" inputmode="text">
-              <select id="ship-country" autocomplete="country">
-                <option value="">Country</option>
-              </select>
-            </div>
-            <div class="error-region" data-field="shipping">
-              <span class="error-msg" id="shipping-error" hidden></span>
-              <span class="error-hint">If you start an address, line 1 and country are required.</span>
-            </div>
-          </div>
-
-          <div class="field" data-field="prefs">
-            <label class="field-label">Communications</label>
-            <div class="toggle-row">
-              <div class="toggle-group">
-                <label class="toggle">
-                  <input type="checkbox" id="email-drops-input" checked>
-                  <span class="toggle-frame">
-                    <span class="toggle-dot"></span>
-                  </span>
-                  <span class="toggle-text">Email drops&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
-                </label>
-                <p class="toggle-desc">Product drops, restocks, build logs. Turn off for transactional only.</p>
-              </div>
-              <div class="toggle-group">
-                <label class="toggle">
-                  <input type="checkbox" id="sms-optin-input">
-                  <span class="toggle-frame">
-                    <span class="toggle-dot"></span>
-                  </span>
-                  <span class="toggle-text">SMS drops&nbsp;&nbsp;<span data-on>ON</span><span data-off>OFF</span></span>
-                </label>
-                <p class="toggle-desc">Optional. Off by default. We text rarely; only for the drops that matter.</p>
-              </div>
+          <div class="field" data-field="terms_accepted">
+            <label class="toggle">
+              <input type="checkbox" id="terms-accept-input" required>
+              <span class="toggle-frame"><span class="toggle-dot"></span></span>
+              <span class="toggle-text">I agree to the <a href="/terms/" target="_blank" rel="noopener">Terms</a> and acknowledge the <a href="/privacy/" target="_blank" rel="noopener">Privacy Notice</a>.</span>
+            </label>
+            <div class="error-region" data-field="terms_accepted">
+              <span class="error-msg" id="terms_accepted-error" hidden></span>
+              <span class="error-hint">Both documents open in a new tab so your progress stays here.</span>
             </div>
           </div>
 
@@ -393,9 +336,7 @@
       <p class="momentum">Username&nbsp;&nbsp;<span class="hl" id="success-username">—</span></p>
       <p class="momentum">Completed&nbsp;&nbsp;<span class="hl" id="success-completed">—</span></p>
       <p class="kill-meta" id="success-test-banner" hidden>Test mode — your profile was not persisted.</p>
-      <!-- Phase 4 re-send affordance. The bootstrap email is fired on
-           Phase 3 success as a best-effort POST to /api/account/bootstrap.
-           If the user never sees it, this button re-queues the same payload. -->
+      <!-- Account-activation resend. Collaboration invitations are not part of launch. -->
       <p class="momentum" id="bootstrap-resend-row">
         <button type="button" class="link-button" id="bootstrap-resend-btn"
                 aria-describedby="bootstrap-resend-status">
@@ -403,6 +344,15 @@
         </button>
         <span class="hl" id="bootstrap-resend-status" aria-live="polite"></span>
       </p>
+    </section>
+
+    <section class="state kill kill--retry" data-state="ACTIVATION_PENDING" data-active="false" aria-hidden="true">
+      <h1>ACCOUNT ACTIVATION PENDING</h1>
+      <p class="kill-line">Your profile is saved, but the activation email was not confirmed.</p>
+      <p class="kill-meta">Your progress is safe. Retry the activation email now.</p>
+      <button type="button" class="link-button" id="activation-pending-btn"
+              aria-describedby="activation-pending-status">// RETRY ACTIVATION EMAIL</button>
+      <span class="hl" id="activation-pending-status" aria-live="polite"></span>
     </section>
 
     <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
@@ -423,27 +373,7 @@
 
   </main>
 
-  <script>
-    // Same-origin proxies. n8n base URL + auth key live in Vercel env vars
-    // (PKC_N8N_BASE_URL, PKC_AUTH_KEY) and never reach the browser.
-    window.PKC_PHASE_THREE = {
-      VERIFY_URL:         "/api/phase-three/verify",
-      SAVE_URL:           "/api/phase-three/save",
-      EVENT_URL:          "/api/phase-three/event",
-      CHECK_USERNAME_URL: "/api/phase-three/check-username",
-      AVATAR_UPLOAD_URL:  "/api/avatar-upload",
-      EXPECTED_API_VERSION: "1.0.0",
-      LOADING_TIMEOUT_MS: 12000,
-      AUTO_RETRY_DELAY_MS: 1500,
-      ABANDON_AFTER_MS: 120000,
-      USERNAME_DEBOUNCE_MS: 300,
-      AVATAR_MAX_BYTES: 2 * 1024 * 1024,
-      AVATAR_MAX_DIM: 1024
-    };
-  </script>
-  <script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js" defer></script>
-  <script src="motion.js" defer></script>
-  <script src="upload-worker.js"></script>
-  <script src="app.js"></script>
+  <script src="/phase-three/config.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

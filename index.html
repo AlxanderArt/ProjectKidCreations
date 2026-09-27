@@ -6,183 +6,83 @@
   <meta name="color-scheme" content="dark">
   <meta name="robots" content="noindex">
   <meta http-equiv="Cache-Control" content="no-store">
-  <title>PROJECTKIDCREATIONS // ROUTING</title>
-  <meta name="description" content="ProjectKidCreations — routing to your next step.">
+  <title>PROJECTKIDCREATIONS // ENTRY</title>
+  <meta name="description" content="ProjectKidCreations — choose your next step.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/tokens.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      color-scheme: dark;
-      --pkc-tac-black: #0A0A0A;
-      --pkc-hi-vis:    #FF5F1F;
-      --pkc-slate:     #3F4448;
-      --pkc-text:      #E8E8E8;
-    }
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; }
-    body {
-      background: var(--pkc-tac-black);
-      color: var(--pkc-text);
-      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 14px;
-      letter-spacing: 0.04em;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-    /* Scan-line texture, matches landing brand chrome */
-    body::before {
-      content: "";
-      position: fixed; inset: 0;
-      pointer-events: none;
-      opacity: 0.025;
-      background-image: repeating-linear-gradient(
-        0deg, transparent, transparent 2px,
-        rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 3px
-      );
-    }
-    .stage {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 18px;
-      text-align: center;
-    }
-    .mark {
-      font-weight: 700;
-      font-size: 18px;
-      letter-spacing: -0.5px;
-      color: var(--pkc-text);
-      text-transform: uppercase;
-    }
-    .mark span { color: var(--pkc-hi-vis); }
-    .status {
-      color: var(--pkc-slate);
-      text-transform: uppercase;
-      font-size: 11px;
-      letter-spacing: 0.12em;
-    }
-    .bar {
-      width: 240px;
-      height: 1px;
-      background: rgba(63, 68, 72, 0.4);
-      position: relative;
-      overflow: hidden;
-    }
-    .bar::after {
-      content: "";
-      position: absolute; top: 0; bottom: 0; left: -40%;
-      width: 40%;
-      background: var(--pkc-hi-vis);
-      animation: sweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-    }
-    @keyframes sweep {
-      from { left: -40%; }
-      to   { left: 100%; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .bar::after { animation: none; left: 0; width: 100%; opacity: 0.4; }
-    }
-    .fallback {
-      max-width: 520px;
-      padding: 24px;
-      border: 1px solid var(--pkc-slate);
-      color: var(--pkc-text);
-    }
-    .fallback h1 {
-      font: 700 14px/1.4 'JetBrains Mono', monospace;
-      margin: 0 0 12px; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--pkc-hi-vis);
-    }
-    .fallback p { margin: 0 0 8px; font-size: 13px; line-height: 1.6; color: var(--pkc-text); }
-    .fallback a { color: var(--pkc-hi-vis); }
-  </style>
+  <link rel="stylesheet" href="/root.css">
+  <script src="/root-router.js" defer></script>
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
   <noscript>
-    <main class="fallback">
-      <h1>// SCRIPT REQUIRED</h1>
-      <p>Routing needs JavaScript. Head to <a href="/phase-one/">// PHASE ONE</a> to begin onboarding, or <a href="/account/login/">// SIGN IN</a> if you already have an operator account.</p>
+    <main class="panel">
+      <p class="eyebrow">// SCRIPT REQUIRED</p>
+      <h1>CHOOSE YOUR PATH.</h1>
+      <div class="actions">
+        <a class="primary" href="/phase-one/">START ONBOARDING →</a>
+        <a href="/account/login/">RETURNING SIGN-IN →</a>
+        <a href="/landing.html">BROWSE PROJECTS →</a>
+      </div>
     </main>
   </noscript>
 
-  <div class="stage" aria-live="polite">
-    <div class="mark">PROJECT<span>KID</span>CREATIONS</div>
-    <div class="bar" aria-hidden="true"></div>
-    <p class="status" id="status">// CHECKING SESSION</p>
-  </div>
+  <main class="entry-shell" aria-live="polite">
+    <header class="brand">
+      <div class="mark">PROJECT<span>KID</span>CREATIONS</div>
+      <p class="status" id="status">// CHECKING SESSION</p>
+    </header>
 
-  <script>
-    // ── Splash hold: floor the splash for HOLD_MS while the auth probe and
-    //    asset prefetches run in parallel. Hold is a FLOOR only — if the probe
-    //    takes longer than HOLD_MS, we wait for it.
-    var HOLD_MS_FULL    = 2000;
-    var HOLD_MS_REDUCED = 300;
-    var HOLD_MS = window.matchMedia &&
-                  window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      ? HOLD_MS_REDUCED : HOLD_MS_FULL;
-    var PROBE_TIMEOUT_MS = 4000;
+    <section class="panel compact" id="loading-state">
+      <div class="bar" aria-hidden="true"></div>
+      <p>Loading your secure entry state.</p>
+    </section>
 
-    function prefetch(href, opts) {
-      opts = opts || {};
-      var link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = href;
-      if (opts.as) link.as = opts.as;
-      if (opts.crossorigin) link.crossOrigin = 'anonymous';
-      document.head.appendChild(link);
-    }
+    <section class="panel" id="public-state" hidden inert>
+      <p class="eyebrow">// PUBLIC ENTRY</p>
+      <h1>WHAT ARE YOU HERE TO DO?</h1>
+      <p>Browse the work, begin the three-step customer setup, or return to an existing account.</p>
+      <div class="actions">
+        <a class="primary" href="/phase-one/">START ONBOARDING →</a>
+        <a href="/account/login/">RETURNING CUSTOMER SIGN-IN →</a>
+        <a href="/account/login/?next=%2Faccount%2Fadmin%2F">PK BLICK // FOUNDER SIGN-IN →</a>
+        <a href="/landing.html">BROWSE PROJECTS →</a>
+      </div>
+    </section>
 
-    // Both destinations' HTML — whichever way we route, the doc is hot.
-    prefetch('/phase-one/',   { as: 'document' });
-    prefetch('/landing.html', { as: 'document' });
+    <section class="panel" id="session-state" hidden inert>
+      <p class="eyebrow">// SHARED-BROWSER CHECK</p>
+      <h1>SESSION FOUND.</h1>
+      <p>Signed in as <strong id="session-name">—</strong>. Continue, sign out, or clear this session before starting a new onboarding.</p>
+      <div class="actions">
+        <a class="primary" id="continue-link" href="/account/">CONTINUE TO ACCOUNT →</a>
+        <button type="button" id="sign-out">SIGN OUT</button>
+        <button type="button" id="start-new">SIGN OUT + START NEW →</button>
+      </div>
+    </section>
 
-    // Landing's bundled JS — single hashed entry now that the page is built.
-    prefetch('/dist/landing.js', { as: 'script' });
-
-    function prefetchGLB() {
-      // 11 MB — gated on a 200 from the probe so phase-one routes pay nothing.
-      prefetch('/assets/models/splatrball-400.glb', { as: 'fetch' });
-    }
-
-    (async function route() {
-      var PHASE_ONE = '/phase-one/';
-      var LANDING   = '/landing.html';
-      var startedAt = performance.now();
-
-      var probePromise = (async function () {
-        var ctrl = new AbortController();
-        var t = setTimeout(function () { ctrl.abort(); }, PROBE_TIMEOUT_MS);
-        try {
-          var res = await fetch('/api/account/profile', {
-            method: 'GET',
-            credentials: 'include',
-            signal: ctrl.signal,
-            cache: 'no-store',
-          });
-          clearTimeout(t);
-          return { ok: res.ok };
-        } catch (_err) {
-          clearTimeout(t);
-          return { ok: false };
-        }
-      })();
-
-      // Kick off GLB prefetch the instant we know the user is signed in.
-      probePromise.then(function (r) { if (r.ok) prefetchGLB(); });
-
-      var holdPromise = new Promise(function (resolve) {
-        var elapsed = performance.now() - startedAt;
-        setTimeout(resolve, Math.max(0, HOLD_MS - elapsed));
-      });
-
-      var results = await Promise.all([probePromise, holdPromise]);
-      location.replace(results[0].ok ? LANDING : PHASE_ONE);
-    })();
-  </script>
+    <section class="panel" id="degraded-state" hidden inert>
+      <p class="eyebrow">// STATE UNKNOWN</p>
+      <h1>WE COULDN'T VERIFY THIS SESSION.</h1>
+      <p>No onboarding state was changed. Retry the secure check or sign in directly.</p>
+      <div class="actions">
+        <button class="primary" type="button" id="retry-entry">RETRY SESSION CHECK ↻</button>
+        <a href="/account/login/">SIGN IN →</a>
+        <a href="/landing.html">BROWSE PROJECTS →</a>
+      </div>
+    </section>
+  </main>
 </body>
 </html>

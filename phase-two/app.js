@@ -282,6 +282,7 @@
 
   function init() {
     tokenString = safeParseToken();
+    window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     emitClientEvent("PHASE_TWO_PAGE_OPENED", { token_payload_hash: tokenPayloadHash(tokenString) });
     initThemeFromStorage();
 

@@ -9,8 +9,21 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/tokens.css">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
   <noscript>
     <main class="kill">
       <h1>SCRIPT REQUIRED</h1>
@@ -35,7 +48,9 @@
     <a href="#" class="back" id="back" hidden>← BACK</a>
   </header>
 
-  <main id="form" aria-live="polite"></main>
+  <main id="form" aria-live="polite">
+    <h1 class="sr-only">PROJECTKIDCREATIONS ONBOARDING</h1>
+  </main>
 
   <section
     class="end"
@@ -49,11 +64,7 @@
     <p class="submission-id" id="submission-id" hidden></p>
   </section>
 
-  <script>
-    // Same-origin proxy. Real n8n base URL + auth key live in Vercel env vars
-    // (PKC_N8N_BASE_URL, PKC_AUTH_KEY) and never reach the browser.
-    window.PKC_ENDPOINT = "/api/onboarding";
-  </script>
-  <script src="app.js"></script>
+  <script src="/phase-one/config.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

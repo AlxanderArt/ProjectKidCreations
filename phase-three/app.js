@@ -1,5 +1,5 @@
 /* ProjectKidCreations — phase-three/app.js
- * 11-state machine + 4-section form. Token verify → identity / loadout / logistics / review → save.
+ * 11-state machine + 4-section form. Token verify → identity / loadout / consent / review → save.
  *
  * States: LOADING, INVALID, EXPIRED, ALREADY_DONE, PHASE2_INCOMPLETE,
  *         FORM (with sections: identity, maker, contact, review),
@@ -24,8 +24,7 @@
   let abandonTimer = null;
   let loadingTimer = null;
   let autoRetryUsed = false;
-  let avatarUrl = null;
-  let avatarBytes = 0;
+
   let lastUsernameChecked = null;
   let usernameAvailable = null; // null | true | false | "checking"
   let usernameDebounceTimer = null;
@@ -40,7 +39,7 @@
   const SECTION_LABELS = {
     identity: "IDENTITY MARKERS",
     maker: "LOADOUT INTERESTS",
-    contact: "LOGISTICS + COMMS",
+    contact: "ACCOUNT CONSENT",
     review: "COMMIT BUILD"
   };
 
@@ -276,27 +275,13 @@
     return {
       display_name: get("#display-name-input").trim(),
       username: get("#username-input").trim().toLowerCase(),
-      avatar_url: avatarUrl || null,
+      avatar_url: null,
       bio: get("#bio-input").trim(),
       skill_level: (document.querySelector('input[name="skill_level"]:checked') || {}).value || "",
       blasters_owned: tags.blasters_owned.slice(),
       accessory_interests: tags.accessory_interests.slice(),
-      socials: {
-        insta: get("#social-insta").trim(),
-        yt: get("#social-yt").trim(),
-        tiktok: get("#social-tiktok").trim()
-      },
-      birthday: get("#birthday-input"),
-      shipping: {
-        line1: get("#ship-line1").trim(),
-        line2: get("#ship-line2").trim(),
-        city: get("#ship-city").trim(),
-        region: get("#ship-region").trim(),
-        postal: get("#ship-postal").trim(),
-        country: get("#ship-country")
-      },
-      email_drops: checked("#email-drops-input"),
-      sms_optin: checked("#sms-optin-input")
+      age_confirmed: checked("#age-confirm-input"),
+      terms_accepted: checked("#terms-accept-input"),
     };
   }
 
@@ -314,27 +299,6 @@
     tags.accessory_interests = Array.isArray(d.accessory_interests) ? d.accessory_interests.slice(0, 10) : [];
     renderTags("blasters_owned");
     renderTags("accessory_interests");
-    if (d.socials) {
-      set("#social-insta", d.socials.insta);
-      set("#social-yt", d.socials.yt);
-      set("#social-tiktok", d.socials.tiktok);
-    }
-    set("#birthday-input", d.birthday);
-    if (d.shipping) {
-      set("#ship-line1", d.shipping.line1);
-      set("#ship-line2", d.shipping.line2);
-      set("#ship-city", d.shipping.city);
-      set("#ship-region", d.shipping.region);
-      set("#ship-postal", d.shipping.postal);
-      set("#ship-country", d.shipping.country);
-    }
-    if ($("#email-drops-input") && d.email_drops != null) $("#email-drops-input").checked = !!d.email_drops;
-    if ($("#sms-optin-input") && d.sms_optin != null) $("#sms-optin-input").checked = !!d.sms_optin;
-    if (d.avatar_url) {
-      avatarUrl = d.avatar_url;
-      avatarBytes = d.avatar_bytes || 0;
-      showAvatarPreview(avatarUrl);
-    }
     updateBioCounter();
   }
 
@@ -343,10 +307,17 @@
     if (!key) return;
     try {
       const v = readForm();
-      v.avatar_bytes = avatarBytes;
-      v._saved_at = Date.now();
-      v._section = section;
-      localStorage.setItem(key, JSON.stringify(v));
+      const safeDraft = {
+        display_name: v.display_name,
+        username: v.username,
+        bio: v.bio,
+        skill_level: v.skill_level,
+        blasters_owned: v.blasters_owned,
+        accessory_interests: v.accessory_interests,
+        _saved_at: Date.now(),
+        _section: section
+      };
+      sessionStorage.setItem(key, JSON.stringify(safeDraft));
     } catch (_) {}
   }
 
@@ -354,7 +325,7 @@
     const key = draftKey();
     if (!key) return;
     let raw;
-    try { raw = localStorage.getItem(key); } catch (_) { return; }
+    try { raw = sessionStorage.getItem(key); } catch (_) { return; }
     if (!raw) return;
     let d;
     try { d = JSON.parse(raw); } catch (_) { return; }
@@ -364,14 +335,14 @@
       // Defer to after setState("FORM") so listeners are in place
       setTimeout(() => setSection(d._section, { silent: true }), 100);
     }
-    showToast("// DRAFT RESTORED FROM LOCAL STORAGE");
+    showToast("// TAB DRAFT RESTORED — PRIVATE FIELDS MUST BE RE-ENTERED");
     emitClientEvent("PHASE_THREE_DRAFT_RESTORED", { section: d._section || "identity" });
   }
 
   function clearDraft() {
     const key = draftKey();
     if (!key) return;
-    try { localStorage.removeItem(key); } catch (_) {}
+    try { sessionStorage.removeItem(key); } catch (_) {}
   }
 
   function showToast(text) {
@@ -404,40 +375,12 @@
     }
     if (name === "maker") {
       if (!v.skill_level) errs.skill_level = "Pick a skill level.";
-      for (const sv of Object.values(v.socials)) {
-        if (sv && !/^[A-Za-z0-9_.]+$/.test(sv)) {
-          errs.socials = "Handles only — letters, numbers, dot, underscore.";
-          break;
-        }
-      }
     }
     if (name === "contact") {
-      if (!v.birthday) {
-        errs.birthday = "Birthday required.";
-      } else {
-        const age = computeAge(v.birthday);
-        if (age == null) errs.birthday = "Birthday looks invalid.";
-        else if (age < 14) errs.birthday = "14+ required.";
-      }
-      const s = v.shipping;
-      const anyShipping = !!(s.line1 || s.line2 || s.city || s.region || s.postal || s.country);
-      if (anyShipping) {
-        if (!s.line1) errs.shipping = "Line 1 is required if you start an address.";
-        else if (!s.country) errs.shipping = "Country is required if you start an address.";
-      }
+      if (!v.age_confirmed) errs.age_confirmed = "You must confirm that you are at least 18 years old.";
+      if (!v.terms_accepted) errs.terms_accepted = "Accept the Privacy Notice and Terms to continue.";
     }
     return errs;
-  }
-
-  function computeAge(iso) {
-    if (!iso) return null;
-    const d = new Date(iso + "T00:00:00");
-    if (isNaN(d.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - d.getFullYear();
-    const m = now.getMonth() - d.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
-    return age;
   }
 
   function showFieldError(field, msg) {
@@ -448,11 +391,19 @@
     if (errEl) {
       errEl.textContent = msg || "";
       errEl.hidden = !msg;
+      fieldEl.querySelectorAll("input, textarea, select").forEach((control) => {
+        control.setAttribute("aria-invalid", "true");
+        if (errEl.id) control.setAttribute("aria-describedby", errEl.id);
+      });
     }
   }
   function clearFieldErrors() {
     $$(".field.invalid").forEach((el) => el.classList.remove("invalid"));
     $$(".error-msg").forEach((el) => { el.textContent = ""; el.hidden = true; });
+    $$("[aria-invalid='true']").forEach((control) => {
+      control.removeAttribute("aria-invalid");
+      control.removeAttribute("aria-describedby");
+    });
   }
   function applyErrors(errs) {
     clearFieldErrors();
@@ -557,104 +508,6 @@
     if (usernameDebounceTimer) clearTimeout(usernameDebounceTimer);
     usernameDebounceTimer = setTimeout(() => checkUsernameNow(v), CFG.USERNAME_DEBOUNCE_MS || 300);
   }
-
-  // ── Avatar ───────────────────────────────────────────────────
-  function setupAvatar() {
-    const dropzone = $("#dropzone");
-    const fileInput = $("#avatar-input");
-    const replaceBtn = $("#avatar-replace");
-    if (!dropzone || !fileInput) return;
-
-    const openPicker = () => fileInput.click();
-    dropzone.addEventListener("click", (e) => {
-      if (dropzone.getAttribute("data-state") === "uploading") return;
-      if (e.target.closest("#avatar-replace")) return;
-      openPicker();
-    });
-    dropzone.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        openPicker();
-      }
-    });
-    dropzone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      if (dropzone.getAttribute("data-state") === "uploading") return;
-      dropzone.setAttribute("data-state", "drag");
-    });
-    dropzone.addEventListener("dragleave", () => {
-      if (dropzone.getAttribute("data-state") === "drag") dropzone.setAttribute("data-state", "idle");
-    });
-    dropzone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (dropzone.getAttribute("data-state") === "uploading") return;
-      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) startAvatarUpload(f);
-    });
-    fileInput.addEventListener("change", (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (f) startAvatarUpload(f);
-    });
-    if (replaceBtn) replaceBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openPicker();
-    });
-  }
-
-  function startAvatarUpload(file) {
-    if (!window.PKC_AVATAR || !tokenString) return;
-    const dropzone = $("#dropzone");
-    const fill = $("#upload-bar-fill");
-    showAvatarStage("uploading");
-    if (fill) fill.style.width = "2%";
-    window.PKC_AVATAR.processAndUpload(file, tokenString, {
-      onProgress: (p) => { if (fill) fill.style.width = Math.round(Math.max(2, p * 100)) + "%"; },
-      onSuccess: (result) => {
-        avatarUrl = result.url || (result.data && result.data.url) || null;
-        avatarBytes = result.bytes || (result.data && result.data.bytes) || file.size;
-        if (!avatarUrl) {
-          showFieldError("avatar", "Upload returned no URL.");
-          showAvatarStage("idle");
-          return;
-        }
-        showAvatarPreview(avatarUrl);
-        emitClientEvent("PHASE_THREE_AVATAR_UPLOADED", { bytes: avatarBytes });
-        saveDraft();
-        clearAvatarError();
-      },
-      onError: (err) => {
-        showFieldError("avatar", (err && err.message) || "Upload failed.");
-        showAvatarStage("idle");
-      }
-    });
-    if (dropzone) dropzone.setAttribute("data-state", "uploading");
-  }
-
-  function showAvatarStage(stage) {
-    const dropzone = $("#dropzone");
-    if (!dropzone) return;
-    dropzone.setAttribute("data-state", stage);
-    const idle = dropzone.querySelector(".dropzone-idle");
-    const progress = dropzone.querySelector(".dropzone-progress");
-    const preview = dropzone.querySelector(".dropzone-preview");
-    if (idle) idle.hidden = stage !== "idle";
-    if (progress) progress.hidden = stage !== "uploading";
-    if (preview) preview.hidden = stage !== "preview";
-  }
-
-  function showAvatarPreview(url) {
-    const img = $("#avatar-preview");
-    if (img) img.src = url;
-    showAvatarStage("preview");
-  }
-
-  function clearAvatarError() {
-    const fieldEl = document.querySelector('.field[data-field="avatar"]');
-    if (fieldEl) fieldEl.classList.remove("invalid");
-    const err = $("#avatar-error");
-    if (err) { err.textContent = ""; err.hidden = true; }
-  }
-
   // ── Bio counter ──────────────────────────────────────────────
   function updateBioCounter() {
     const bio = $("#bio-input");
@@ -663,44 +516,11 @@
     counter.textContent = String(bio.value.length);
   }
 
-  // ── Country dropdown ─────────────────────────────────────────
-  // Common-priority countries first, then alphabetical
-  const COUNTRIES = [
-    ["US", "United States"], ["CA", "Canada"], ["MX", "Mexico"],
-    ["GB", "United Kingdom"], ["AU", "Australia"], ["NZ", "New Zealand"],
-    ["DE", "Germany"], ["FR", "France"], ["NL", "Netherlands"], ["SE", "Sweden"],
-    ["NO", "Norway"], ["DK", "Denmark"], ["FI", "Finland"], ["IE", "Ireland"],
-    ["ES", "Spain"], ["IT", "Italy"], ["PT", "Portugal"], ["BE", "Belgium"],
-    ["AT", "Austria"], ["CH", "Switzerland"], ["PL", "Poland"], ["CZ", "Czechia"],
-    ["JP", "Japan"], ["KR", "South Korea"], ["SG", "Singapore"], ["HK", "Hong Kong"],
-    ["TW", "Taiwan"], ["AR", "Argentina"], ["BR", "Brazil"], ["CL", "Chile"],
-    ["CO", "Colombia"], ["PE", "Peru"], ["UY", "Uruguay"], ["ZA", "South Africa"],
-    ["AE", "United Arab Emirates"], ["IL", "Israel"], ["IN", "India"],
-    ["MY", "Malaysia"], ["TH", "Thailand"], ["PH", "Philippines"], ["VN", "Vietnam"],
-    ["ID", "Indonesia"]
-  ];
-
-  function populateCountries() {
-    const sel = $("#ship-country");
-    if (!sel) return;
-    const frag = document.createDocumentFragment();
-    // Keep the existing placeholder option, append rest
-    COUNTRIES.forEach(([code, name]) => {
-      const opt = document.createElement("option");
-      opt.value = code;
-      opt.textContent = name;
-      frag.appendChild(opt);
-    });
-    sel.appendChild(frag);
-  }
-
   // ── Review render ────────────────────────────────────────────
   function renderReview() {
     const grid = $("#review-grid");
     if (!grid) return;
     const v = readForm();
-    const age = computeAge(v.birthday);
-    const isAdult = age != null && age >= 18;
     const cells = [];
     cells.push(reviewRow("DISPLAY NAME", v.display_name || "—", "identity", "display_name"));
     cells.push(reviewRow("USERNAME", v.username || "—", "identity", "username"));
@@ -715,23 +535,9 @@
     cells.push(reviewRow("SKILL", v.skill_level ? v.skill_level.toUpperCase() : "—", "maker", "skill_level"));
     cells.push(reviewRow("BLASTERS", v.blasters_owned.length ? v.blasters_owned.join(", ") : "—", "maker", "blasters_owned"));
     cells.push(reviewRow("INTERESTS", v.accessory_interests.length ? v.accessory_interests.join(", ") : "—", "maker", "accessory_interests"));
-    const socials = ["insta", "yt", "tiktok"]
-      .map((k) => v.socials[k] ? `${k.toUpperCase()} @${v.socials[k]}` : null)
-      .filter(Boolean)
-      .join("  ");
-    cells.push(reviewRow("SOCIALS", socials || "—", "maker", "socials"));
-    const birthdayLabel = v.birthday
-      ? `${v.birthday}${isAdult ? " &nbsp;<span class=\"verified-18\">// VERIFIED 18+</span>" : ""}`
-      : "—";
-    cells.push(reviewRow("BIRTHDAY", birthdayLabel, "contact", "birthday", true));
-    const s = v.shipping;
-    const anyShipping = s.line1 || s.line2 || s.city || s.region || s.postal || s.country;
-    const shippingLabel = anyShipping
-      ? [s.line1, s.line2, [s.city, s.region, s.postal].filter(Boolean).join(" "), s.country].filter(Boolean).join(" / ")
-      : "—";
-    cells.push(reviewRow("SHIPPING", shippingLabel, "contact", "shipping"));
-    cells.push(reviewRow("EMAIL DROPS", v.email_drops ? "ON" : "OFF", "contact", "prefs"));
-    cells.push(reviewRow("SMS DROPS", v.sms_optin ? "ON" : "OFF", "contact", "prefs"));
+    cells.push(reviewRow("AGE ELIGIBILITY", v.age_confirmed ? "18+ CONFIRMED" : "NOT CONFIRMED", "contact", "age_confirmed"));
+    cells.push(reviewRow("PRIVACY + TERMS", v.terms_accepted ? "ACCEPTED" : "NOT ACCEPTED", "contact", "terms_accepted"));
+
     grid.innerHTML = cells.join("");
     // Wire up the edit links
     $$(".review-edit").forEach((btn) => {
@@ -780,7 +586,7 @@
       if (res.code === "UNDER_AGE") {
         setState("FORM");
         setSection("contact");
-        showFieldError("birthday", "14+ required.");
+        showFieldError("age_confirmed", "Account onboarding requires age 18 or older.");
         return;
       }
       if (res.code === "USERNAME_TAKEN") {
@@ -795,8 +601,8 @@
         // Best-effort: try to map the message to a section
         const msg = (res.message || "").toLowerCase();
         let target = "identity";
-        if (msg.includes("birthday") || msg.includes("ship")) target = "contact";
-        else if (msg.includes("skill") || msg.includes("social")) target = "maker";
+        if (msg.includes("privacy") || msg.includes("terms") || msg.includes("age")) target = "contact";
+        else if (msg.includes("skill")) target = "maker";
         setSection(target);
         // Field-level fallback
         showFieldError("username", res.message || "Please check your input.");
@@ -812,7 +618,14 @@
       }
       return setError(!!res.retryable, "We couldn't commit your profile.");
     }
-    showSuccess(res.data || {});
+    const saveData = res.data || {};
+    try {
+      await issueAccountActivation(saveData);
+    } catch (_) {
+      showActivationPending(saveData);
+      return;
+    }
+    showSuccess(saveData);
   }
 
   function showSuccess(data) {
@@ -822,60 +635,68 @@
     if (data.persisted === false) $("#success-test-banner").hidden = false;
     clearDraft();
     setState("SUCCESS");
-
-    // Phase 4 — Account bootstrap handoff. Phase 4 (operator-account system)
-    // lives on a separate workflow; this POST queues the bootstrap email. We
-    // don't await the response — Phase 3 success doesn't depend on it. If it
-    // fails, the user re-triggers from the "didn't get the email?" button.
-    fireBootstrapHandoff(data);
     bindBootstrapResend(data);
   }
 
-  // ── Phase 4 bootstrap handoff ────────────────────────────────
-  // Best-effort POST to /api/account/bootstrap with the four fields the
-  // bootstrap workflow needs. Errors are swallowed; this MUST NOT block or
-  // mutate the Phase 3 SUCCESS state.
+  // ── Account activation handoff ───────────────────────────────
   function buildBootstrapPayload(saveData) {
-    const form = readForm();
-    return {
-      submission_id: (saveData && saveData.submissionId)
-        || (verifyData && verifyData.submissionId)
-        || null,
-      username: (saveData && saveData.username) || form.username || null,
-      email: (verifyData && verifyData.email) || null,
-      first_name: (verifyData && verifyData.firstName) || form.display_name || null
-    };
+    const activationProof = saveData && saveData.activation_proof;
+    if (!activationProof) throw new Error("activation_proof_missing");
+    return { activation_proof: activationProof };
   }
 
-  function fireBootstrapHandoff(saveData) {
-    try {
-      const payload = buildBootstrapPayload(saveData);
-      fetch("/api/account/bootstrap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true
-      }).catch(() => {}); // swallow — best-effort
-    } catch (_) {}
+  async function issueAccountActivation(saveData) {
+    const payload = buildBootstrapPayload(saveData);
+    const response = await fetch("/api/account/bootstrap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`activation_http_${response.status}`);
+    const result = await response.json();
+    if (!result || result.ok !== true || result.status !== "bootstrap_email_sent") {
+      throw new Error("activation_unconfirmed");
+    }
+    return result;
+  }
+
+  function showActivationPending(saveData) {
+    setState("ACTIVATION_PENDING");
+    const btn = $("#activation-pending-btn");
+    const statusEl = $("#activation-pending-status");
+    if (!btn || btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      if (statusEl) statusEl.textContent = "// SENDING…";
+      try {
+        await issueAccountActivation(saveData);
+        showSuccess(saveData);
+      } catch (_) {
+        if (statusEl) statusEl.textContent = "// NOT CONFIRMED — TRY AGAIN";
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 
   function bindBootstrapResend(saveData) {
     const btn = $("#bootstrap-resend-btn");
     if (!btn || btn.dataset.bound === "1") return;
     btn.dataset.bound = "1";
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const statusEl = $("#bootstrap-resend-status");
       if (statusEl) statusEl.textContent = "// SENDING…";
       try {
-        const payload = buildBootstrapPayload(saveData);
-        fetch("/api/account/bootstrap", {
+        const response = await fetch("/api/account/bootstrap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          keepalive: true
-        })
-          .then(() => { if (statusEl) statusEl.textContent = "// SENT — CHECK YOUR INBOX"; })
-          .catch(() => { if (statusEl) statusEl.textContent = "// COULDN'T SEND — TRY AGAIN"; });
+          body: JSON.stringify(buildBootstrapPayload(saveData))
+        });
+        if (!response.ok) throw new Error(`activation_http_${response.status}`);
+        const result = await response.json();
+        if (!result || result.ok !== true || result.status !== "bootstrap_email_sent") throw new Error("activation_unconfirmed");
+        if (statusEl) statusEl.textContent = "// SENT — CHECK YOUR INBOX";
       } catch (_) {
         if (statusEl) statusEl.textContent = "// COULDN'T SEND — TRY AGAIN";
       }
@@ -898,8 +719,8 @@
         applyErrors(errs);
         // Jump to first section with an error
         const order = { display_name: "identity", username: "identity", bio: "identity",
-                        skill_level: "maker", socials: "maker",
-                        birthday: "contact", shipping: "contact" };
+                        skill_level: "maker", age_confirmed: "contact",
+                        terms_accepted: "contact" };
         const first = Object.keys(errs)[0];
         setSection(order[first] || "identity");
         return;
@@ -948,26 +769,12 @@
     if (bio) bio.addEventListener("input", () => { updateBioCounter(); saveDraft(); });
 
     // Save-on-blur for everything that affects draft
-    ["#display-name-input", "#social-insta", "#social-yt", "#social-tiktok",
-     "#birthday-input", "#ship-line1", "#ship-line2", "#ship-city", "#ship-region",
-     "#ship-postal", "#ship-country", "#email-drops-input", "#sms-optin-input"].forEach((sel) => {
+    ["#display-name-input", "#age-confirm-input", "#terms-accept-input"].forEach((sel) => {
       const el = $(sel);
-      if (el) el.addEventListener("blur", saveDraft);
+      if (el) el.addEventListener("change", saveDraft);
     });
     $$('input[name="skill_level"]').forEach((rb) => rb.addEventListener("change", saveDraft));
 
-    // Birthday hint
-    const bday = $("#birthday-input");
-    const hint = $("#birthday-hint");
-    if (bday && hint) {
-      bday.addEventListener("change", () => {
-        const age = computeAge(bday.value);
-        if (age == null) { hint.textContent = "14+ required. We don't share this."; return; }
-        if (age < 14) hint.textContent = "// AGE GATE: 14+ REQUIRED";
-        else if (age < 18) hint.textContent = `${age} years — 14+ verified.`;
-        else hint.textContent = `${age} years — 18+ verified.`;
-      });
-    }
 
     // Tag inputs
     setupTagInput("blasters_owned", "#blasters-input");
@@ -987,13 +794,16 @@
     fieldEl.classList.remove("invalid");
     const err = fieldEl.querySelector(".error-msg");
     if (err) { err.textContent = ""; err.hidden = true; }
+    fieldEl.querySelectorAll("[aria-invalid='true']").forEach((control) => {
+      control.removeAttribute("aria-invalid");
+      control.removeAttribute("aria-describedby");
+    });
   }
 
   function init() {
     tokenString = safeParseToken();
+    window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     emitClientEvent("PHASE_THREE_PAGE_OPENED", { token_payload_hash: tokenPayloadHash(tokenString) });
-    populateCountries();
-    setupAvatar();
     bindGlobalForm();
     if (!tokenString) {
       const meta = $("#invalid-meta");

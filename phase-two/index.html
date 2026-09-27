@@ -9,8 +9,21 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/tokens.css">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
   <noscript>
     <main class="kill">
       <h1>JAVASCRIPT REQUIRED</h1>
@@ -44,12 +57,22 @@
       <h1>LINK NOT RECOGNIZED</h1>
       <p class="kill-line">We couldn't verify this link.</p>
       <p class="kill-meta" id="invalid-meta">If you think this is a mistake, get in touch with support.</p>
+      <nav class="recovery-actions" aria-label="Recovery options">
+        <a class="recovery-link recovery-link--primary" href="/phase-one/">RESTART ONBOARDING →</a>
+        <a class="recovery-link" href="/account/login/">SIGN IN →</a>
+        <a class="recovery-link" href="/landing.html">BROWSE PROJECTS →</a>
+      </nav>
     </section>
 
     <section class="state kill kill--expired" data-state="EXPIRED" data-active="false" aria-hidden="true">
       <h1>LINK EXPIRED</h1>
       <p class="kill-line">This link has passed its 14&#8209;day window.</p>
       <p class="kill-meta">Get in touch with support and we'll send you a fresh one.</p>
+      <nav class="recovery-actions" aria-label="Recovery options">
+        <a class="recovery-link recovery-link--primary" href="/phase-one/">RESTART ONBOARDING →</a>
+        <a class="recovery-link" href="/account/login/">SIGN IN →</a>
+        <a class="recovery-link" href="/landing.html">BROWSE PROJECTS →</a>
+      </nav>
     </section>
 
     <section class="state" data-state="ALREADY_DONE" data-active="false" aria-hidden="true">
@@ -107,21 +130,7 @@
 
   </main>
 
-  <script>
-    // Same-origin proxy. n8n base URL + auth key live in Vercel env vars
-    // (PKC_N8N_BASE_URL, PKC_AUTH_KEY) and never reach the browser.
-    window.PKC_PHASE_TWO = {
-      VERIFY_URL: "/api/phase-two/verify",
-      SAVE_URL:   "/api/phase-two/save",
-      EVENT_URL:  "/api/phase-two/event",
-      EXPECTED_API_VERSION: "1.1.0",
-      LOADING_TIMEOUT_MS: 12000,
-      AUTO_RETRY_DELAY_MS: 1500,
-      ABANDON_AFTER_MS: 90000
-    };
-  </script>
-  <script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js" defer></script>
-  <script src="motion.js" defer></script>
-  <script src="app.js"></script>
+  <script src="/phase-two/config.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

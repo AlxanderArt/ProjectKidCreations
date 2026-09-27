@@ -3,9 +3,16 @@
   "version": "1.0.0",
   "description": "ProjectKidCreations — tactical 3D-printed gel-blaster mods. Onboarding pipeline + product surfaces.",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 8765",
-    "build": "esbuild src/landing.jsx --bundle --minify --format=esm --jsx=automatic --target=es2020 --outdir=dist --splitting --sourcemap=linked --legal-comments=none --metafile=dist/landing.meta.json --entry-names=[name]",
+    "dev": "python3 -m http.server ${PORT:-8765} --bind 127.0.0.1",
+    "build": "node scripts/build.mjs",
+    "audit:boot-performance": "node scripts/audit-boot-performance.mjs",
+    "test:contracts": "node --test tests/contracts/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:desktop": "playwright test --project=desktop-chromium",
+    "test:e2e:mobile": "playwright test --project=mobile-webkit",
+    "test:e2e:live": "playwright test --config=playwright.config.mjs",
     "vercel-build": "npm run build"
   },
   "repository": {
@@ -14,12 +21,13 @@
   },
   "license": "ISC",
   "dependencies": {
-    "@vercel/blob": "^2.3.3",
+    "gsap": "3.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.160.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "esbuild": "^0.25.12"
   }
 }

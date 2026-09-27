@@ -1,11 +1,23 @@
 import React from 'react';
-import { useAccent } from '../AccentContext.jsx';
-import { useIsMobile, usePrefersReducedMotion } from '../hooks.js';
+import { usePrefersReducedMotion } from '../hooks.js';
 
 export function Hero() {
-  const a = useAccent();
-  const isMobile = useIsMobile();
   const reducedMotion = usePrefersReducedMotion();
+  const [bootComplete, setBootComplete] = React.useState(() => (
+    typeof document === 'undefined' || (
+      document.documentElement.classList.contains('pkc-boot-ready') && !document.querySelector('#pkc-boot')
+    )
+  ));
+
+  React.useEffect(() => {
+    if (document.documentElement.classList.contains('pkc-boot-ready') && !document.querySelector('#pkc-boot')) {
+      setBootComplete(true);
+      return undefined;
+    }
+    const handleComplete = () => setBootComplete(true);
+    window.addEventListener('pkc:boot-complete', handleComplete, { once: true });
+    return () => window.removeEventListener('pkc:boot-complete', handleComplete);
+  }, []);
 
   const [phase, setPhase] = React.useState(0);
   React.useEffect(() => {
@@ -14,12 +26,6 @@ export function Hero() {
     const t3 = setTimeout(() => setPhase(3), 700);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
-
-  const fade = (delay) => ({
-    opacity: phase >= delay ? 1 : 0,
-    transform: phase >= delay ? 'translateY(0)' : 'translateY(8px)',
-    transition: 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1)',
-  });
 
   const [authState, setAuthState] = React.useState('checking');
   React.useEffect(() => {
@@ -41,148 +47,94 @@ export function Hero() {
     return () => { clearTimeout(t); ctrl.abort(); };
   }, []);
 
-  const STATUS_TEXT  = authState === 'verified'   ? '// STATUS: VERIFIED'
-                     : authState === 'unverified' ? '// STATUS: UNVERIFIED'
-                     :                              '// STATUS: CHECKING';
-  const STATUS_COLOR = authState === 'verified'   ? 'var(--pkc-verified)'
-                     : authState === 'unverified' ? 'var(--pkc-error)'
-                     :                              'var(--pkc-text-faint)';
+  const STATUS_TEXT = authState === 'verified' ? '// STATUS: VERIFIED'
+    : authState === 'unverified' ? '// STATUS: UNVERIFIED'
+      : '// STATUS: CHECKING';
 
   // 3D hero: dynamic import + fine-pointer gate (no GPU work on touch).
   // The mount() helper returns a dispose() that we call on unmount.
   const mountRef = React.useRef(null);
   const [modelReady, setModelReady] = React.useState(false);
   React.useEffect(() => {
+    if (!bootComplete) return;
     const el = mountRef.current;
     if (!el) return;
-    const finePointer = typeof window !== 'undefined' &&
-      window.matchMedia && window.matchMedia('(pointer: fine)').matches;
-    if (!finePointer) return;
+    const capableViewport = typeof window !== 'undefined' &&
+      window.matchMedia && window.matchMedia('(pointer: fine) and (min-width: 768px)').matches;
+    if (!capableViewport) return;
     let dispose = null;
     let cancelled = false;
-    import('../hero3d.js').then(({ mount }) => {
-      if (cancelled) return;
-      dispose = mount(el, { trackPointer: !reducedMotion, onReady: () => setModelReady(true) });
-    }).catch((err) => console.error('[hero-3d] module load failed:', err));
-    return () => { cancelled = true; if (dispose) dispose(); };
-  }, [reducedMotion]);
+    let idleId = null;
+    const MOTION_SETTLE_MS = 1400;
+    const mountModel = () => {
+      import('../hero3d.js').then(({ mount }) => {
+        if (cancelled) return;
+        dispose = mount(el, { trackPointer: !reducedMotion, onReady: () => setModelReady(true) });
+      }).catch((err) => console.error('[hero-3d] module load failed:', err));
+    };
+    const scheduleIdleMount = () => {
+      if (typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(mountModel, { timeout: 4000 });
+      } else {
+        mountModel();
+      }
+    };
+    const settleTimer = window.setTimeout(scheduleIdleMount, MOTION_SETTLE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(settleTimer);
+      if (idleId !== null && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+      if (dispose) dispose();
+    };
+  }, [bootComplete, reducedMotion]);
 
   return (
-    <section id="top" style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center',
-      position: 'relative', overflow: 'hidden', background: 'var(--pkc-tac-black)',
-    }}>
-      <div aria-hidden="true" style={{
-        position: 'absolute', inset: 0, opacity: 0.02, pointerEvents: 'none',
-        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.4) 2px, rgba(255,255,255,0.4) 3px)',
-      }} />
-      <div aria-hidden="true" style={{
-        position: 'absolute', inset: 0, opacity: 0.015, pointerEvents: 'none',
-        backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 119px, rgba(255,255,255,0.5) 120px)',
-      }} />
-      <div aria-hidden="true" style={{
-        position: 'absolute', top: '20%', right: '-10%', width: 600, height: 600,
-        background: `radial-gradient(circle, ${a}06 0%, transparent 70%)`,
-        pointerEvents: 'none',
-      }} />
+    <section id="top" className={`pkc-hero pkc-phase-${phase}`}>
+      <div aria-hidden="true" className="pkc-hero__scanlines" />
+      <div aria-hidden="true" className="pkc-hero__grid" />
+      <div aria-hidden="true" className="pkc-hero__glow" />
 
-      <div style={{
-        maxWidth: 1280, margin: '0 auto', padding: isMobile ? '100px 24px 60px' : '0 48px',
-        display: isMobile ? 'block' : 'flex', alignItems: 'center', gap: 64,
-        position: 'relative', zIndex: 2, width: '100%',
-      }}>
-        <div style={{ flex: isMobile ? 'unset' : '1 1 55%' }}>
-          <div role="status" aria-live="polite" style={{
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: 11,
-            letterSpacing: '0.08em',
-            marginBottom: 12,
-            color: STATUS_COLOR,
-            opacity: phase >= 1 ? 1 : 0,
-            transform: phase >= 1 ? 'translateY(0)' : 'translateY(8px)',
-            transition: 'opacity 480ms cubic-bezier(0.2,0.8,0.2,1), transform 480ms cubic-bezier(0.2,0.8,0.2,1), color 200ms cubic-bezier(0.2,0.8,0.2,1)',
-            animation: (authState === 'unverified' && phase >= 1)
-              ? 'pkc-status-pulse 3.2s ease-in-out infinite'
-              : 'none',
-          }}>{STATUS_TEXT}</div>
+      <div className="pkc-hero__inner">
+        <div className="pkc-hero__copy">
+          <div
+            role="status"
+            aria-live="polite"
+            className={`pkc-hero__status pkc-reveal-1 pkc-status--${authState}`}
+          >
+            {STATUS_TEXT}
+          </div>
 
-          <div style={{
-            ...fade(1),
-            display: 'inline-flex', padding: '2px 8px',
-            border: `1px solid ${a}`, color: a,
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: 10, fontWeight: 500, letterSpacing: '0.08em',
-            textTransform: 'uppercase', marginBottom: 24, borderRadius: 2,
-          }}>3D PRINTED PRECISION</div>
+          <div className="pkc-hero__badge pkc-reveal-1">3D PRINTED PRECISION</div>
 
-          <h1 style={{
-            ...fade(1),
-            fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
-            fontSize: isMobile ? 44 : 64, lineHeight: 1.1,
-            color: 'var(--pkc-concrete)', margin: '0 0 20px', textTransform: 'uppercase',
-            letterSpacing: '-0.02em',
-          }}>
+          <h1 className="pkc-hero__title pkc-reveal-1">
             ENGINEERED<br/>
-            <span style={{ color: a }}>REBELLION.</span>
+            <span className="pkc-accent-text">REBELLION.</span>
           </h1>
 
-          <p style={{
-            ...fade(2),
-            fontFamily: '"JetBrains Mono", monospace', fontSize: 14,
-            color: 'var(--pkc-text-muted)', lineHeight: 1.6,
-            margin: '0 0 32px', maxWidth: 440, letterSpacing: '0.01em',
-          }}>
+          <p className="pkc-hero__description pkc-reveal-2">
             Custom-engineered gel blaster mods and tactical accessories. Designed for performance. Built for those who refuse generic parts.
           </p>
 
-          <div style={{ ...fade(3), display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <a href="#mods" style={{
-              background: 'transparent', color: a, border: `2px solid ${a}`,
-              padding: '14px 24px', fontSize: 12, fontWeight: 700,
-              fontFamily: '"JetBrains Mono", monospace',
-              letterSpacing: '0.05em', textTransform: 'uppercase',
-              cursor: 'pointer', borderRadius: 2, textDecoration: 'none',
-              display: 'inline-block',
-              clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
-              transition: 'background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms cubic-bezier(0.2,0.8,0.2,1), transform 120ms',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='var(--pkc-tac-black)'; e.currentTarget.style.transform='translateY(-1px)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=a; e.currentTarget.style.transform='translateY(0)'; }}>
+          <div className="pkc-hero__actions pkc-reveal-3">
+            <a href="#mods" className="pkc-button pkc-button--primary">
               EXPLORE MODS <span aria-hidden="true">→</span>
             </a>
-            <a href="#gallery" style={{
-              background: 'transparent', color: 'var(--pkc-concrete)',
-              border: '1px solid var(--pkc-slate)', padding: '14px 24px',
-              fontSize: 12, fontWeight: 500, fontFamily: '"JetBrains Mono", monospace',
-              letterSpacing: '0.05em', textTransform: 'uppercase',
-              cursor: 'pointer', borderRadius: 2,
-              textDecoration: 'none', display: 'inline-block',
-              transition: 'border-color 120ms, color 120ms',
-            }}
-              onMouseEnter={e => e.currentTarget.style.borderColor='var(--pkc-text-faint)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
+            <a href="#gallery" className="pkc-button pkc-button--secondary">
               VIEW COLLECTION
             </a>
           </div>
         </div>
 
-        <div style={{
-          flex: isMobile ? 'unset' : '1 1 45%',
-          marginTop: isMobile ? 40 : 0,
-          display: 'flex', justifyContent: 'center',
-        }}>
+        <div className="pkc-hero__visual">
           <div
             ref={mountRef}
             id="hero-3d-mount"
             data-model-url="/assets/models/splatrball-400.glb"
+            data-ready={modelReady ? 'true' : 'false'}
             aria-hidden="true"
-            style={{
-              opacity: modelReady ? 1 : 0,
-              transition: 'opacity 600ms cubic-bezier(0.2,0.8,0.2,1)',
-              width: isMobile ? '100%' : 380,
-              height: isMobile ? 260 : 380,
-              position: 'relative',
-            }}
+            className="pkc-hero__model"
           />
         </div>
       </div>

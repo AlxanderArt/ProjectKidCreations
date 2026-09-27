@@ -12,25 +12,7 @@
   <!-- Design tokens — inlined here to avoid a render-blocking request on the
        LCP-critical page. The shared /tokens.css file still exists for other
        surfaces (account, phase-*) which can <link> to it freely. -->
-  <style>
-    :root {
-      color-scheme: dark;
-      --pkc-tac-black:       #0A0A0A;
-      --pkc-ghost:           #1A1C1E;
-      --pkc-surface-sunken:  #141416;
-      --pkc-surface-raised:  #24272A;
-      --pkc-slate:           #3F4448;
-      --pkc-border-strong:   #5A5F63;
-      --pkc-concrete:        #E8E8E8;
-      --pkc-text-muted:      #9AA0A4;
-      --pkc-text-faint:      #888D92;
-      --pkc-hi-vis:          #FF5F1F;
-      --pkc-verified:        #39FF14;
-      --pkc-error:           #FF3333;
-      --ease-snappy:         cubic-bezier(0.2, 0.8, 0.2, 1);
-      --ease-scan:           steps(8, end);
-    }
-  </style>
+  <link rel="stylesheet" href="/dist/landing.css">
 
   <!-- Open Graph — share preview for Discord / iMessage / X / Slack -->
   <meta property="og:type" content="website">
@@ -67,116 +49,22 @@
   }
   </script>
 
-  <style>
-    /* Self-hosted fonts (latin subset). Drop-in replacements for the
-       Google Fonts CSS that was previously fetched at runtime. */
-    @font-face {
-      font-family: 'Archivo Black';
-      font-style: normal;
-      font-weight: 400;
-      font-display: swap;
-      src: url('/assets/fonts/archivo-black-latin.woff2') format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face {
-      font-family: 'JetBrains Mono';
-      font-style: normal;
-      font-weight: 400;
-      font-display: swap;
-      src: url('/assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face {
-      font-family: 'JetBrains Mono';
-      font-style: normal;
-      font-weight: 500;
-      font-display: swap;
-      src: url('/assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face {
-      font-family: 'JetBrains Mono';
-      font-style: normal;
-      font-weight: 700;
-      font-display: swap;
-      src: url('/assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
 
-    *, *::before, *::after { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0; padding: 0;
-      background: var(--pkc-tac-black); color: var(--pkc-concrete);
-      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 16px; line-height: 1.5; letter-spacing: 0.01em;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      overflow-x: hidden;
-    }
-    ::selection { background: var(--pkc-hi-vis); color: var(--pkc-tac-black); }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: var(--pkc-tac-black); }
-    ::-webkit-scrollbar-thumb { background: var(--pkc-slate); }
-
-    /* Anchors carry brand styling, never browser-default underline.
-       Every link on this surface is intentionally styled by its component. */
-    a { text-decoration: none; color: inherit; }
-
-    /* Keyboard-only focus ring — survives across all anchors, buttons,
-       role=button cards. Hidden for mouse clicks via :focus-visible. */
-    :focus { outline: none; }
-    a:focus-visible,
-    button:focus-visible,
-    [role="button"]:focus-visible,
-    [tabindex]:focus-visible {
-      outline: 2px solid var(--pkc-hi-vis);
-      outline-offset: 2px;
-    }
-
-    /* Skip link — invisible until keyboard-focused, then anchors to main. */
-    .pkc-skip {
-      position: absolute; left: -9999px; top: 8px;
-      background: var(--pkc-hi-vis); color: var(--pkc-tac-black);
-      padding: 8px 14px; font-weight: 700; font-size: 12px;
-      letter-spacing: 0.05em; text-transform: uppercase;
-      font-family: 'JetBrains Mono', monospace;
-      text-decoration: none; border-radius: 2px; z-index: 1000;
-    }
-    .pkc-skip:focus-visible {
-      left: 8px;
-    }
-
-    @keyframes pkc-status-pulse {
-      0%, 100% { opacity: 1; }
-      50%      { opacity: 0; }
-    }
-
-    @keyframes pkc-marquee {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
-    }
-    .pkc-marquee-viewport:hover .pkc-marquee-track,
-    .pkc-marquee-viewport:focus-within .pkc-marquee-track,
-    .pkc-marquee-track.pkc-paused {
-      animation-play-state: paused;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.001ms !important;
-        transition-duration: 0.001ms !important;
-      }
-      /* Keep the featured-mods marquee running at its full duration; some
-         browsers report reduce-motion even when the OS toggle is off, and
-         the slow 60 s pace is not vestibular-aggressive. */
-      .pkc-marquee-track {
-        animation-duration: 60s !important;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
+  <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
+  <script src="/dist/pkc-motion.js"></script>
 </head>
 <body>
+  <section id="pkc-boot" role="status" aria-live="polite" aria-label="ProjectKidCreations boot sequence" data-step="0">
+    <iframe class="pkc-boot__globe" src="/assets/pkc-motion/boot/pkc-boot-frame.html" title="ProjectKidCreations network globe" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="pkc-boot__chrome">
+      <p class="pkc-boot__meta">PKC // SYSTEM START</p>
+      <p class="pkc-boot__status">Establishing PKC link</p>
+      <div class="pkc-boot__track" aria-hidden="true"><span class="pkc-boot__progress"></span></div>
+    </div>
+  </section>
+
 
 <a href="#mods" class="pkc-skip">Skip to content</a>
 <div id="root"></div>

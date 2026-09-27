@@ -1,0 +1,13 @@
+:root { color-scheme: dark; }
+    body {
+      margin: 0;
+      background: #0A0A0A;
+      color: #E8E8E8;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    #stage { max-width: 520px; margin: 0 auto; padding: 64px 32px 96px; }
+    .state[data-active="false"] { display: none; }
+    .step-label { color: #FF5F1F; letter-spacing: 0.08em; font-size: 12px; }
+    .prompt { font-family: "Archivo Black", "Helvetica Neue", Arial, sans-serif; font-size: 32px; line-height: 1.05; margin: 8px 0 16px; }
+    .cta { background: #FF5F1F; color: #0A0A0A; border: 0; padding: 16px 20px; font-family: inherit; font-weight: 700; cursor: pointer; }
+    a { color: #FF5F1F; }

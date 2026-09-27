@@ -1,0 +1,14 @@
+:root {
+  --pkc-motion-accent: #FF5F1F;
+  --pkc-motion-canvas: #050505;
+  --pkc-motion-surface: #101010;
+  --pkc-motion-ink: #F2F2F0;
+  --pkc-motion-muted: #9B9B95;
+  --pkc-motion-line: rgba(242, 242, 240, 0.18);
+  --pkc-motion-fast: 180ms;
+  --pkc-motion-control: 180ms;
+  --pkc-motion-card: 620ms;
+  --pkc-motion-route: 420ms;
+  --pkc-motion-reveal: 620ms;
+  --pkc-motion-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}

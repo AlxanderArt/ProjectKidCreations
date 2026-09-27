@@ -1,0 +1,35 @@
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('/assets/fonts/archivo-black-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+.pkc-globe,
+canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+html,
+body {
+  overflow: hidden;
+  background: #050505;
+}
+
+.pkc-globe {
+  position: fixed;
+  inset: 0;
+}
+
+canvas {
+  display: block;
+}

@@ -18,6 +18,11 @@
   const CFG = window.PKC_ADMIN;
   const $   = (sel, root) => (root || document).querySelector(sel);
   const $$  = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+  const navigateRoute = (url, { replace = true, reason = 'admin' } = {}) => {
+    if (window.PKCMotion?.navigate(url, { replace, reason })) return;
+    if (replace) window.location.replace(url);
+    else window.location.assign(url);
+  };
 
   // ── State ──────────────────────────────────────────────────
   const STATE = {
@@ -152,7 +157,7 @@
     } catch (err) {
       if (err.status === 401) {
         const next = encodeURIComponent(location.pathname + location.search + location.hash);
-        window.location.replace(CFG.LOGIN_REDIRECT + "?next=" + next);
+        navigateRoute(CFG.LOGIN_REDIRECT + "?next=" + next, { reason: 'unauthorized' });
         return;
       }
       return renderBootError("Couldn't pull your profile. Refresh to try again.");
@@ -287,9 +292,9 @@
   }
 
   function autoGrow(ta) {
-    ta.style.height = "auto";
-    const max = 168; // ≈ 6 rows at 14px
-    ta.style.height = Math.min(ta.scrollHeight, max) + "px";
+    const lineHeight = 20;
+    const nextRows = Math.ceil(ta.scrollHeight / lineHeight);
+    ta.rows = Math.max(2, Math.min(6, nextRows));
   }
 
   function onSortClick(th) {
@@ -377,7 +382,7 @@
     let msg = "// FAILED TO LOAD";
     if (err.status === 401) {
       const next = encodeURIComponent(location.pathname + location.search + location.hash);
-      window.location.replace(CFG.LOGIN_REDIRECT + "?next=" + next);
+      navigateRoute(CFG.LOGIN_REDIRECT + "?next=" + next, { reason: 'unauthorized' });
       return;
     }
     if (err.status === 403) msg = "// FORBIDDEN — ADMIN SCOPE REVOKED";

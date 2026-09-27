@@ -1,123 +1,101 @@
 import React from 'react';
-import { useAccent } from '../AccentContext.jsx';
-import { useIsMobile } from '../hooks.js';
-
-const navStyles = {
-  nav: {
-    position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-    background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(8px)',
-    borderBottom: '1px solid var(--pkc-slate)',
-  },
-  inner: {
-    maxWidth: 1280, margin: '0 auto',
-    padding: '0 32px', height: 56,
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  },
-  logo: {
-    fontFamily: '"Archivo Black", sans-serif',
-    fontWeight: 900, fontSize: 15, letterSpacing: '-0.02em',
-    color: 'var(--pkc-concrete)', textTransform: 'uppercase', cursor: 'pointer',
-  },
-  links: {
-    display: 'flex', gap: 28, alignItems: 'center',
-    listStyle: 'none', margin: 0, padding: 0,
-  },
-  link: {
-    color: 'var(--pkc-text-muted)', fontSize: 12, fontWeight: 500,
-    letterSpacing: '0.05em', textTransform: 'uppercase',
-    cursor: 'pointer', transition: 'color 120ms cubic-bezier(0.2,0.8,0.2,1)',
-    textDecoration: 'none', fontFamily: '"JetBrains Mono", monospace',
-  },
-  mobileToggle: {
-    display: 'block', background: 'none', border: 'none',
-    color: 'var(--pkc-concrete)', fontSize: 16, cursor: 'pointer', padding: 8,
-    fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.1em',
-  },
-  mobileMenu: {
-    position: 'fixed', top: 56, left: 0, right: 0, bottom: 0,
-    background: 'var(--pkc-tac-black)', zIndex: 99,
-    display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-    padding: '32px', gap: 24,
-    borderTop: '1px solid var(--pkc-slate)',
-  },
-  mobileLink: {
-    color: 'var(--pkc-text-muted)', fontSize: 13, fontWeight: 500,
-    textTransform: 'uppercase', letterSpacing: '0.05em',
-    cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace',
-    textDecoration: 'none',
-  },
-};
 
 const NAV_ITEMS = [
-  { label: '// MODS',    href: '#mods' },
-  { label: '// ABOUT',   href: '#about' },
+  { label: '// MODS', href: '#mods' },
+  { label: '// ABOUT', href: '#about' },
   { label: '// GALLERY', href: '#gallery' },
   { label: '// CONTACT', href: '#contact' },
 ];
 
-function ctaStyle(accent) {
-  return {
-    background: 'transparent', color: accent, border: `1px solid ${accent}`,
-    padding: '8px 18px', fontSize: 12, fontWeight: 700,
-    cursor: 'pointer', fontFamily: '"JetBrains Mono", monospace',
-    letterSpacing: '0.05em', textTransform: 'uppercase',
-    textDecoration: 'none', display: 'inline-block',
-    transition: 'background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms cubic-bezier(0.2,0.8,0.2,1)',
-    clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
-    borderRadius: '2px',
-  };
-}
-
 export function Nav() {
-  const a = useAccent();
-  const isMobile = useIsMobile();
   const [open, setOpen] = React.useState(false);
+  const toggleRef = React.useRef(null);
+  const menuRef = React.useRef(null);
 
-  React.useEffect(() => { if (!isMobile && open) setOpen(false); }, [isMobile, open]);
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const menu = menuRef.current;
+    const focusable = [...(menu?.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])];
+    focusable[0]?.focus();
+    const dismiss = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        toggleRef.current?.focus();
+        return;
+      }
+      if (event.key !== 'Tab' || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [open]);
 
   return (
-    <nav style={navStyles.nav} aria-label="Primary">
-      <div style={navStyles.inner}>
-        <a href="#top" style={navStyles.logo} aria-label="ProjectKidCreations — home">
-          PROJECT<span style={{color: a}}>KID</span>CREATIONS
+    <nav className="pkc-nav" aria-label="Primary">
+      <div className="pkc-nav__inner">
+        <a href="#top" className="pkc-nav__logo" aria-label="ProjectKidCreations — home">
+          PROJECT<span className="pkc-accent-text">KID</span>CREATIONS
         </a>
-        {!isMobile ? (
-          <ul style={navStyles.links}>
-            {NAV_ITEMS.map(item => (
-              <li key={item.href}>
-                <a href={item.href} style={navStyles.link}
-                   onMouseEnter={e => e.currentTarget.style.color=a}
-                   onMouseLeave={e => e.currentTarget.style.color='var(--pkc-text-muted)'}>
-                  {item.label}
-                </a>
-              </li>
-            ))}
-            <li>
-              <a href="#contact" style={ctaStyle(a)} role="button"
-                 onMouseEnter={e => { e.currentTarget.style.background=a; e.currentTarget.style.color='var(--pkc-tac-black)'; }}
-                 onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=a; }}>
-                ENTER
-              </a>
+
+        <ul className="pkc-nav__links">
+          {NAV_ITEMS.map((item) => (
+            <li key={item.href}>
+              <a href={item.href} className="pkc-nav__link">{item.label}</a>
             </li>
-          </ul>
-        ) : (
-          <button style={navStyles.mobileToggle}
-                  aria-expanded={open}
-                  aria-controls="pkc-mobile-menu"
-                  aria-label={open ? 'Close menu' : 'Open menu'}
-                  onClick={() => setOpen(!open)}>
-            {open ? '[ X ]' : '[ = ]'}
-          </button>
-        )}
-      </div>
-      {open && isMobile && (
-        <div id="pkc-mobile-menu" style={navStyles.mobileMenu}>
-          {NAV_ITEMS.map(item => (
-            <a key={item.href} href={item.href} style={navStyles.mobileLink}
-               onClick={() => setOpen(false)}>{item.label}</a>
           ))}
-          <a href="#contact" style={{...ctaStyle(a), fontSize: 13, padding: '12px 24px', marginTop: 8}}
-             role="button" onClick={() => setOpen(false)}>ENTER</a>
+          <li>
+            <a href="#contact" className="pkc-nav__cta pkc-button pkc-button--primary">
+              ENTER
+            </a>
+          </li>
+        </ul>
+
+        <button
+          ref={toggleRef}
+          className="pkc-nav__toggle"
+          aria-expanded={open}
+          aria-controls="pkc-mobile-menu"
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? '[ X ]' : '[ = ]'}
+        </button>
+      </div>
+
+      {open && (
+        <div
+          ref={menuRef}
+          id="pkc-mobile-menu"
+          className="pkc-nav__mobile-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation"
+        >
+          {NAV_ITEMS.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="pkc-nav__mobile-link"
+              onClick={() => setOpen(false)}
+            >
+              {item.label}
+            </a>
+          ))}
+          <a
+            href="#contact"
+            className="pkc-nav__mobile-cta pkc-button pkc-button--primary"
+            onClick={() => setOpen(false)}
+          >
+            ENTER
+          </a>
         </div>
       )}
     </nav>

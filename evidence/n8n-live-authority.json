@@ -1,0 +1,4666 @@
+{
+  "schema": "pkc-n8n-live-authority-v1",
+  "captured_at": "2026-09-26T20:51:21+00:00",
+  "source": "read-only n8n API readback",
+  "workflow_count": 55,
+  "unsafe_admin_flip_inactive": true,
+  "workflows": [
+    {
+      "id": "0bvcAfOFqNEJmLmh",
+      "name": "PKCW \u2014 Analyze System State",
+      "active": true,
+      "versionId": "de2cf643-f907-418c-b004-5849f168b1a6",
+      "updatedAt": "2026-05-12T03:09:50.828Z",
+      "node_count": 3,
+      "topology_sha256": "867d8c1d5938d9d298719c17917502a3486f932a698df38bde9b6c6709e58ff6",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Analyze",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "0496e52220176f69c9bc1c0282e0d8950fce3ab56ec555326b2a1a58bf06d2c3"
+        },
+        {
+          "name": "Read Workspaces",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        }
+      ]
+    },
+    {
+      "id": "2EXCSEA2ocUBBxHf",
+      "name": "PKC \u2014 Onboarding Phase Two",
+      "active": true,
+      "versionId": "850bccc0-678a-4114-8d49-8fc6f5cdab94",
+      "updatedAt": "2026-05-14T05:11:08.273Z",
+      "node_count": 27,
+      "topology_sha256": "cef26098fa88f4455565e2efd80f6e2c548eaf0e039a8282bd57ce85e72900cd",
+      "nodes": [
+        {
+          "name": "Schedule Trigger",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-onboarding-phase-two/run",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Init Run",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f1f205cf0550ed0a49dd2eb898253ed71ebf9bbd4f72516b5cf65023443da73a"
+        },
+        {
+          "name": "Read Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Validate + Gate Config",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d1deee69aeec56e2b1e228708260c730a2f2ecdc58794b82760a41afdb082af0"
+        },
+        {
+          "name": "Read Submissions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Filter & Shape",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "4d67b0491a39f93b624a1ad6101efc8e971748089b6ae54492e6df16b3bba931"
+        },
+        {
+          "name": "If Noop",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Append NOOP Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Loop Items",
+          "type": "n8n-nodes-base.splitInBatches",
+          "typeVersion": 3
+        },
+        {
+          "name": "Build Send Payload",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "966668100c064241802ef884786a9d642f180130f0048c034d6b8a84e4d2227b"
+        },
+        {
+          "name": "If Test Mode",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Append TEST_MODE_SEND",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Bump Test Counter",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ee3cf71d70ea603a129cbca4f326cdf96426fc889132e7b421a1f16da2af0d69"
+        },
+        {
+          "name": "Gmail Send",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "If Gmail OK",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Append EMAIL_SENT",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Bump Live Success",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ee3cf71d70ea603a129cbca4f326cdf96426fc889132e7b421a1f16da2af0d69"
+        },
+        {
+          "name": "Failure Path",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "4ceb5637596c4b5024fce2d8d8c0d521144d5943a9b4cda49fdb5d7df17dcdb3"
+        },
+        {
+          "name": "Update Failed Submissions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Append EMAIL_FAILED",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Aggregate Run Summary",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1ae62cc230efcb06f7cd54c1f780ffec595a795eebcd685af0cc66af184dd7f0"
+        },
+        {
+          "name": "Append RUN_SUMMARY",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Read Sent Log",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Append to Sent Log",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Compose Sent Log Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "c543c91429d668a1603b551d9602cf5645a5d6e6ca89354e84b7994bbcbf6ab9"
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "2UmHGNN5lje3wGR1",
+      "name": "PKCW \u2014 Monitor Workspaces",
+      "active": true,
+      "versionId": "bfbb3ff6-bc2e-40c3-9b2f-44878f3a7b3b",
+      "updatedAt": "2026-05-12T03:10:04.993Z",
+      "node_count": 4,
+      "topology_sha256": "59ea0a8ade7363a34d7c789f3241d264646e7a3b720d1a44b2494b3cd922fe96",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Format Digest",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "8cdcd5d1889de435049ee8c25bceca6519cbcd9abebec5b0fbcfd1a0bbfb6187"
+        },
+        {
+          "name": "Read Workspaces",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Emit MONITOR Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        }
+      ]
+    },
+    {
+      "id": "2ieuzzCnMxgsyeYd",
+      "name": "PKCW \u2014 Health Checker",
+      "active": true,
+      "versionId": "10e2222b-a2ae-4456-9636-89a4de445e8d",
+      "updatedAt": "2026-07-21T00:24:39.735Z",
+      "node_count": 19,
+      "topology_sha256": "d35d13ca5ebb3d7ac660369de23f3f53ee174d8e3aca4b3c41ede9114344261c",
+      "nodes": [
+        {
+          "name": "Schedule Trigger",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "be9d52ef88daba2792673ae3bfb5a72ecbe8709477af3a2b3bcf3a6226adce46"
+        },
+        {
+          "name": "List Workflows",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Extract Workflow List",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "9d76c9b4171522e5ef5d745c1373ae816fd13c0282281d5a0916508cec2ac43f"
+        },
+        {
+          "name": "Per-Workflow Loop",
+          "type": "n8n-nodes-base.splitInBatches",
+          "typeVersion": 3
+        },
+        {
+          "name": "List Executions",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Compute Per-Workflow Status",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d990cbb4d003ecced288bcfc707001d2dc55cf7d7d73d6dcb9bf9631c9443fa4"
+        },
+        {
+          "name": "Aggregate Report",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "c0a2f9b2fc1b21f4ec1743fbf6b22cc042fe6dc863d2bc13917026c517cd7100"
+        },
+        {
+          "name": "Compose Event Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "3e9fb27e887fb5cb51df3d05f7fc8d18821f15d30b01330309eb6b7a89f0af08"
+        },
+        {
+          "name": "Append HEALTHCHECK_REPORT",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Final Output",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e27400e91efd68778b3a897b39cd30ad5b60ebd06599684582d9a841a05a1222"
+        },
+        {
+          "name": "Is Red?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "POST Wakeup Webhook",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Compose Workspace Row Update",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "dce4a7563bdc67b4315e4f6a71ec860f0b5beb49b26cc0c2e332efa0dc81f144"
+        },
+        {
+          "name": "Update Workspace Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Throttle Wait",
+          "type": "n8n-nodes-base.wait",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Cache Hit?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Return Cached",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "01d71af0ede9e21e689e000fd371f985216f31035f6e30b6f45f00b6fcdb26e4"
+        }
+      ]
+    },
+    {
+      "id": "3K3vjsaqIujKKknW",
+      "name": "PKC \u2014 Dashboard Event Log",
+      "active": true,
+      "versionId": "b69539e7-82c3-411b-aaeb-dbf671dfb907",
+      "updatedAt": "2026-05-12T16:37:24.079Z",
+      "node_count": 11,
+      "topology_sha256": "70297759e92d5605344dd0d1c15ef1c4e0079853b4a58fc8570aa374d3372ee2",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-dashboard/event",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-dashboard/event",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "c198cc38bcef0ecb3865df69f2cf99a3a9ac74cec9a27110d98731a45f46905b"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate + Compose Event",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "3f77eac074519a8de853888b2bd233b794e92544498f7459694bca231336befe"
+        },
+        {
+          "name": "If valid event",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Success Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "bd4ade7f1ac855b69d4c973e9beb3b6f65d14c861d6a9dd936502ba5c4e12160"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        }
+      ]
+    },
+    {
+      "id": "4VbGPN3V32LX2hti",
+      "name": "PKC \u2014 Phase Three Event Log",
+      "active": true,
+      "versionId": "f9171a03-fbf8-4221-bfba-d497113f6b85",
+      "updatedAt": "2026-09-26T19:41:00.665Z",
+      "node_count": 11,
+      "topology_sha256": "69bebec03a45b83d1419077f05ed1135e7ec4d6614554b4aae2deca8d2212494",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/event",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/event",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5d25ec18a2e55d868faee8d3040f8d9545c3fc4e55ae202622703dea18da4857"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate + Compose Event",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "8bbc65b20b3b0c4e7d3177101d0b23d3e9a972153933dcdb269d3ccd09062a70"
+        },
+        {
+          "name": "If valid event",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Success Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "27b506601be16fa3b3847bca12a13e0adaa8e5b053cd1e2c7ca0496c05ae4490"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        }
+      ]
+    },
+    {
+      "id": "57Ccz35PQKxJ1AHS",
+      "name": "PKCW \u2014 Configure Workspace",
+      "active": true,
+      "versionId": "bf9a7c06-64f9-4f83-ab81-bc9d4caf39a3",
+      "updatedAt": "2026-05-12T03:10:11.908Z",
+      "node_count": 5,
+      "topology_sha256": "060052c2c975a25c3c718bcaf790dbf3e3da172e102747166d42988cb0746129",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Validate",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5b2e7d834db9998642818c1bae2d9f1149768c137943e988a5ec6742f8765ed0"
+        },
+        {
+          "name": "Return",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "311bd6e20fdd2060ba167b80529ea6298a0ab02327a84ff9b0b7b28a02a6ef16"
+        },
+        {
+          "name": "Read Workspaces",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Emit CONFIGURE Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        }
+      ]
+    },
+    {
+      "id": "6hg3r9AkZnhQKZN7",
+      "name": "PKC \u2014 Account Update Profile",
+      "active": true,
+      "versionId": "a9cd97b0-a921-49b0-b9bc-021f00fa732f",
+      "updatedAt": "2026-09-26T19:10:07.121Z",
+      "node_count": 16,
+      "topology_sha256": "e1660063183db1d7282c8c404eb86daef2f742c70e2e92c622673224d4880187",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/profile",
+            "httpMethod": "PATCH",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "afbdf14e9d841b0211c9061fa091ffe591d1ae355dda78fd0583d63c0fe0a525"
+        },
+        {
+          "name": "If Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Read Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "346974e7ed0c89ca517d06f00e04ba58e815aca9771ff678b55c33b80be89524"
+        },
+        {
+          "name": "If Session Valid?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Validate Input",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f6d50a2256cb7246a683097f501feb409e715e8c4741567a6fd49caa16ec55c0"
+        },
+        {
+          "name": "If Input Valid?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Input",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Build Update Patch",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1df9b7e8c6efffb5d412e12c606abee83c2e2e9a48c3f53fdff44ed3c82ef18c"
+        },
+        {
+          "name": "Update Account Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Audit Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "6b982c5a84629dc0475b138a00cc741a07095cf1c7d7dc2e3d5a0c47365464b0"
+        },
+        {
+          "name": "Append Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        }
+      ]
+    },
+    {
+      "id": "85LM9OwhmvPT5BGA",
+      "name": "PKC \u2014 Phase Two Verify",
+      "active": true,
+      "versionId": "e2c8f224-a1d4-46fd-a774-f6b07ed7444b",
+      "updatedAt": "2026-09-26T19:41:00.968Z",
+      "node_count": 14,
+      "topology_sha256": "e479a494e79d70e5c04bc4e4285e6added30e2cd6a48ba6d2206055c9573ce16",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-two/verify",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-two/verify",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5d25ec18a2e55d868faee8d3040f8d9545c3fc4e55ae202622703dea18da4857"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Kill Switch Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e6695c32088d06ad336693f914c883a466ad48a31ae604b8954f7c7914819036"
+        },
+        {
+          "name": "Rate Limit Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "857c4529e8b76133c03ba4f287d730a72161c503ed6fa70e70766a7063080eee"
+        },
+        {
+          "name": "Parse + Validate Token",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a9452b5ae401b9a4e3b4a7593b506b9479d2a8c9c74465632f780e22a5185e5f"
+        },
+        {
+          "name": "Verify HMAC + Expiry",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f53fe58dbe6d8480b84ebfb5093ded0a5abb577493d6459b129c971e5829f9bc"
+        },
+        {
+          "name": "Read Submissions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Read Profiles",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5b2fa57bf0633b522fea27defb60f870cd25ddac16dc18cc4b075d15e2cf13b8"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "AGpuS5AdtAKCI6lP",
+      "name": "PKCW \u2014 API",
+      "active": true,
+      "versionId": "814a556a-68ba-4417-afc8-dd8a0084bfae",
+      "updatedAt": "2026-05-12T03:10:45.287Z",
+      "node_count": 20,
+      "topology_sha256": "a4459b37aa28b6ea7bb7fc689e6e6e7c5e11f09ae58eb9e5845d8cf3cd35b41b",
+      "nodes": [
+        {
+          "name": "GET /pkc/status",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc/status",
+            "httpMethod": "GET",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Status Respond",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Status Auth",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "78c3d583baed26637932b517e30f0b31ee800e62f5292b05a146bc8be88a8173"
+        },
+        {
+          "name": "Call Analyze",
+          "type": "n8n-nodes-base.executeWorkflow",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "GET /pkc/workspaces",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc/workspaces",
+            "httpMethod": "GET",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "WS Auth",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a30417136275f66c2a3088ba1f7c050299d41717bbcec22200afa9222d70091f"
+        },
+        {
+          "name": "WS Read Sheet",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "WS Format",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b0ab0545abe803b11f3eaa3e9a740a49bf497312e9fed46cc6a4d2aedb999f43"
+        },
+        {
+          "name": "WS Respond",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "GET /pkc/events",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc/events",
+            "httpMethod": "GET",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "EV Auth",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e2d07f3f9249b26827f98ae7905457b60f397e2ca52d4e7692c87b3f0a0bf386"
+        },
+        {
+          "name": "EV Read Sheet",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "EV Format",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ce23c8d04033cb76e6cc6784ba92126bf75086f7bc49b2bd3f72c2fde6fedb7b"
+        },
+        {
+          "name": "EV Respond",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "POST /pkc/run",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc/run",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Run Auth",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "0808f0b3d60c0560c408aefcb6280cb8d0ee6d049564a827ded471c006d9566d"
+        },
+        {
+          "name": "Run Call Execute",
+          "type": "n8n-nodes-base.executeWorkflow",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Run Respond",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Build Error Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "45ff9942b72635b4077802e2ad8e893c8595ab58e1faac310aa18627f7eb7f42"
+        },
+        {
+          "name": "Respond Error",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "AOsWSVMHFZqxROLJ",
+      "name": "PKC \u2014 Account Password Reset",
+      "active": true,
+      "versionId": "9e5648d2-f50b-4e77-81d6-acf0290d7349",
+      "updatedAt": "2026-09-26T19:10:07.610Z",
+      "node_count": 24,
+      "topology_sha256": "843b2db0677e5ac3fc5cbf8e821f5602b4071a61b856a46e8fef99b045037c56",
+      "nodes": [
+        {
+          "name": "Request Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/password/request-reset",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Request Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "7534603d6cf2f5ba023c5c5f6176f5227bda28763204d135d48d82c6327b99d8"
+        },
+        {
+          "name": "Read Accounts By Email",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Reset Token",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "c478fbf7f4f0a580fbae37ffbf38ecf8fdb4907a4e6d894746cb64e73880ef30"
+        },
+        {
+          "name": "If Skip?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Skip NoOp",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Compose Reset Email",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "8ac8c949a24b8d55ea2741a90ee979c6932a3a512ff9fb1b11c531199143398c"
+        },
+        {
+          "name": "Gmail Send Reset",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Merge Reset Paths",
+          "type": "n8n-nodes-base.merge",
+          "typeVersion": 3
+        },
+        {
+          "name": "Build Request Audit",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ceb9e80fb6af024418bdc99ea4fc7a134c3f58acf916ec20c6fce1560c6d806f"
+        },
+        {
+          "name": "Append Request Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond Request OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Complete Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/password/complete-reset",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Complete Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "4626e1760efb7705fc90707e781bd627943fc14fa5d17327d246026437b122e3"
+        },
+        {
+          "name": "Validate Token",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "92f8eebd2a17070ead5f1e098c5e0305e553e908be4f38e122b88c88256a55a8"
+        },
+        {
+          "name": "Complete Read Account",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Hash New Password",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "76c311a57fd90ffd73b7a38207a0ce0a7bcc635ceb2f7f24051c1a8ca00264c3"
+        },
+        {
+          "name": "Update Account Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Read User Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Revokes",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "cceb0644b4f6084a8cf57d14b27f389a3e4156358c8c8a4f6591ba4fbb1ba97e"
+        },
+        {
+          "name": "Revoke User Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Complete Audit",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "927ed7a4ef25d2e5fa66dfef72448791812645e3cb70715cbf055551a86d8a20"
+        },
+        {
+          "name": "Append Complete Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond Complete OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "B96u4a9cfb82Wrwr",
+      "name": "PKCW \u2014 Events Archive",
+      "active": true,
+      "versionId": "4f68ca0d-8c73-4a43-abd2-8431f14b96d0",
+      "updatedAt": "2026-05-12T16:22:00.346Z",
+      "node_count": 10,
+      "topology_sha256": "47e9f984d65d5ac31caab8947e7725298190f2c99914cfe4719edd167ef268c1",
+      "nodes": [
+        {
+          "name": "Cron Weekly",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "Manual Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw-events-archive",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Ensure Events_archived Tab",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Read Events",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Plan Archive",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "10478cd3f43c6f5d5f79d3cbbeb76eee4b211cf033e1cc9b96e46dbbbcacf43b"
+        },
+        {
+          "name": "Anything to archive?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.3
+        },
+        {
+          "name": "Append to Events_archived",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Delete from Events",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Log ARCHIVE_RUN",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Nothing to archive",
+          "type": "n8n-nodes-base.noOp",
+          "typeVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "GVVnbelFG97UjJDw",
+      "name": "PKC \u2014 Account Get Sessions",
+      "active": true,
+      "versionId": "de95444e-ee34-42bd-b216-24085863a144",
+      "updatedAt": "2026-09-26T19:10:08.056Z",
+      "node_count": 11,
+      "topology_sha256": "6af18f9ecc225259f21f10f9080a077b59591f6d2ccf440f7f28e008b3841c4d",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/sessions",
+            "httpMethod": "GET",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "fd610522c91123441e959575ca958fc42ad1c4cd0ff4dfc5c23fc2def21e1a9e"
+        },
+        {
+          "name": "Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read Current Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Current Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b9379053a6313e3b22b48de22e6281ae166159868f580c795369db6e6e22405a"
+        },
+        {
+          "name": "If Valid",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read All Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Sessions Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5754ffd9ce666e230274f11edaf6a98960773298eb955edbf845bc625c7da1e5"
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "GaRavgTBzbhL1PQZ",
+      "name": "PKC \u2014 Dashboard Password Reset Email",
+      "active": true,
+      "versionId": "0882eea0-f132-46a8-a1a3-9093dfdce4c9",
+      "updatedAt": "2026-05-12T16:37:13.661Z",
+      "node_count": 9,
+      "topology_sha256": "a9ac1f8062f7d8af4df98326ddfab9256a917382c37c14f267dffde16433fff8",
+      "nodes": [
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "48f746ee18901f336b064bc98bda6b98c335a100b5c296ab5b7df5ee349c95d6"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Compose Email",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "c9dd87b9a1fbc737db133be2e17aa074aa06767e28f2ff2fe9534b48a68eb202"
+        },
+        {
+          "name": "If should send",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Gmail Send",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Compose Event",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a37f7ab85f28425a9ad6b1ea207201837f45f30ad0ae13cbbbd37c4417daa0eb"
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Result",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "34664fb7106402843d1a8e7ed8e25fd69eb8a9a0a0205745db4deba08eb6a0c5"
+        }
+      ]
+    },
+    {
+      "id": "JYrvqRrdhSel2KpD",
+      "name": "PKCW \u2014 One-Shot: Flip is_admin",
+      "active": false,
+      "versionId": "39db3aae-9708-4b6a-88b6-c1e3608ecac7",
+      "updatedAt": "2026-05-14T05:10:24.737Z",
+      "node_count": 4,
+      "topology_sha256": "65dc7adc0c89d4ce1f0c0444f0f1ee991fbab1b13441a412938ba044343075eb",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw/oneshot/flip-admin",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Build Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "31a72c7aea57e67027239aeaad83bd22de871845db72d5507f40305d153d970e"
+        },
+        {
+          "name": "Update Account",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Out",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "37252db97fb06ac27405a79c4ff117ae27e8a7f243c8e05850dc2b0d34de3daa"
+        }
+      ]
+    },
+    {
+      "id": "KYZv5AyCCD3IOXGK",
+      "name": "PKCW \u2014 Inspect n8n Workflow",
+      "active": true,
+      "versionId": "b68f82b6-abe7-44b2-80cf-b4bfa8db9047",
+      "updatedAt": "2026-05-09T07:11:48.269Z",
+      "node_count": 4,
+      "topology_sha256": "b4e622c52287ad8e121ea5d40869a05c9cdc76639bb2f6a0f163958c6da412a0",
+      "nodes": [
+        {
+          "name": "Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Parse Args",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "693a41edece635d355453efd97d276f0a4543e7ccae9fadc74bf434cd5766fc1"
+        },
+        {
+          "name": "Format Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d47d5e5e8c6ea38b60a9a2337cbaa429be4964eebb2d67c7ab2885f52c5223eb"
+        },
+        {
+          "name": "Get Workflow",
+          "type": "n8n-nodes-base.n8n",
+          "typeVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "L5rPQ4mubp7qnfOi",
+      "name": "PKCW \u2014 Record Memory",
+      "active": true,
+      "versionId": "f25c5ec8-3d83-43dd-8568-75e214ce0637",
+      "updatedAt": "2026-05-12T03:10:52.022Z",
+      "node_count": 8,
+      "topology_sha256": "e94e4b0e1637d9d95f6d8b3357db6d6254f70e416de8a1afddfbc09e8e6e4f1f",
+      "nodes": [
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Validate + Compose",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a0b80c58421fcf9dfae3031e6effdd4711b39ef70c36d6936c3fb3c31ec6722e"
+        },
+        {
+          "name": "If skip filter",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Read recent (dedup)",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Dedup + State Change",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "abd24b83d3897e651ee64f1e5193ccd63d4d7241563ed4fc72c81fd4dc32c640"
+        },
+        {
+          "name": "If passed dedup",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Append to AgentMemory",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Success",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "08992c621a15610b36781a8a17d5859b82375153b3b2cd68f1a3841ed6213622"
+        }
+      ]
+    },
+    {
+      "id": "N53l5Ld6jds85g57",
+      "name": "PKCW \u2014 Archive",
+      "active": true,
+      "versionId": "6dab0f03-ad36-48d3-afa8-75729cc1ea07",
+      "updatedAt": "2026-05-14T05:48:15.121Z",
+      "node_count": 7,
+      "topology_sha256": "165265de7d59865048947929bd4ca0c3a9bb7bb2601595d754b4e55f55722404",
+      "nodes": [
+        {
+          "name": "Sunday 03:00",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Init Archive",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a98696ef86296a5e7db9249b52d9caeb4d954d4e1cc3d02b7032e438b808d2bf"
+        },
+        {
+          "name": "Read Events + Runs",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Filter Old Events",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "bc1f1002b6622ee9e5c12c00cb8b01d9d7745ba9d737d23e93b24fa902ca8991"
+        },
+        {
+          "name": "Append EventsArchive",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Filter Old Runs",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "47fa292c5ca6ada082f255014e5c59ce0c81c8fef46ffc92f5338918a21619e5"
+        },
+        {
+          "name": "Append RunsArchive",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        }
+      ]
+    },
+    {
+      "id": "Nest9q2KeZBayJQz",
+      "name": "PKCW \u2014 Registry Reconcile",
+      "active": true,
+      "versionId": "de187c13-9cec-43c5-b70a-fcd192efa15c",
+      "updatedAt": "2026-05-12T16:21:02.319Z",
+      "node_count": 21,
+      "topology_sha256": "b26dc15ec40f4a61d344a33f65da59706b3ca151e4edfc05d1b43823aa7b88a4",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "093eaac093f289417feca93a654d85e0e7f3e1745feda9ec04cdc261dd2c6a9e"
+        },
+        {
+          "name": "List pkcw-managed Workflows",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Read Workspaces Sheet",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Compute Diff",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "17fb8ddea10bf184e084a11cc6fe2005746fa5311e03eded980358d7b2e0dd81"
+        },
+        {
+          "name": "If mode=archive",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Split Garbage into Items",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "bb74adff319fe15949570dd0073fd0ab263cc37f53db3fd18ef7540fc9362239"
+        },
+        {
+          "name": "Append Orphans to Archive Tab",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Format Final Report",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "bee0a7f5a8d2f24e5faa7ecc422f2a61bf2da62cd78e8e50a4530de83890c77b"
+        },
+        {
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkcw-reconcile",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "List All Workflows",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "If mode=dedupe",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Split All Rows for Backup",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "65d5069257f69fcdace86b7a2eb040b0ebc757d1004dd6c55c6a46211e1952be"
+        },
+        {
+          "name": "Append All Rows to Archive",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Clear Workspaces Range",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Split Unique Rows",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1aa6b7029a13c1037e8491f02a832394b6f5330581bc54f2b45cf91763dfd2da"
+        },
+        {
+          "name": "Append Unique Rows to Workspaces",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Ensure Archive Tab",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "If mode=restore",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Read Workspaces_archived",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Compute Restore",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a9c6b373dab1c8aff4d1257aa79db1e7cd96fc2628c3aba0a35e746e0aeb63d1"
+        }
+      ]
+    },
+    {
+      "id": "OgjwDbuGzScBDoGg",
+      "name": "PKC \u2014 Phase Two Save",
+      "active": true,
+      "versionId": "912bd71c-b49d-4980-8685-ffe1b0479432",
+      "updatedAt": "2026-09-26T19:41:01.277Z",
+      "node_count": 26,
+      "topology_sha256": "2f247dac729cd96a701833954d1c141345dc6b67cbe985cd3de464a84aad4275",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-two/save",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-two/save",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5d25ec18a2e55d868faee8d3040f8d9545c3fc4e55ae202622703dea18da4857"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Kill Switch Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e0f69a5fab2d5b20f1a8882f31121176072a94b0abda1bfb296361b024bd6a72"
+        },
+        {
+          "name": "Rate Limit Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f1d2932bbd183d622ebbe6eee6268752cdb449b11f80496dcf3d155e19f95628"
+        },
+        {
+          "name": "PHASE 1 \u2014 Validate Body",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "0aad0653da9806bd0c42c9377895d5b0bc3804d6f239c68ddf1730cdaf81b9de"
+        },
+        {
+          "name": "PHASE 2 \u2014 Verify HMAC + Expiry",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "859b6c219f415d2b0576652810327025741942c37d70f22b1f4ac45244fd8ee1"
+        },
+        {
+          "name": "PHASE 3 \u2014 Read Profiles",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Idempotency + Username Pre-check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ed2a52a39fc5cd4e0e7f22ab1c8c3cf63132c355b80e9be6cbe91af32cd4a760"
+        },
+        {
+          "name": "Compose SAVE_ATTEMPT row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "106ba1ad96b150b317e1f2d55d36e69f04c1fc283df144844847221c32d6ff6e"
+        },
+        {
+          "name": "Append SAVE_ATTEMPT event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Compose Profile + REDEEMED",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "358f54eafc3b12ffdc8346019ef1d9153500ace91d7c8801026295eb643d5a72"
+        },
+        {
+          "name": "If live mode",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Extract Profile row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "9765d5aa3d75497cf7453db6c72b83db93fd51b4070aa523cd8eb1469f8182c5"
+        },
+        {
+          "name": "Append to Profiles",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Extract REDEEMED row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d99d0cfa53b1c9f6bfa4655798442381d1751159c9f44b7f12dfffbf9c5684a4"
+        },
+        {
+          "name": "Append TOKEN_REDEEMED event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "45438f9022c71121c0a552516804cecfaf4010930a0982f6686d02b7dc06b0d8"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Prepare Phase 3 Email Input",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "87a9ba2dc33b480fd5bc0df622473c95b41d6c93a70d74b4de790355faa601e7"
+        },
+        {
+          "name": "Trigger Phase Three Email",
+          "type": "n8n-nodes-base.executeWorkflow",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Prepare Submission Update",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ccd205a26b0676ce179c9213a53b6272bc52956a20241f1dfd1cab8f475b4b30"
+        },
+        {
+          "name": "Mark Submission Redeemed",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        }
+      ]
+    },
+    {
+      "id": "OpYaGGQF3uB9dGNp",
+      "name": "PKC \u2014 Account Audit Auto-Purge",
+      "active": true,
+      "versionId": "f26b1305-bc50-4a2d-a984-6d28f97463f1",
+      "updatedAt": "2026-05-13T01:39:31.513Z",
+      "node_count": 13,
+      "topology_sha256": "b52811072c5db58260199b17b6111e4a3938242d68ee3dad0abb1635e4a7c6d0",
+      "nodes": [
+        {
+          "name": "Cron Daily 04 UTC",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "Manual Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-account-audit-purge",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "0d93435935f50c8f6307777f7d120446b2ff87ffac792e5f595529b29cb7b233"
+        },
+        {
+          "name": "Ensure Audit_archived Tab",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Get Sheet Metadata",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Read Audit",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Plan Archive",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "2c7275b01af7c4abe7677c055a5db8bffb1967991d249e733e1c754d724a40ae"
+        },
+        {
+          "name": "Anything to archive?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.3
+        },
+        {
+          "name": "Append to Audit_archived",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Delete from Audit",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Append AUDIT_PURGE_RAN",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Nothing to archive",
+          "type": "n8n-nodes-base.noOp",
+          "typeVersion": 1
+        },
+        {
+          "name": "Final Output",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d9aaa47fe69ea2e8df3b67ff147b498a08ed4aeb7d4d6ce5a919b59981bdb617"
+        }
+      ]
+    },
+    {
+      "id": "Q0ohAvSTIhel8crJ",
+      "name": "PKCW \u2014 Tool Sync Daemon",
+      "active": true,
+      "versionId": "1644fc04-f992-4084-80bf-3f0799765dce",
+      "updatedAt": "2026-05-14T05:48:13.874Z",
+      "node_count": 10,
+      "topology_sha256": "36d1a15e7a71bb740370dc8715334fa5d6c8b3a2a95fd552c5745906a37c7648",
+      "nodes": [
+        {
+          "name": "Cron 2x Daily",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Manual Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "c4bec58fa1dd542b6b87c4fc720e62c0f091c28db1294154bcedd995eaa50aa1"
+        },
+        {
+          "name": "Diff + Patch Master",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d56cdeff984d57380fc94680d442330621ef764804063450a6c2d7290b7ce4cd"
+        },
+        {
+          "name": "Action = patch?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "PUT Master Workflow",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Skip Append",
+          "type": "n8n-nodes-base.noOp",
+          "typeVersion": 1
+        },
+        {
+          "name": "Log Event",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "fc332c6c064a4d4ee32cb9ba10d07062d40054880293e7901a72e7fe45e39c2e"
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "List All Workflows",
+          "type": "n8n-nodes-base.n8n",
+          "typeVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "RjsC9WMIDrIisJbl",
+      "name": "PKC \u2014 Onboarding Submissions",
+      "active": true,
+      "versionId": "1af76ef4-103d-4e6c-8647-224cfd128295",
+      "updatedAt": "2026-09-26T19:38:49.277Z",
+      "node_count": 16,
+      "topology_sha256": "5470dc73436cd61ad7c109224ab278fafbd96ef44527fbe075d99584972df257",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-onboarding",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Size Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "3167573da40293c0e3bbf9b507d0e3b83c6b9c872e4867afd853a9b0277d5fae"
+        },
+        {
+          "name": "Auth Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ba1f560045cfd9c3e7ac72ecde7aa4ab301c35da9cb921aeaffdf8758ee91a3c"
+        },
+        {
+          "name": "Circuit Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "fdc3c5e88bf552e295d1dff2a461cf2194ecd4894c43d93206e755e2aa38a8bc"
+        },
+        {
+          "name": "Schema Validate",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "44e1ed25e2f8991a9ca29149af6ca93cfbbeb06ab1432a4830705d387bac2f30"
+        },
+        {
+          "name": "Lock Acquire",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b8d18ad0df1637cbee4286f4cfc7f57d879c08ec355525aaae18474ff4ecaa9b"
+        },
+        {
+          "name": "IF Lock Dup",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Idempotency Tier-1",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "75cbfe7b50c5382dc0aea11c22e12a9933b3218394038126f6dcbb75b4739361"
+        },
+        {
+          "name": "Hash Verify",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a392c15307b6c031cefef9ad04c4d77c4bc5f7070790fa641eba08bd9df1a504"
+        },
+        {
+          "name": "Enrich",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "8946b914728a9c473b8c36d0d91ccc54268c7688718bfb43d76bf1f5c3b786fc"
+        },
+        {
+          "name": "Aggregate",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5b91b2a2424c7cf6a7f075b8a0caea81447603b6afe971f1fd1e1beec42796f5"
+        },
+        {
+          "name": "Lock Release",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "017bf7f17924d87e78fb5aedd0b88b46803f1b132b289768fc2c73dbdca30a24"
+        },
+        {
+          "name": "Response Builder",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1ea8d5ebcbc36e41c5a3fd60c30b09ec442cc190c9a5bbcdc003ae189e7332bb"
+        },
+        {
+          "name": "Respond Webhook",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Gmail",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Sheets Append",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        }
+      ]
+    },
+    {
+      "id": "THYjNp56E9uiXhtL",
+      "name": "PKC \u2014 Account Sessions Auto-Purge",
+      "active": true,
+      "versionId": "7c10d1ae-05b7-4cee-a0fa-d27dea31e9cb",
+      "updatedAt": "2026-05-13T02:49:52.942Z",
+      "node_count": 13,
+      "topology_sha256": "a0f55f709a06dbf3754bb577592095ab49b99bbdf503e2eea2328c18fd89fb23",
+      "nodes": [
+        {
+          "name": "Cron Daily 0430 UTC",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "Manual Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw/sessions-purge",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "0e00cb31818c43a991f57dc9dca4974ef9e7e56fdb12095adcf78a4a0faece34"
+        },
+        {
+          "name": "Ensure Sessions_archived Tab",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Get Sheet Metadata",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Read Sessions",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Partition Rows",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b6c3402ec7e0fcc03fc43df2d3a95ca10d9d31f8f0a702a6345e584588f2ee8b"
+        },
+        {
+          "name": "Anything to archive?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.3
+        },
+        {
+          "name": "Append to Sessions_archived",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Delete from Sessions",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Append SESSIONS_PURGE_RAN",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Nothing to archive",
+          "type": "n8n-nodes-base.noOp",
+          "typeVersion": 1
+        },
+        {
+          "name": "Final Output",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f8fd68f12cfd82465d77b29fe75808dc5da4cbdd499cc90a8d159ff40ed63fa3"
+        }
+      ]
+    },
+    {
+      "id": "Us1D9csBEh1jXpCI",
+      "name": "PKC \u2014 Phase Three Verify",
+      "active": true,
+      "versionId": "a3d91a23-374b-4c54-af20-4478377b9be2",
+      "updatedAt": "2026-09-26T19:41:01.612Z",
+      "node_count": 14,
+      "topology_sha256": "2634042496ada56fc915c6d2c84216624de7a475fec4fb36535986bb60cb8783",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/verify",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/verify",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "38feb48af397679e1dfab04dfeaca03bc2540bcf2669a46a4e4bbf2ebc0e2288"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Kill Switch Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "4b6a2f3a7461c4700d1787c35202389c2b8374f494b7ada1a1fdb25c8aefe6a1"
+        },
+        {
+          "name": "Rate Limit Check",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "8eb30a414236713877b6b5c210064e5fdb9ff7d7f82da66aa000cbbe3a5be835"
+        },
+        {
+          "name": "Parse + Validate Token",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "560685df7eb6a140c01a0c315c6d796a6b80c672300046959c8689dac2cb379c"
+        },
+        {
+          "name": "Verify HMAC + Expiry",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ba7afbd6b1d2ad422504887b5831735c2a6b54b1665dcc3229065126dcc21416"
+        },
+        {
+          "name": "Read Submissions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Read Profiles",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "43c11cbb6666de911157e0dabaa1df0c38496bf4730830ce67605d740ce3abed"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        }
+      ]
+    },
+    {
+      "id": "W63ETZfmKVI7UDFW",
+      "name": "PKC \u2014 Account Revoke Session",
+      "active": true,
+      "versionId": "a44f4b84-3742-4c1b-a678-e80e07f8a9b6",
+      "updatedAt": "2026-09-26T19:10:08.384Z",
+      "node_count": 17,
+      "topology_sha256": "749a82598e1fbc6feb50a5856da0775f4403fad9ba65c32d241b7418a94b6024",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/sessions/revoke",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "7cf432073b8e76a6311e0a3cb26918ec56619286b5dc8d14d15404fa5f086314"
+        },
+        {
+          "name": "Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read Current Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Current Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b9379053a6313e3b22b48de22e6281ae166159868f580c795369db6e6e22405a"
+        },
+        {
+          "name": "If Current Valid",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read Target Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Verify Ownership",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "54446179b286e73e5407ca3b50a9be666ed755b4f1c421e5037f1987d2a3937b"
+        },
+        {
+          "name": "If Ownership OK",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Ownership Err",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "If Already Revoked",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Update Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Audit Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ffb66c13e7211d77ba9e436a3467d24fe340444fc19d79af2bc33fc509d5517e"
+        },
+        {
+          "name": "Append Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "WsLmh2SFZIQdtjfe",
+      "name": "PKCW \u2014 Recall Memory",
+      "active": true,
+      "versionId": "8366cdc5-f957-4ed8-95bc-238e4d084874",
+      "updatedAt": "2026-05-12T03:11:25.045Z",
+      "node_count": 6,
+      "topology_sha256": "6595f1c77deea9ed71dce165f4569b33f8740f38732ea5e988d45a9e34626762",
+      "nodes": [
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e19b9a9ae5c41857699481edf42741e4144b922806af047a8e7e2a93dc348fb3"
+        },
+        {
+          "name": "If cached",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Read AgentMemory",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Filter + Cache",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "9f40f3e29ad1e76e64fd50f897b6705aef9f9685d7d93a9d082a5fc5e715003d"
+        },
+        {
+          "name": "Return Cached",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "280034e65ca7ffc6d64cd5fd123c4c077e93ccb7faa3845af4e9649f3aa9ede0"
+        }
+      ]
+    },
+    {
+      "id": "ZTJKYBxPOp1rett6",
+      "name": "PKC \u2014 Account Reservation Purge",
+      "active": true,
+      "versionId": "c2562c9f-3dc1-4369-8aeb-2887478fdc8c",
+      "updatedAt": "2026-05-13T02:52:50.647Z",
+      "node_count": 13,
+      "topology_sha256": "8423ac4f42e9979519a196b81d264003f071419e1b8fdc81d237d600c1493046",
+      "nodes": [
+        {
+          "name": "Cron Daily 0445 UTC",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "Manual Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw/accounts-reservation-purge",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "69884e74226e74ab6e8ce6a0db9778c476f2efb455397e63799ce33e3fb42fb3"
+        },
+        {
+          "name": "Ensure Accounts_archived Tab",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Get Sheet Metadata",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Read Accounts",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Partition Rows",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b39bbb5f54bb9912e892723c80336d9c40dfef25dc6dd9ea697164c4871edfbe"
+        },
+        {
+          "name": "Anything to archive?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.3
+        },
+        {
+          "name": "Append to Accounts_archived",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Delete from Accounts",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Append RESERVATION_PURGE_RAN",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Nothing to archive",
+          "type": "n8n-nodes-base.noOp",
+          "typeVersion": 1
+        },
+        {
+          "name": "Final Output",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "55aeb7c4e3cddf55e49ea4da22d2e9918abc54ce6d7b35bbfb8d41cc7bb53de7"
+        }
+      ]
+    },
+    {
+      "id": "Zlh5nZb4Bz8hkJgT",
+      "name": "PKC \u2014 Account Delete",
+      "active": true,
+      "versionId": "cd5603fc-4823-430b-8b30-e40d72afe8d6",
+      "updatedAt": "2026-09-26T19:10:08.708Z",
+      "node_count": 17,
+      "topology_sha256": "81acbb7497abad232b49dd9e845d2cae4839db3a62e641bd9f59e64599de1b34",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/delete",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "7fcc77346ed9a029b1e90c3cefb9dcf547e7385caebe9fee8c81f11bc72419ff"
+        },
+        {
+          "name": "If Auth/Body OK",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f0aef0dfa07aa3379b3eb8314b71bae61033884382f08ad27b776444438b5eef"
+        },
+        {
+          "name": "If Session Valid",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read Account",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Verify Password",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5e96b33dc6942e3030e03a6efb2bb0f41cd81a8a6dba9c8b5ce9c862cb6537dc"
+        },
+        {
+          "name": "Mark Account Deleted",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Read All Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Revoke Rows",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "190b53a1e7c328e29eb99eac563759fc192cadecf32f76a82a460343b26ae331"
+        },
+        {
+          "name": "Revoke Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Audit Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ec891e6e4f1cf032022c814338428e59eff80610f8b875e37a1f772a18bff456"
+        },
+        {
+          "name": "Append Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "cUktzASSt7J41zfy",
+      "name": "PKCW Discord Bot \u2014 Events Inbox",
+      "active": true,
+      "versionId": "9b288738-fd86-4911-967a-e1fab960fe15",
+      "updatedAt": "2026-05-14T21:43:55.958Z",
+      "node_count": 3,
+      "topology_sha256": "a19e5322f251b090845ed0dbfa14ec2da0349bda32c9b92fac2e3b8c1f9735c1",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkcw-discord-events",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Parse + Stamp",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b1dc4325a20cd4ec85af87bb493787af095b575e3bbcaacb3ed37b1ed41003d1"
+        }
+      ]
+    },
+    {
+      "id": "d52ixplsMYNfkQn5",
+      "name": "PKCW \u2014 Discover Workspaces",
+      "active": true,
+      "versionId": "adf1d275-06a4-4266-b9c6-58c140bdee0c",
+      "updatedAt": "2026-05-12T03:13:09.323Z",
+      "node_count": 4,
+      "topology_sha256": "144ab1b401084ec916fd94a8983e448cd2f6d18084e0a7fad0ad6df7e4152ec4",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Diff and Format",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "dd8d269343b72bb78860a635ef66c34b1a7f1c9e734897eb3b1f1cdd1509651e"
+        },
+        {
+          "name": "List Workflows",
+          "type": "n8n-nodes-base.n8n",
+          "typeVersion": 1
+        },
+        {
+          "name": "Read Registry",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        }
+      ]
+    },
+    {
+      "id": "dCpGrnny2YTNfnne",
+      "name": "PKCW \u2014 One-Shot: Revoke Stale Sessions",
+      "active": true,
+      "versionId": "bbe49221-c141-4338-a11c-eba7cbbeedf5",
+      "updatedAt": "2026-05-14T05:10:20.759Z",
+      "node_count": 7,
+      "topology_sha256": "745c9adcbcb7c0388330913c0c8d51b9f76855b6511cfb2ff4ea3a8e18f129f7",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw/oneshot/revoke-stale",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Read Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Pick Stale",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "7da08ce4644cf27338473d1ef817ffbef59912a4564b41f19de967810e86067b"
+        },
+        {
+          "name": "Any?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Split",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "195b9bc51a6a632a96c4a0989320cea3a362302de2cb532f2b9c4c031962848b"
+        },
+        {
+          "name": "Update Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Summary",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "eeea870803148c36379ffc7788de3c7908d5fc42356d419debc9e068874018c2"
+        }
+      ]
+    },
+    {
+      "id": "dTWnKOwFFehWi1dr",
+      "name": "PKCW \u2014 Incident Mode Auto-Trigger",
+      "active": true,
+      "versionId": "0acf4269-aa0a-4f4f-a228-166b76bf09d3",
+      "updatedAt": "2026-05-12T16:22:04.641Z",
+      "node_count": 9,
+      "topology_sha256": "10fa90ec3341d9782e168202ba87cade9e66de71a7241c9fa28c4c7eb2d40b63",
+      "nodes": [
+        {
+          "name": "Cron 30 min",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Init",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "fe76c39cc3406806e04dc4b30aedd6ea9c7ea9055c890e1cd6f62828c29c17fc"
+        },
+        {
+          "name": "Read Events + Config",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Decide Mode Switch",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "378b3262f6226189d432f11ca6c24e9b8ef3730448065d5f4c8fa5e7c91dd1e9"
+        },
+        {
+          "name": "Should Change?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Update Config system_mode",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "No Change",
+          "type": "n8n-nodes-base.noOp",
+          "typeVersion": 1
+        },
+        {
+          "name": "Build Event Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "afe5dd962dac9555a21df2a223369748fd3b67a68adef1d37b97c9bb7f561b81"
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        }
+      ]
+    },
+    {
+      "id": "f83oHjmx51fAx4bp",
+      "name": "PKCW Discord Bot \u2014 Tool: bot",
+      "active": true,
+      "versionId": "d8b89f49-5c21-4da7-aee2-988cb224d465",
+      "updatedAt": "2026-05-14T21:49:53.557Z",
+      "node_count": 2,
+      "topology_sha256": "e8d6759e0bbe03eb434b50e441f5fa3e415f1908bea1c6ad8dbe9fd1595d8ee5",
+      "nodes": [
+        {
+          "name": "When Executed by Another Workflow",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "POST /action",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        }
+      ]
+    },
+    {
+      "id": "fZKks7QwciPuZjXe",
+      "name": "PKC \u2014 Health",
+      "active": true,
+      "versionId": "6e0c100a-4627-4dad-a2cf-1b3f8101b611",
+      "updatedAt": "2026-05-02T04:23:43.880Z",
+      "node_count": 3,
+      "topology_sha256": "f2e7a9f6dcfce51fabb33a23f0ee777cf421ea97d48cf0a6880f3a7d2cc7dee1",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-health",
+            "httpMethod": "GET",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Health Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "2d1c1f759ad1ef43baa4d6c4d4ea17e03e565ae7b45e4fcef56f268072001ffb"
+        },
+        {
+          "name": "Respond Webhook",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "iaViEEmZ2eJwm6xv",
+      "name": "PKC \u2014 Accounts Agent",
+      "active": true,
+      "versionId": "17facc8c-7164-4a55-a8e4-0b507ca41a8b",
+      "updatedAt": "2026-05-14T00:09:06.431Z",
+      "node_count": 19,
+      "topology_sha256": "ce09bd5bcb08e590765f472dde83a2c17d5c43799de21a17a1648c6b8adc2b06",
+      "nodes": [
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Webhook: pkc-accounts-agent/chat",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-accounts-agent/chat",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook Auth",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "bd2e28ee740520ffcfef623fc5e27a87448e1ece835e7980d71254a9812a70d8"
+        },
+        {
+          "name": "Claude",
+          "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "Memory: Buffer",
+          "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "PKC Accounts Agent",
+          "type": "@n8n/n8n-nodes-langchain.agent",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Tool: account.get",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: account.search",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: account.list",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: account.update",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: account.bootstrap.issue",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: account.lockout.reset",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: account.password.reset",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: account.delete",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: audit.export",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Tool: audit.purge",
+          "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Webhook Respond",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Build Error Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b175decb7fb97a2f3c8a81275fe98dacda1d2a5fbaddc74fb72bd8e5dde55bc5"
+        },
+        {
+          "name": "Respond Error",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "ire3bRiPQmJOv28q",
+      "name": "PKC \u2014 Account Change Password",
+      "active": true,
+      "versionId": "b908bd6d-59a5-4ae4-afdc-c492e97c08cf",
+      "updatedAt": "2026-09-26T19:10:09.048Z",
+      "node_count": 25,
+      "topology_sha256": "752fde2bc4db5bfa17dbf8db1f8eeb40fe74e27a5ffde5301dec21f4ae5ea516",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/password/change",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "afbdf14e9d841b0211c9061fa091ffe591d1ae355dda78fd0583d63c0fe0a525"
+        },
+        {
+          "name": "If Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Read Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "346974e7ed0c89ca517d06f00e04ba58e815aca9771ff678b55c33b80be89524"
+        },
+        {
+          "name": "If Session Valid?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Validate Input",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "25099fe444eb6758a8e7db77087c97e3a68e9c72452787feff3a2f4775b4c2c1"
+        },
+        {
+          "name": "If Input Valid?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Input",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Read Account",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Verify And Hash",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d5765cea164e2ab89d4409037ac1e8f804ce2b8ca4e1376183e20ed8fe1e6729"
+        },
+        {
+          "name": "If Verified?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Verify",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Build Account Update",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "88fca42409b000c82052c1c412f19c0ce9ff0012e70065b490133895ca7067dd"
+        },
+        {
+          "name": "Update Account Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Read All Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Revoke List",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ca2a2bbc0c7174cf15c538b722924263c3aec2d8fad2c881cc7dd187d7e8c5fa"
+        },
+        {
+          "name": "Any To Revoke?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Revoke Sibling Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "After Revoke",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ed34d26f24bb3727be7bf7e15bbaebdc8f09c9e3cbbdcb811a1b6af8609c11c0"
+        },
+        {
+          "name": "Build Audit Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "edeb292af0334d9a4ba4c389477d422a9c363c0f5b038097e094221e4a28ced0"
+        },
+        {
+          "name": "Append Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        }
+      ]
+    },
+    {
+      "id": "jb0I4CqlJuuG6fXs",
+      "name": "PKC \u2014 Account Logout",
+      "active": true,
+      "versionId": "a861072f-562f-43c1-be4b-388b62208763",
+      "updatedAt": "2026-09-26T19:10:09.434Z",
+      "node_count": 9,
+      "topology_sha256": "e16c77f312d6bad63719614c50812ff5a9609d4bd6c8c4af4073c6f5c140183d",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/logout",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "fd610522c91123441e959575ca958fc42ad1c4cd0ff4dfc5c23fc2def21e1a9e"
+        },
+        {
+          "name": "Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Read Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Update Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Audit Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a85caad9cbc33a5f6340516259b657b7d58800e3e307091342df28b44b05c325"
+        },
+        {
+          "name": "Append Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Respond Fail",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "jurWGkRuRdwqraON",
+      "name": "PKC \u2014 Taxonomy Sync",
+      "active": true,
+      "versionId": "34a603de-7a36-4256-829f-174f3b29962b",
+      "updatedAt": "2026-05-14T05:23:40.707Z",
+      "node_count": 15,
+      "topology_sha256": "9f654bb1f99bad5758524dc2166d9180024a9c3da3209ff3e48026b3cc09d3fd",
+      "nodes": [
+        {
+          "name": "Cron 15min",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Read Taxonomy",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Build Action Plan",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ca75a295a8a2e1c1661b5fe5be1bf70d05a55ed1b0d853e83f749c814da09895"
+        },
+        {
+          "name": "Split Actions",
+          "type": "n8n-nodes-base.splitInBatches",
+          "typeVersion": 3
+        },
+        {
+          "name": "Route By Action",
+          "type": "n8n-nodes-base.switch",
+          "typeVersion": 3.2
+        },
+        {
+          "name": "Create Drive Folder",
+          "type": "n8n-nodes-base.googleDrive",
+          "typeVersion": 3
+        },
+        {
+          "name": "Capture Drive ID",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d52bfc894a4d3d318291374fd9059c62c0f6a01bc4ad821fb92da0f314401c4d"
+        },
+        {
+          "name": "Create Gmail Label",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Capture Label ID",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1b08edf85c344a4c5901685cd9972223eef209509df8d7c1c507f404421096f6"
+        },
+        {
+          "name": "List Files In Folder",
+          "type": "n8n-nodes-base.googleDrive",
+          "typeVersion": 3
+        },
+        {
+          "name": "Prepare Move To Archive",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "71aa9eef51d0c848b1e11ced3073e128c1a58f0dbccfb1b68fe91a1ca98af8db"
+        },
+        {
+          "name": "Move File To Archive",
+          "type": "n8n-nodes-base.googleDrive",
+          "typeVersion": 3
+        },
+        {
+          "name": "Delete Drive Folder",
+          "type": "n8n-nodes-base.googleDrive",
+          "typeVersion": 3
+        },
+        {
+          "name": "Write Back To Sheet",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Re-attach Action Plan",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ea82bddd5f59576600aa5a53c130104ec8879e81e54b422836bc18dc33a2b226"
+        }
+      ]
+    },
+    {
+      "id": "kdw6c9k7vTcQhxVZ",
+      "name": "PKCW \u2014 Execute Workspace",
+      "active": true,
+      "versionId": "d6fbb001-a801-4f3b-bbde-09df131a9f58",
+      "updatedAt": "2026-05-12T03:12:55.086Z",
+      "node_count": 5,
+      "topology_sha256": "87633cffe6a9fdccd20405bb16b2d55dc95c72f27d865fece6eee2c9efedf828",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Format Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "7ecdf6f9cfa9aaafb0b79a8e80990a3c89de3094f43b1e65ed4fb80d517935fe"
+        },
+        {
+          "name": "Lookup Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Dispatch",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Emit EXECUTE Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        }
+      ]
+    },
+    {
+      "id": "lMUNYZbpJ1HPPmwx",
+      "name": "PKC \u2014 Account Get Activity",
+      "active": true,
+      "versionId": "40e740f8-474a-4464-a7c9-db527dfc6540",
+      "updatedAt": "2026-09-26T19:10:09.741Z",
+      "node_count": 11,
+      "topology_sha256": "ea0ef895720969fc2169e524259e3d93640373dcccd7a87c9f67581c2614022c",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/activity",
+            "httpMethod": "GET",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "fd610522c91123441e959575ca958fc42ad1c4cd0ff4dfc5c23fc2def21e1a9e"
+        },
+        {
+          "name": "Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read Current Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Current Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b9379053a6313e3b22b48de22e6281ae166159868f580c795369db6e6e22405a"
+        },
+        {
+          "name": "If Valid",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Read Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Activity Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "17349609e4f0d7eb32a8e021f00724514a2d893621aec48babc602820fca12b9"
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "mH5T2p9hGdA81BxH",
+      "name": "PKCW \u2014 Memory TTL Purge",
+      "active": true,
+      "versionId": "df0f50f4-ab1d-49b7-8305-d08fc03e3e68",
+      "updatedAt": "2026-05-12T03:12:55.567Z",
+      "node_count": 5,
+      "topology_sha256": "e4afe6338a117af6af046d94985f33e7327e6b5aebdf12075bf7f09194a7dee9",
+      "nodes": [
+        {
+          "name": "Sunday 3am Cron",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Read AgentMemory",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Find Expired",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "bd9e01b837841cbddf7279849c42f05f392ad0456e20ca044d7dd3c952e1b2b4"
+        },
+        {
+          "name": "Compose MEMORY_PURGED",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "8ac1bd857d2de44ec672a011337e776c63bed7da4eac3b54585ab99b7e0c17b2"
+        },
+        {
+          "name": "Append MEMORY_PURGED",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        }
+      ]
+    },
+    {
+      "id": "nObX7VngMDx5da04",
+      "name": "PKCW \u2014 One-Shot: Phase Four Sheet Init",
+      "active": true,
+      "versionId": "0960a2b3-e253-4ac1-9a6e-ad9adf74066c",
+      "updatedAt": "2026-05-13T00:06:28.865Z",
+      "node_count": 7,
+      "topology_sha256": "6b561bf38cb053558601e0ce86eb29927911563fb344a5b594347728b6900eaf",
+      "nodes": [
+        {
+          "name": "Manual Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw/oneshot/phase-four-sheet-init",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Emit 4 Tabs",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "9a2cd41b27e4a5808bb1bb10396c6f484526dcb1a3b8a3196b31010e7ffd904c"
+        },
+        {
+          "name": "Add Sheet via API",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Write Header Row",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2
+        },
+        {
+          "name": "Handle Add Error",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Merge",
+          "type": "n8n-nodes-base.merge",
+          "typeVersion": 3
+        },
+        {
+          "name": "Summary",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f20697eeea595f3a4a04a50d4c6df9f046fbd24fb111711857c06bd1dccff7b1"
+        }
+      ]
+    },
+    {
+      "id": "nvgxxBPinPmsEmZq",
+      "name": "PKC \u2014 Account Bootstrap",
+      "active": true,
+      "versionId": "5e18ec12-81d0-4a82-a7e7-44e6bee1eae7",
+      "updatedAt": "2026-09-26T19:38:50.122Z",
+      "node_count": 27,
+      "topology_sha256": "3ded0ac16d7e17792306abc6ee7fe59b5cdf5826a036cfb05c8ad8cbdd304edb",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/bootstrap",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "cb85d08926c58679d01fe0c6a2a30c2978caeac643b3cbe2c2da59cd19c3abdc"
+        },
+        {
+          "name": "Read Accounts",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Issue Token",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "70c8473067cbf69bc1a3451edd45763b60516d15ca10dd99c52890ac5c8fac64"
+        },
+        {
+          "name": "Already Redeemed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Already-Redeemed Response",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Account Exists?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Build New Account Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "07e8db7630c7f79347be7c4ec51c69c3063c0fc806398e298b5383f9b640c06e"
+        },
+        {
+          "name": "Append Account Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Compose Email",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "9caf7b44582e6c5b478537af36775b10c0d7571b4855a3c11a185afbda6b8bbd"
+        },
+        {
+          "name": "Gmail Send",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Merge Send Paths",
+          "type": "n8n-nodes-base.merge",
+          "typeVersion": 3
+        },
+        {
+          "name": "Build Audit Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "938490020d3b744df86803dcb3ded076b297f0c5adb08eb9b27172eb9b0844ae"
+        },
+        {
+          "name": "Append Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Result",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "47c8cf6ef0a51f552fa027b603eacd6aa8541435177cd9dfcbe0334d51f9f83b"
+        },
+        {
+          "name": "redeem-webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/bootstrap/redeem",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "redeem-init",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "63c4e8df512622a475a0a00991125bbd756ebd24f5ab157cc30def2e96976294"
+        },
+        {
+          "name": "redeem-validate",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5393407edc02f198ca8818e13ff9788da12cdb7c895741542df83b57e61985f3"
+        },
+        {
+          "name": "redeem-if-valid",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "redeem-fail-respond",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "redeem-read-accounts",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "redeem-hash-and-sign",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e2f6c2804f4f378bae429fab9b93ee9594d529a5855e8465218c6466d27efdb9"
+        },
+        {
+          "name": "redeem-update-accounts",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "redeem-append-session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "redeem-audit-row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "846770d4ef321e0cbc4dd5356419c0b0ebc19c3015c11f9f0bffef3eef12c520"
+        },
+        {
+          "name": "redeem-append-audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "redeem-respond-ok",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "oRwMbEYsZ6BlDlrt",
+      "name": "PKC \u2014 Client Intake",
+      "active": true,
+      "versionId": "79f6c958-088a-4099-93fb-adfe3c84c77e",
+      "updatedAt": "2026-05-14T04:58:28.833Z",
+      "node_count": 8,
+      "topology_sha256": "6d72d64b35e2a3945efa1e67359473f7df919494a92a768297ed42c5ef9a3dfe",
+      "nodes": [
+        {
+          "name": "New PKC Onboarding Row",
+          "type": "n8n-nodes-base.googleSheetsTrigger",
+          "typeVersion": 1
+        },
+        {
+          "name": "Normalize Intake",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "25977adba1664449f5273b00376bea1f535d02cf1f023476f4dc69cd18327d1f"
+        },
+        {
+          "name": "Create Client Folder",
+          "type": "n8n-nodes-base.googleDrive",
+          "typeVersion": 3
+        },
+        {
+          "name": "Fan Out Sub-folders",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "44093fc6cdbb3d49ce79df9a495db7c2b958a7dfc736d58efbc4bb99fd4c30cf"
+        },
+        {
+          "name": "Create Sub-folder",
+          "type": "n8n-nodes-base.googleDrive",
+          "typeVersion": 3
+        },
+        {
+          "name": "Copy Tracker Template",
+          "type": "n8n-nodes-base.googleDrive",
+          "typeVersion": 3
+        },
+        {
+          "name": "Append Client Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.5
+        },
+        {
+          "name": "Send Welcome Email",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        }
+      ]
+    },
+    {
+      "id": "pfU8j2qSzXpkznyJ",
+      "name": "PKC \u2014 Account Change Email",
+      "active": true,
+      "versionId": "1cb70d44-2bfa-4549-9d10-8e47f90685ee",
+      "updatedAt": "2026-09-26T19:10:10.371Z",
+      "node_count": 24,
+      "topology_sha256": "b83c33c9da599ac1db6b020fb1b855185f037d23c2d90c7f23852b34d2c60bb1",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/email/change",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "afbdf14e9d841b0211c9061fa091ffe591d1ae355dda78fd0583d63c0fe0a525"
+        },
+        {
+          "name": "If Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Read Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "346974e7ed0c89ca517d06f00e04ba58e815aca9771ff678b55c33b80be89524"
+        },
+        {
+          "name": "If Session Valid?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Validate Input",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "61fdc090530e20020a160c645101d817e91b7d5415a7fe272affb58a7d8f783b"
+        },
+        {
+          "name": "If Input Valid?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Input",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Read Account",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Verify Password",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "61cccdc84b42c31030a091b67af30b60841ef3af48b98b52993747305a7cb120"
+        },
+        {
+          "name": "If Verified?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Respond Fail Verify",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Build Account Update",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "28611fb74df99381823e4d494337a4d4f464116ddfd33fd389ad654a32df4302"
+        },
+        {
+          "name": "Update Account Row",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Compose Old-Email Notice",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a465cb826ad5c5765ba243d30390cc6d72be3b0635682087a52a24578623519c"
+        },
+        {
+          "name": "Send Old-Email Notice",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Compose New-Email Notice",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "aefc42d4895ae758ef05df7a8e6858618c8165eb774437b215e76e6f1185226a"
+        },
+        {
+          "name": "Send New-Email Notice",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Build Audit Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f68745a70ab0b6de1abee1450b99de07e9be83ab2937cf7186813aa3de272f72"
+        },
+        {
+          "name": "Append Audit",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        }
+      ]
+    },
+    {
+      "id": "qk5tTVuTOe9FIGGX",
+      "name": "PKCW \u2014 Register Workspaces",
+      "active": true,
+      "versionId": "27248dca-b342-4792-b8cd-0b219ae82ac7",
+      "updatedAt": "2026-05-12T03:12:56.054Z",
+      "node_count": 11,
+      "topology_sha256": "92f1420bdcb5c92673c7636c11ace9e19c7bcb4c64d059509ce5d528a6503637",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "List All Workflows",
+          "type": "n8n-nodes-base.n8n",
+          "typeVersion": 1
+        },
+        {
+          "name": "Read Workspaces",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Diff and Build Rows",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "0418c3562d8e44c96b44a2f3f84ad74384ad82be7290b89d8eeea98b7d3ef688"
+        },
+        {
+          "name": "Will Append?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Split Rows",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "59c4c8aec14e8b157ea2e062b7040164e00266e6d8dfb6dd965c96f260f23c5e"
+        },
+        {
+          "name": "Append to Workspaces",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Skip Append",
+          "type": "n8n-nodes-base.noOp",
+          "typeVersion": 1
+        },
+        {
+          "name": "Final Output",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b4c8fecefc9a85d1d43f9a39fe0752f97edd76d3f95c62438fe0a4d00cf2efc2"
+        },
+        {
+          "name": "Cron 5h",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.2
+        },
+        {
+          "name": "Manual Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw/register-workspaces",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s4erDMlvnW8vLIxI",
+      "name": "PKC \u2014 Phase Three Save",
+      "active": true,
+      "versionId": "c8bd5f8f-e38d-4979-96b8-411a515a9c77",
+      "updatedAt": "2026-09-26T20:49:04.505Z",
+      "node_count": 17,
+      "topology_sha256": "4f8e8f905b6f2667a9c8de0a2af2e6db3ffb702810c04e57b033d941f94ad1d3",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/save",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/save",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "38feb48af397679e1dfab04dfeaca03bc2540bcf2669a46a4e4bbf2ebc0e2288"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Guard + Verify Token",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "faa56004967c1208448f3ecd76e8d5b8f60a47870b8fe36e2f8d1e5d3abb3671"
+        },
+        {
+          "name": "Read Submissions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Read Profiles",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate + Compose Row",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "57459b55feb21ae6b5a27f719d61adea799c1b4b6a8b97ae4b5728ddf135a7d0"
+        },
+        {
+          "name": "If live mode",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Compose Row Only",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f149a6a0faf40248b8ff105a7b0eb1b75d563df67980cc25cfcbe35b2cd08a28"
+        },
+        {
+          "name": "Append Profile",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Compose Event",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "544d8da166381696759a7149d8e74d282ab6e00bf300df04f94f565639febdeb"
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "cbfaca6c5fb5862807ae90f69ab990730cd3772d76c38c4c0a445fbca1c7e22f"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        }
+      ]
+    },
+    {
+      "id": "tdiXBrVl28N77R1j",
+      "name": "PKC \u2014 Phase Three Email Send",
+      "active": true,
+      "versionId": "c875e3a3-924c-407b-bd0d-38964a167c44",
+      "updatedAt": "2026-05-12T04:21:02.005Z",
+      "node_count": 9,
+      "topology_sha256": "d4455a38761afe6601457de9948937776309081541953350df6398c82c15a615",
+      "nodes": [
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "6c56361a6c322f8af037d119974a93148ba1779c5ef485b9bd5c7d2b6588b5d7"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Token + Compose Email",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "34843fdb15776a9445acf574fa501443527bab435ec031251a1238d58b9fd53a"
+        },
+        {
+          "name": "If should send",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Gmail Send",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.1
+        },
+        {
+          "name": "Compose Event",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "765e5b4334c1b8a9b00b74bc90a9d8835bee66f703200144ac63138c8ff21117"
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Result",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ae17674f5a98ffe4c7548368406fa2771bad4a47bd1171b6df8cf69241a9528e"
+        }
+      ]
+    },
+    {
+      "id": "uCdvf3zIABcmJTtL",
+      "name": "PKCW \u2014 Plan and Execute",
+      "active": true,
+      "versionId": "0f09c30e-4949-4041-91b3-59ec03d7c20f",
+      "updatedAt": "2026-05-02T04:35:38.731Z",
+      "node_count": 2,
+      "topology_sha256": "fe71abf4373ddac344ca39b47bd2b699e3285e6ccdf14119f3b6a357ac389fb7",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Planning Notice",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "4a36da5623bc8f971b03d1dd684090c8877363f49d2174de7edd6344b6a305d5"
+        }
+      ]
+    },
+    {
+      "id": "ubMH9KkkKSKUwJCG",
+      "name": "PKC \u2014 Phase Three Check Username",
+      "active": true,
+      "versionId": "a1ece8cf-e0b7-4fdd-b898-3ba2ba56736c",
+      "updatedAt": "2026-09-26T19:41:02.869Z",
+      "node_count": 10,
+      "topology_sha256": "2de088df43a40893e5c6200ec7452764e9d5ab1f666bc298c11e077cad3bfa0b",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/check-username",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-three/check-username",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "cc8b84b8dc40e21f31a7c3eb1d60198e1d64fdb9054ad2eab6567736fe3abe32"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Verify Token",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1c4ce9bf4722dc7d98f07827ec6d649e702f89aededcc3820ac195106046487c"
+        },
+        {
+          "name": "Read Profiles",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ebae4c65b7f8e5a47264f9e0a418453ba3ee1d7ae465c88e1dd93163cd342ae1"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        }
+      ]
+    },
+    {
+      "id": "uuNgivASLQZ08gX7",
+      "name": "PKC \u2014 Account Get Profile",
+      "active": true,
+      "versionId": "d094bf70-29dc-450d-b727-86a759746598",
+      "updatedAt": "2026-09-26T19:10:10.800Z",
+      "node_count": 11,
+      "topology_sha256": "25cd9c6dd87c11f6f9380a95852996f878bcecbf22a9b26b93ca0ae4f656d850",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/profile",
+            "httpMethod": "GET",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "fd610522c91123441e959575ca958fc42ad1c4cd0ff4dfc5c23fc2def21e1a9e"
+        },
+        {
+          "name": "Auth Failed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Read Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "f90457af1bd0235ab48c49b7727953d35d0fc71a14b25787d263feb43f627935"
+        },
+        {
+          "name": "If Valid",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Read Account",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Profile Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e3acca8c262e6a59aa0ff9fe27696be70b57623052615e0d6924530f74c20066"
+        },
+        {
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Respond Fail Auth",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Respond Fail Session",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1
+        }
+      ]
+    },
+    {
+      "id": "wfDsutVsW15DHGr3",
+      "name": "PKC \u2014 Account Login",
+      "active": true,
+      "versionId": "219f002a-0340-47a2-af91-211936279b3e",
+      "updatedAt": "2026-09-26T19:10:11.183Z",
+      "node_count": 19,
+      "topology_sha256": "b095575a7724711d4d7c13e44abdf0eaab3fabc5945beafd74d0c7d4051f3f0b",
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkc-accounts/login",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1ab4ae725a5581940926f79676ea47a4c3cd25d22a4eb9f00d0ff646af005dfd"
+        },
+        {
+          "name": "Read Account",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Verify Credentials",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "7246b14144a7db66450cf2086f9a2a06bcb7b52598345ae463a7348fd89572cc"
+        },
+        {
+          "name": "Route Outcome",
+          "type": "n8n-nodes-base.switch",
+          "typeVersion": 3.2
+        },
+        {
+          "name": "Read User Sessions",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Pick Oldest Active Session",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "3d0dc6c4fca9a1a7e8414a50aa391079dba7add69f99d9b3e2f417751ef98cb7"
+        },
+        {
+          "name": "Revoke Needed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Revoke Oldest Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Append New Session",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Update Account (Success)",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Audit Success",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond Success",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Update Account (Fail)",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Audit Fail",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "077523b0219fb3532b63bafcf99e5953adf413c9f047d69fb8e4b702c527333f"
+        },
+        {
+          "name": "Append Audit (Fail)",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond Fail",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        },
+        {
+          "name": "Audit Other Fail",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Respond Other",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.4
+        }
+      ]
+    },
+    {
+      "id": "xdbciQJ5hrhmfDAn",
+      "name": "PKCW \u2014 Inbox Manager",
+      "active": true,
+      "versionId": "fbbc73c6-29e3-4993-afde-566aee2b64a6",
+      "updatedAt": "2026-05-14T05:44:25.850Z",
+      "node_count": 67,
+      "topology_sha256": "a5fcc97dd3cecf759b74507a9808485baf7f2b0db4220a1217fd9ca15e79f2d4",
+      "nodes": [
+        {
+          "name": "When Called",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "5x Daily Sweep",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "Set Cron Defaults",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Operation Router",
+          "type": "n8n-nodes-base.switch",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Get Gmail Labels",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Build Label Map",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "672f58f25ee01ad09d682092e1a1a237f0c21304fb756278755d7f6c97db89d9"
+        },
+        {
+          "name": "Fetch Recent Inbox",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Filter Unlabeled",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "6b9c6390601d99d1b595e6360506e546e1e188977d0b7fa74279bd14c43036e5"
+        },
+        {
+          "name": "Has Items?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Anthropic Haiku 4.5",
+          "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "Inbox Classifier",
+          "type": "@n8n/n8n-nodes-langchain.textClassifier",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "Set Category HP",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "a914048da3a2be56cc1be7c6efee6fe56be3cec0a50ae3081feaf5b43db75e9d"
+        },
+        {
+          "name": "Set Category CS",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "4921a5ed4c4c96d30d792b1365d1ca5fa09689567f182ee12d1d5e03da64463d"
+        },
+        {
+          "name": "Set Category PR",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "cec82fe76cd44dc0d18d1b6c6f098b940596adaa6cb00ccea97b894e833bfbcb"
+        },
+        {
+          "name": "Set Category FB",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "4a0bb5511e6fb89f77da190b8621f8921bc9c215f2e00ef8486889d0ee4c2bff"
+        },
+        {
+          "name": "Set Unclassified",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d5a73a059b92e3e6e057cea8d30a8cb1761a24c7a8c7ddb98c97ce3c9556b9b8"
+        },
+        {
+          "name": "Merge Categories",
+          "type": "n8n-nodes-base.merge",
+          "typeVersion": 3.2
+        },
+        {
+          "name": "Apply Label",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "Empty Marker",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Build Digest",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "09dcc3e95d7d53d6f5c2896fbebbb81aec80c22b88e0c85b2069b7e28716256e"
+        },
+        {
+          "name": "Get Labels (Digest)",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Filter to Our 4",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e1d68fb5b235bf112999153a95ea5f9ae8502580f271f050139f13561801d8ec"
+        },
+        {
+          "name": "Get Label Counts",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Build Digest Counts",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "ac11006e0cc4cce8f482eb71f58e32b43d2563470e73e95d22e2405537a4f347"
+        },
+        {
+          "name": "Capture Label Args",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Get Labels (Manual)",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Resolve Label ID",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e29181dfa2030dba443d7e77f178d753894eb8e1213edbb7b5ba3adad27b5bab"
+        },
+        {
+          "name": "Resolve OK?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Apply Manual Label",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Build Label Result",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "68cb55b5aec48498dbdc19652ed01a8c785822d878a1425d2ef2ab1e9e47b891"
+        },
+        {
+          "name": "Validate Search",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "abc2a2da62a3844c0805014088c016d5602593d39204eb6b15eb388cf88d2b08"
+        },
+        {
+          "name": "Search Gmail",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Truncate Search Results",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d9b79f6b74d581323d7f32c60735a8bfdbff9db1ae8edeba1bc1f959be55321a"
+        },
+        {
+          "name": "BAD_ARGS handler",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "Notify Email?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "Format Digest Email",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "46a1b3eb00970f480c786dff8cf3eba039803afb3b061ce73928f49538db7976"
+        },
+        {
+          "name": "Send Digest Email",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Manual Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "webhook": {
+            "path": "pkcw/inbox-manager",
+            "httpMethod": "POST",
+            "responseMode": "lastNode"
+          }
+        },
+        {
+          "name": "Normalize Webhook Input",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d32f5e3c4d295f6059354bda25cee90cdbe4606b7ce66198e1f015901a488be5"
+        },
+        {
+          "name": "Classify Final",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "44727867e69d75fb2db999db78f1a7aadb279c99ecd8fefa919d44ac85939941"
+        },
+        {
+          "name": "BF Ensure Proposals Tab",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "BF Ensure Header",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "BF Get Gmail Labels",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "BF Build Label Map",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "672f58f25ee01ad09d682092e1a1a237f0c21304fb756278755d7f6c97db89d9"
+        },
+        {
+          "name": "BF Fetch All Inbox",
+          "type": "n8n-nodes-base.gmail",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "BF Filter Unlabeled",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1eaf7400598e607915b5738eddd5e573e3b1a95d4c5ee0faa523ed66721d2135"
+        },
+        {
+          "name": "BF Has Items?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "BF Split Batches",
+          "type": "n8n-nodes-base.splitInBatches",
+          "typeVersion": 3
+        },
+        {
+          "name": "BF Anthropic Haiku 4.5",
+          "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+          "typeVersion": 1.3
+        },
+        {
+          "name": "BF Classifier",
+          "type": "@n8n/n8n-nodes-langchain.textClassifier",
+          "typeVersion": 1.1
+        },
+        {
+          "name": "BF Set HP",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "2336957bdec27b7ae249530dfa53c5010e283cbeee21b769994f90f5e9e775d5"
+        },
+        {
+          "name": "BF Set CS",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "e5c47f7d2a6dd6f023524911258522a1e51b059eec529baf53402430398bbcbe"
+        },
+        {
+          "name": "BF Set PR",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "1bc150bdecdb1738ea9b0541fbbdfe9a71bb8e156700c93aa9dfb47a56168898"
+        },
+        {
+          "name": "BF Set FB",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "852469048febce6c47a58269c5366a6ac54a622cb246e77434069ee8749eb8b4"
+        },
+        {
+          "name": "BF Set Unc",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "d5a73a059b92e3e6e057cea8d30a8cb1761a24c7a8c7ddb98c97ce3c9556b9b8"
+        },
+        {
+          "name": "BF Merge Categories",
+          "type": "n8n-nodes-base.merge",
+          "typeVersion": 3.2
+        },
+        {
+          "name": "BF Format Proposal Rows",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "8ff357117a3f189a47b5e2c91983d2d97f45135f92f3194ad0fc6e27cee6f30c"
+        },
+        {
+          "name": "BF Append Proposals",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "BF Build Summary",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5a2bd09cef9bfeed4018eef0c2a4362c562ad295e10094f97ff9db427bdbe043"
+        },
+        {
+          "name": "BF Empty Marker",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        },
+        {
+          "name": "BA Read Proposals",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "BA Filter Pending",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "36d71b0d3741abc60c738ef3413f6842061f9f11201a29236e29538af7c45213"
+        },
+        {
+          "name": "BA Has Pending?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2
+        },
+        {
+          "name": "BA Modify Message",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "BA Update Row",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.4
+        },
+        {
+          "name": "BA Build Summary",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "85268a019eb971edf4be7bb719438f4e0c4e8e8ca4ef21be6710ae23c698cbe8"
+        },
+        {
+          "name": "BA Empty Marker",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.4
+        }
+      ]
+    },
+    {
+      "id": "zG2hTJL3KaBpof8t",
+      "name": "PKC \u2014 Phase Two Event Log",
+      "active": true,
+      "versionId": "9233efdd-d822-4502-a6cd-3cb9e2be566b",
+      "updatedAt": "2026-09-26T19:41:03.396Z",
+      "node_count": 11,
+      "topology_sha256": "c0484ba3878455e3710768e2deb3b4d20ebf6f8a02dcb02eb85dd73707fa3876",
+      "nodes": [
+        {
+          "name": "Webhook POST",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-two/event",
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Webhook OPTIONS",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2.1,
+          "webhook": {
+            "path": "pkc-phase-two/event",
+            "httpMethod": "OPTIONS",
+            "responseMode": "responseNode"
+          }
+        },
+        {
+          "name": "Init Trace",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "5d25ec18a2e55d868faee8d3040f8d9545c3fc4e55ae202622703dea18da4857"
+        },
+        {
+          "name": "Read PKCW Config",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Validate + Compose Event",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "6f562112b330d7465b62b0b5a6932dbbbba5c6008fae8492e38083e748c30679"
+        },
+        {
+          "name": "If valid event",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 2.2
+        },
+        {
+          "name": "Append Event",
+          "type": "n8n-nodes-base.googleSheets",
+          "typeVersion": 4.7
+        },
+        {
+          "name": "Build Success Response",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "js_code_sha256": "b5326aabf0d899b149302aa86856c9aabc41a21f21cbd200232bcac1777dd805"
+        },
+        {
+          "name": "Respond POST",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Respond OPTIONS",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.5
+        },
+        {
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "typeVersion": 1.1
+        }
+      ]
+    }
+  ]
+}

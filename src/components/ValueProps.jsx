@@ -1,6 +1,4 @@
 import React from 'react';
-import { useAccent } from '../AccentContext.jsx';
-import { useIsMobile } from '../hooks.js';
 
 const PKC_VALUES = [
   { icon: '◆', title: 'CUSTOM DESIGN', desc: 'Every mod designed in-house. Unique geometry you won\'t find anywhere else.' },
@@ -10,9 +8,6 @@ const PKC_VALUES = [
 ];
 
 export function ValueProps() {
-  const a = useAccent();
-  const isMobile = useIsMobile();
-
   const ref = React.useRef(null);
   const [vis, setVis] = React.useState(false);
   React.useEffect(() => {
@@ -22,56 +17,20 @@ export function ValueProps() {
   }, []);
 
   return (
-    <section id="about" ref={ref} style={{ padding: '80px 0', background: 'var(--pkc-tac-black)', borderTop: '1px solid var(--pkc-slate)' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px' }}>
-        <div style={{
-          fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-          color: 'var(--pkc-text-faint)', letterSpacing: '0.08em', marginBottom: 8,
-        }}>{'// WHY PKC'}</div>
+    <section id="about" ref={ref} className={`pkc-section pkc-values ${vis ? 'pkc-visible' : ''}`}>
+      <div className="pkc-container">
+        <div className="pkc-eyebrow">// WHY PKC</div>
 
-        <h2 style={{
-          fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
-          fontSize: isMobile ? 28 : 40, color: 'var(--pkc-concrete)', textTransform: 'uppercase',
-          margin: '0 0 48px', maxWidth: 500, lineHeight: 1.1, letterSpacing: '-0.02em',
-        }}>
-          BUILT DIFFERENT.<br/><span style={{ color: a }}>BY DESIGN.</span>
+        <h2 className="pkc-section-title pkc-values__title">
+          BUILT DIFFERENT.<br/><span className="pkc-accent-text">BY DESIGN.</span>
         </h2>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
-          gap: 16,
-        }}>
+        <div className="pkc-values__grid">
           {PKC_VALUES.map((v, i) => (
-            <div key={i} style={{
-              padding: '24px 20px', background: 'var(--pkc-ghost)',
-              border: '1px solid var(--pkc-slate)', borderRadius: 2,
-              transition: 'border-color 120ms cubic-bezier(0.2,0.8,0.2,1), opacity 480ms, transform 480ms',
-              transitionDelay: `0ms, ${i*80}ms, ${i*80}ms`,
-              transitionTimingFunction: 'cubic-bezier(0.2,0.8,0.2,1)',
-              opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(16px)',
-            }}
-              onMouseEnter={e => e.currentTarget.style.borderColor=a}
-              onMouseLeave={e => e.currentTarget.style.borderColor='var(--pkc-slate)'}>
-
-              <div aria-hidden="true" style={{
-                width: 36, height: 36, background: 'var(--pkc-tac-black)',
-                border: `1px solid ${a}40`, borderRadius: 2,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, color: a, marginBottom: 16,
-              }}>{v.icon}</div>
-
-              <h3 style={{
-                fontFamily: '"Archivo Black", sans-serif', fontWeight: 900,
-                fontSize: 13, color: 'var(--pkc-concrete)', margin: '0 0 8px',
-                textTransform: 'uppercase', letterSpacing: '-0.01em',
-              }}>{v.title}</h3>
-
-              <p style={{
-                fontFamily: '"JetBrains Mono", monospace', fontSize: 12,
-                color: 'var(--pkc-text-muted)', lineHeight: 1.6, margin: 0,
-                letterSpacing: '0.01em',
-              }}>{v.desc}</p>
+            <div key={i} className="pkc-value-card">
+              <div aria-hidden="true" className="pkc-value-card__icon">{v.icon}</div>
+              <h3 className="pkc-value-card__title">{v.title}</h3>
+              <p className="pkc-value-card__description">{v.desc}</p>
             </div>
           ))}
         </div>

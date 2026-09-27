@@ -20,8 +20,27 @@
   const CFG = window.PKC_ACCOUNT_CONFIG;
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const navigateRoute = (url, { replace = true, reason = 'login' } = {}) => {
+    if (window.PKCMotion?.navigate(url, { replace, reason })) return;
+    if (replace) window.location.replace(url);
+    else window.location.assign(url);
+  };
 
-  const USERNAME_RE = /^[a-z0-9_.\-]{3,32}$/;
+  const usernamePolicy = window.PKCUsernamePolicy;
+  const SAFE_POST_LOGIN_PATHS = new Set(["/account/", "/account/admin/"]);
+
+  function safePostLoginPath(raw) {
+    const next = typeof raw === "string" ? raw.trim() : "";
+    if (!next || next.includes("\\")) return null;
+    try {
+      const url = new URL(next, window.location.origin);
+      if (url.origin !== window.location.origin) return null;
+      if (url.search || url.hash || !SAFE_POST_LOGIN_PATHS.has(url.pathname)) return null;
+      return url.pathname;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // Swap user-side copy for admin-side copy when ?next= targets /account/admin.
   // Defaults in the HTML are the user-side strings; data-admin-text / data-admin-aria
@@ -30,8 +49,8 @@
   // by mistake (stale tab, wrong bookmark) can bail to the regular flow.
   (function applyContextCopy() {
     try {
-      const next = new URL(location.href).searchParams.get("next") || "";
-      if (!next.startsWith("/account/admin")) return;
+      const next = safePostLoginPath(new URL(location.href).searchParams.get("next"));
+      if (next !== "/account/admin/") return;
       $$("[data-admin-text]").forEach((el) => {
         const v = el.getAttribute("data-admin-text");
         if (v) el.textContent = v;
@@ -180,7 +199,8 @@
   function resolvePostLoginDest() {
     try {
       const next = new URL(location.href).searchParams.get("next");
-      if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+      const safe = safePostLoginPath(next);
+      if (safe) return safe;
     } catch (_) { /* fall through */ }
     return CFG.ACCOUNT_HOME;
   }
@@ -192,7 +212,7 @@
       // Already signed in — redirect.
       status.textContent = "Already signed in";
       status.setAttribute("data-tone", "success");
-      window.location.replace(resolvePostLoginDest());
+      navigateRoute(resolvePostLoginDest(), { reason: 'already-authenticated' });
       return;
     }
     // 401, network error, or any other → show the form. The form itself
@@ -207,8 +227,8 @@
     const u = ($("#username-input").value || "").trim();
     const p = $("#password-input").value || "";
     let ok = true;
-    if (!USERNAME_RE.test(u)) {
-      showFieldError("username", "3-32 chars: a-z 0-9 _ . -");
+    if (!usernamePolicy || !usernamePolicy.isAllowedLoginUsername(u)) {
+      showFieldError("username", "Use your assigned login username.");
       ok = false;
     }
     if (p.length < 8) {
@@ -229,7 +249,7 @@
     if (res.ok && res.data && res.data.ok === true) {
       setState("SUCCESS");
       // Brief beat so the SUCCESS scan-line registers, then redirect.
-      setTimeout(() => { window.location.replace(resolvePostLoginDest()); }, 350);
+      setTimeout(() => { navigateRoute(resolvePostLoginDest(), { reason: 'auth-success' }); }, 350);
       return;
     }
 

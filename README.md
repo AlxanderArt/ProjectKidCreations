@@ -30,7 +30,13 @@
 
 ## // PROJECT KID CREATIONS
 
-A three-phase onboarding system for kids who create. Phase One captures intent. Phase Two confirms the email and unlocks the next step. Phase Three builds the operator profile — identity, loadout interests, logistics. Phase Four (codename **ACCESS GRANTED**, upcoming) is the verified-state dashboard where the accent flips from hi-vis orange to neon green to signal you're in. The whole thing is built brutalist — hi-vis on tac-black, monospace, no decoration that doesn't earn its place.
+ProjectKidCreations is operated by **Aíel** under the public DBA **PK Blick**. The launch system has three supported journeys: public/new customer onboarding, returning-customer account access, and the server-authorized PK Blick Founder/admin path.
+
+Collaboration, collaborator invitations, and shared workspaces are intentionally deferred until **after launch**, once the core onboarding and account systems are operating reliably.
+
+The launch flow is Phase One intake → Phase Two email confirmation → Phase Three profile completion → account activation → authenticated account. `/phase-four/` is a quarantined historical mock and is not part of launch routing.
+
+A three-phase onboarding system for customers who create. Phase One captures intent. Phase Two confirms the email and unlocks the next step. Phase Three builds the customer profile — identity, interests, and logistics. The whole experience uses a focused brutalist visual system: hi-vis on tac-black, monospace, and no decoration that does not support the task.
 
 ---
 
