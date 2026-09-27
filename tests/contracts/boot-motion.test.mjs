@@ -76,12 +76,30 @@ test('boot assets preserve native timing and PKC identity without Rayco red', ()
   assert.equal(contract.source.bootStylesSha256, '894db083df57e63d982f0ffdb87812b2c5030d957e4d941c1bcff09d34182afc');
   assert.equal(contract.source.globeArtifactSha256, 'de46e1a9bdf26ddc85ad253c15557aa792ca6ab2ef0e9fe2c02a0e3878cad35b');
   assert.equal(contract.source.bootTestsSha256, '84117539a150ce7528af7ecdcfdb0fe3d5a8244442ecfd854e4b05a60d61c296');
-  assert.equal(contract.boot.normal.exitMs, 4380);
+  assert.equal(contract.boot.normal.exitMs, 6380);
   assert.equal(contract.boot.reduced.exitMs, 950);
   assert.equal(contract.boot.fadeMs, 620);
-  assert.equal(contract.boot.normal.removeMs, 5000);
+  assert.equal(contract.boot.normal.removeMs, 7000);
+  assert.equal(contract.boot.normal.operationalHoldMs, 2000);
+  assert.equal(contract.boot.normal.operationalFps, 30);
   assert.equal(contract.boot.reduced.removeMs, 1570);
   assert.equal(contract.palette.accent, '#FF5F1F');
+
+  const renderer = read('assets/pkc-motion/boot/pkc-boot-renderer.js');
+  assert.match(renderer, /ctx\.measureText\('KID'\)\.width/);
+  assert.match(renderer, /ctx\.measureText\('CREATIONS'\)\.width/);
+  assert.match(renderer, /ctx\.fillStyle = c\.accent;\s+ctx\.fillText\('KID'/);
+  assert.match(renderer, /ctx\.fillStyle = '#F6F6F8';\s+ctx\.fillText\('CREATIONS'/);
+  assert.doesNotMatch(renderer, /ctx\.fillText\('KIDCREATIONS'/);
+  assert.match(renderer, /const OPERATIONAL_FPS = 30;/);
+  assert.match(renderer, /OPERATIONAL_FRAME_INTERVAL_MS/);
+  assert.match(renderer, /type:\s*'pkc:boot-globe-assembled'/);
+  assert.match(renderer, /this\.canvas\.width = 1;/);
+  assert.match(renderer, /this\.canvas\.height = 1;/);
+  assert.match(renderer, /if\(this\.destroyed\)\{ this\.raf = null; return; \}/);
+  const bootRuntime = read('assets/pkc-motion/boot/pkc-boot.js');
+  assert.match(bootRuntime, /pkc:boot-globe-assembled/);
+  assert.match(bootRuntime, /schedule\(BOOT\.normal\.operationalHoldMs, \(\) => signalReady\('assembled-hold'\)\)/);
 
   const visualAssets = [
     'assets/pkc-motion/tokens.css',
@@ -147,6 +165,7 @@ test('boot performance evidence has a reproducible repository-owned command', ()
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.scripts?.['audit:boot-performance'], 'node scripts/audit-boot-performance.mjs');
   assert.ok(exists('scripts/audit-boot-performance.mjs'), 'performance audit generator must be packaged');
+  assert.match(read('scripts/audit-boot-performance.mjs'), /timeout:\s*9_000/, 'performance observer must allow headroom beyond the 7000ms boot removal boundary');
 
   const report = JSON.parse(read('reports/boot-motion-performance.json'));
   assert.equal(report.schemaVersion, 1);

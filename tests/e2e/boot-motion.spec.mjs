@@ -13,8 +13,14 @@ const cspErrors = (page) => {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.__pkcBootEvents = [];
+    window.__pkcBootCompleteEvents = [];
     window.addEventListener('pkc:boot-ready', (event) => {
       window.__pkcBootEvents.push({ at: performance.now(), detail: event.detail });
+    });
+    window.addEventListener('pkc:boot-complete', (event) => {
+      if (typeof event.detail?.reduced === 'boolean') {
+        window.__pkcBootCompleteEvents.push({ at: performance.now(), detail: event.detail });
+      }
     });
   });
 });
@@ -49,16 +55,27 @@ test('normal boot owns the viewport, loads the native globe, then removes cleanl
   await expect.poll(() => frame.locator('html').evaluate(() => window.__pkcBootProbe?.clock ?? 0)).toBeGreaterThan(0.1);
   await expect.poll(() => frame.locator('html').evaluate(() => window.__pkcBootProbe?.radius ?? 0)).toBeGreaterThan(0);
 
-  await expect(boot).toHaveAttribute('data-exiting', 'true', { timeout: 5_200 });
-  await expect(boot).toHaveCount(0, { timeout: 1_000 });
+  await expect.poll(() => frame.locator('html').evaluate(() => window.__pkcBootProbe?.assemble ?? 0), { timeout: 5_500 }).toBe(1);
+  await expect(boot).not.toHaveAttribute('data-exiting', 'true');
+  await expect.poll(() => frame.locator('html').evaluate(() => window.__pkcBootProbe?.running ?? false)).toBe(true);
+
+  await expect.poll(() => page.evaluate(() => window.__pkcBootEvents.length), { timeout: 9_000 }).toBe(1);
+  await expect(boot).toHaveCount(0, { timeout: 3_000 });
   expect(await page.evaluate(() => window.__pkcStepHistory)).toContain('6');
   await expect(page.locator('html')).toHaveClass(/pkc-boot-ready/);
   await expect.poll(() => page.evaluate(() => window.__pkcBootEvents)).toHaveLength(1);
+  await expect.poll(() => page.evaluate(() => window.__pkcBootCompleteEvents)).toHaveLength(1);
 
   const event = await page.evaluate(() => window.__pkcBootEvents[0]);
-  expect(event.detail).toMatchObject({ reduced: false, exitMs: 4380, removeMs: 5000 });
-  expect(event.detail.elapsedMs).toBeGreaterThanOrEqual(4_300);
-  expect(event.detail.elapsedMs).toBeLessThan(4_650);
+  expect(event.detail).toMatchObject({ reduced: false, exitMs: 6380, removeMs: 7000 });
+  expect(event.detail.assembledAtMs).toBeGreaterThanOrEqual(4_300);
+  expect(event.detail.elapsedMs - event.detail.assembledAtMs).toBeGreaterThanOrEqual(1_950);
+  expect(event.detail.elapsedMs).toBeGreaterThanOrEqual(6_300);
+  expect(event.detail.reason).toBe('assembled-hold');
+  const completeEvent = await page.evaluate(() => window.__pkcBootCompleteEvents[0]);
+  expect(completeEvent.detail.readyAtMs).toBe(event.detail.elapsedMs);
+  expect(completeEvent.detail.elapsedMs - completeEvent.detail.readyAtMs).toBeGreaterThanOrEqual(600);
+  expect(completeEvent.detail.elapsedMs - event.detail.assembledAtMs).toBeGreaterThanOrEqual(2_570);
   expect(errors).toEqual([]);
 });
 
@@ -69,7 +86,7 @@ test('the page fails visible when animation frames are suspended', async ({ page
   });
 
   await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#pkc-boot')).toHaveCount(0, { timeout: 6_500 });
+  await expect(page.locator('#pkc-boot')).toHaveCount(0, { timeout: 8_500 });
   await expect(page.locator('html')).toHaveClass(/pkc-motion-ready/, { timeout: 2_000 });
   await expect(page.locator('html')).not.toHaveClass(/pkc-motion-prep/);
 
@@ -100,6 +117,9 @@ test('reduced motion reaches the same ready state on the bounded path', async ({
   await expect(boot).toHaveCount(0, { timeout: 3_000 });
 
   const event = await page.evaluate(() => window.__pkcBootEvents[0]);
+  const completeEvent = await page.evaluate(() => window.__pkcBootCompleteEvents[0]);
+  expect(await page.evaluate(() => window.__pkcBootEvents.length)).toBe(1);
+  expect(await page.evaluate(() => window.__pkcBootCompleteEvents.length)).toBe(1);
   expect(event.detail).toMatchObject({
     reduced: true,
     exitMs: 950,
@@ -108,6 +128,9 @@ test('reduced motion reaches the same ready state on the bounded path', async ({
   });
   expect(event.detail.elapsedMs).toBeGreaterThanOrEqual(900);
   expect(event.detail.elapsedMs - event.detail.exitMs).toBeLessThan(400);
+  expect(completeEvent.detail).toMatchObject({ reduced: true, removeMs: 1570 });
+  expect(completeEvent.detail.elapsedMs).toBeGreaterThanOrEqual(1_500);
+  expect(completeEvent.detail.elapsedMs).toBeLessThan(2_500);
   expect(await page.locator('body').getAttribute('data-pkc-boot')).toBe('reduced');
   expect(errors).toEqual([]);
 });
@@ -155,17 +178,21 @@ test('every configured launch entry exposes an executable boot host', async ({ p
   ];
 
   await page.goto('/landing.html', { waitUntil: 'domcontentloaded' });
-  const results = await page.evaluate(async (paths) => Promise.all(paths.map(async (entry) => {
-    const response = await fetch(entry);
-    const html = await response.text();
-    const documentCopy = new DOMParser().parseFromString(html, 'text/html');
-    return {
-      entry,
-      status: response.status,
-      bootHosts: documentCopy.querySelectorAll('#pkc-boot').length,
-      bootRuntimes: documentCopy.querySelectorAll('script[src="/dist/pkc-motion.js"]').length,
-    };
-  })), entries);
+  const results = await page.evaluate(async (paths) => {
+    const checks = [];
+    for (const entry of paths) {
+      const response = await fetch(entry);
+      const html = await response.text();
+      const documentCopy = new DOMParser().parseFromString(html, 'text/html');
+      checks.push({
+        entry,
+        status: response.status,
+        bootHosts: documentCopy.querySelectorAll('#pkc-boot').length,
+        bootRuntimes: documentCopy.querySelectorAll('script[src="/dist/pkc-motion.js"]').length,
+      });
+    }
+    return checks;
+  }, entries);
 
   for (const result of results) {
     expect(result.status, `${result.entry}: HTTP status`).toBe(200);
