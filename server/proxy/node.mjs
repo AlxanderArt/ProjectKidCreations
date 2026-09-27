@@ -30,6 +30,14 @@ function writeNodeResponse(res, response) {
 export function createNodeHandler(routeId, dependencies = {}) {
   const route = ROUTES[routeId];
   if (!route || route.runtime !== "nodejs") throw new TypeError(`invalid Node route: ${routeId}`);
+  const runtimeDependencies = { ...dependencies };
+  if ((route.admin || route.founderSensitiveMethods.length > 0 || (route.session && routeId !== "accountLogout"))
+    && typeof runtimeDependencies.founderAuthority !== "function") {
+    runtimeDependencies.founderAuthority = async (founderSubject) => {
+      const { getFounderMfaAuthority } = await import("../mfa/routes.mjs");
+      return getFounderMfaAuthority(founderSubject, { env: runtimeDependencies.env, fetch: runtimeDependencies.fetch });
+    };
+  }
   return async function nodeProxyHandler(req, res) {
     let text = "";
     try {
@@ -52,7 +60,7 @@ export function createNodeHandler(routeId, dependencies = {}) {
     } catch {
       return writeNodeResponse(res, jsonError("invalid_request", 400));
     }
-    const response = await handleProxy(routeId, webRequest, dependencies);
+    const response = await handleProxy(routeId, webRequest, runtimeDependencies);
     return writeNodeResponse(res, response);
   };
 }

@@ -324,3 +324,45 @@ html[data-theme="light"] { color-scheme: dark; }
   .shell-header > .status { grid-column: auto; justify-self: stretch; }
   .shell-header > .status { text-align: left; }
 }
+
+/* Founder MFA — same brutalist account language, no third-party UI. */
+.mfa-panel[hidden] { display: none; }
+.state--mfa .momentum { margin-bottom: 20px; }
+.mfa-qr-frame {
+  display: grid;
+  place-items: center;
+  width: min(100%, 272px);
+  margin: 24px auto;
+  padding: 16px;
+  background: #fff;
+  border: 2px solid var(--pkc-text);
+}
+.mfa-qr-frame img { display: block; width: 100%; height: auto; }
+.mfa-secret {
+  display: block;
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--pkc-border);
+  background: var(--pkc-surface);
+  color: var(--pkc-accent);
+  font: 700 14px/1.6 var(--font-mono);
+  letter-spacing: 0.12em;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.mfa-code-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+  margin: 24px 0;
+  padding: 18px;
+  border: 1px solid var(--pkc-border);
+  list-style: none;
+  font: 700 13px/1.5 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--pkc-text);
+}
+.state--mfa > .mfa-panel > .cta { width: 100%; justify-content: center; }
+@media (max-width: 600px) {
+  .mfa-code-list { grid-template-columns: 1fr; }
+}

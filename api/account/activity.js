@@ -1,4 +1,4 @@
-import { createEdgeHandler } from "../../server/proxy/edge.mjs";
+import { createNodeHandler } from "../../server/proxy/node.mjs";
 
-export const config = { runtime: "edge" };
-export default createEdgeHandler("accountActivity");
+export const config = { runtime: "nodejs", maxDuration: 60 };
+export default createNodeHandler("accountActivity");

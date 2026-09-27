@@ -126,6 +126,11 @@ function validateRouteBody(routeId, method, body) {
     case "accountLogin":
       requireString(body.username, "username", 3, 64);
       requireString(body.password, "password", 8, 256);
+      optionalString(body.login_attempt_id, "login_attempt_id", 36);
+      if (body.login_attempt_id !== undefined
+        && (body.login_attempt_id.length !== 36 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.login_attempt_id))) {
+        throw new Error("invalid_login_attempt_id");
+      }
       break;
     case "accountBootstrap":
       requireString(body.activation_proof, "activation_proof", 20, 8192);
@@ -346,7 +351,7 @@ function sanitizedSetCookie(raw) {
   return output;
 }
 
-async function assertAdmin(config, cookie, dependencies) {
+async function assertFounderPolicy(config, cookie, dependencies, { adminOnly, requireRecent }) {
   if (!cookie) return jsonError("unauthenticated", 401);
   let checked;
   try {
@@ -366,10 +371,39 @@ async function assertAdmin(config, cookie, dependencies) {
   }
   if (checked.denied) return jsonError("unauthenticated", 401);
   const profile = checked.data?.profile || checked.data;
-  const isOwner = profile?.username === OWNER_USERNAME
+  const isFounder = profile?.username === OWNER_USERNAME
     && String(profile?.email || "").toLowerCase() === OWNER_EMAIL
     && profile?.is_admin === true;
-  return isOwner ? true : jsonError("admin_required", 403);
+  if (!isFounder) return adminOnly ? jsonError("admin_required", 403) : true;
+
+  const assurance = profile?.founder_assurance;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const amr = Array.isArray(assurance?.amr) ? assurance.amr : [];
+  let authority;
+  try {
+    if (typeof dependencies.founderAuthority !== "function") throw new Error("founder_authority_unavailable");
+    authority = await timedOperation(
+      () => dependencies.founderAuthority(OWNER_USERNAME),
+      dependencies.adminTimeoutMs,
+    );
+  } catch (error) {
+    return jsonError(isTimeout(error) ? "founder_authority_timeout" : "founder_authority_failed", isTimeout(error) ? 504 : 503);
+  }
+  const hasFreshFounderMfa = authority?.founderSubject === OWNER_USERNAME
+    && authority?.state === "active"
+    && Number.isSafeInteger(authority?.authEpoch)
+    && authority.authEpoch >= 1
+    && Number.isSafeInteger(assurance?.auth_epoch)
+    && assurance.auth_epoch === authority.authEpoch
+    && amr.length === 2
+    && amr.includes("pwd")
+    && amr.includes("otp")
+    && Number.isSafeInteger(assurance?.mfa_verified_at)
+    && assurance.mfa_verified_at <= nowSeconds + 5
+    && (!requireRecent || assurance.mfa_verified_at >= nowSeconds - 900);
+  return hasFreshFounderMfa
+    ? true
+    : jsonError(adminOnly ? "admin_required" : requireRecent ? "recent_mfa_required" : "founder_session_invalid", 403);
 }
 
 export async function handleProxy(routeId, request, options = {}) {
@@ -428,11 +462,15 @@ export async function handleProxy(routeId, request, options = {}) {
 
   const dependencies = {
     fetch: options.fetch || globalThis.fetch,
+    founderAuthority: options.founderAuthority,
     timeoutMs: options.timeoutMs || DEFAULT_TIMEOUT_MS,
     adminTimeoutMs: options.adminTimeoutMs || ADMIN_TIMEOUT_MS,
   };
-  if (route.admin) {
-    const check = await assertAdmin(config, cookie, dependencies);
+  const requiresFounderPolicy = route.admin || route.founderSensitiveMethods.includes(method)
+    || (route.session && routeId !== "accountLogout");
+  if (requiresFounderPolicy) {
+    const requireRecent = route.admin || route.founderSensitiveMethods.includes(method);
+    const check = await assertFounderPolicy(config, cookie, dependencies, { adminOnly: route.admin, requireRecent });
     if (check !== true) return check;
   }
 
@@ -458,6 +496,16 @@ export async function handleProxy(routeId, request, options = {}) {
     return jsonError(invalidResponse ? "invalid_upstream_response" : "upstream_unreachable", 502);
   }
   const { upstream, text } = result;
+  if (typeof options.transformUpstream === "function") {
+    let transformed;
+    try {
+      transformed = await options.transformUpstream({ upstream, data: JSON.parse(text) });
+    } catch {
+      return jsonError("invalid_upstream_response", 502);
+    }
+    if (transformed instanceof Response) return transformed;
+    if (transformed !== null && transformed !== undefined) return jsonError("invalid_upstream_response", 502);
+  }
   const additions = {};
   if (route.setCookie) {
     const rawCookie = upstream.headers.get("set-cookie");

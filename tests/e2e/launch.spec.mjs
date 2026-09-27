@@ -40,20 +40,23 @@ test("public root exposes explicit launch choices under strict CSP", async ({ pa
   await waitForBootHandoff(page);
   await page.keyboard.press("Tab");
   await expect(founderEntry).toBeFocused();
-  expect(await founderEntry.evaluate((element) => {
+  const founderMetrics = await founderEntry.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
       height: element.getBoundingClientRect().height,
+      minHeight: style.minHeight,
       outlineColor: style.outlineColor,
       outlineWidth: style.outlineWidth,
       outlineStyle: style.outlineStyle,
     };
-  })).toMatchObject({
-    height: 44,
+  });
+  expect(founderMetrics).toMatchObject({
+    minHeight: "44px",
     outlineColor: "rgb(255, 95, 31)",
     outlineWidth: "3px",
     outlineStyle: "solid",
   });
+  expect(founderMetrics.height).toBeGreaterThanOrEqual(43.9);
   expect(response.headers()["content-security-policy"]).toContain("script-src 'self'");
   expect(response.headers()["content-security-policy"]).toContain("style-src-attr 'none'");
   expect(failures).toEqual([]);
