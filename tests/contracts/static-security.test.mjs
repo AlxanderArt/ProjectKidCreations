@@ -160,7 +160,7 @@ test("public mock Phase Four is quarantined from production routing", () => {
 
 test("internal tests, workflow tooling, and deferred source are excluded from Vercel uploads", () => {
   const ignore = read(".vercelignore");
-  for (const pattern of ["tests/", ".deferred/", "scripts/n8n-*.mjs", "evidence/", "reports/"]) {
+  for (const pattern of ["tests/", ".deferred/", "scripts/n8n-*.mjs", "evidence/", "reports/", ".tmp-*"]) {
     assert.ok(ignore.includes(pattern), pattern);
   }
   assert.equal(ignore.includes("scripts/build.mjs"), false);

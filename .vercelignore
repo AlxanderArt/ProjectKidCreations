@@ -11,6 +11,7 @@ reports/
 playwright-report/
 test-results/
 *.log
+.tmp-*
 
 # Repository and local agent metadata.
 .git/

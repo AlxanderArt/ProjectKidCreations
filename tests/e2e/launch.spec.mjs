@@ -275,6 +275,40 @@ test("landing keeps vertical sections while the desktop hero and two-row header 
   }
 });
 
+test("PC section navigation and skip link clear the fixed two-row header", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const finePointer = await page.evaluate(() => matchMedia("(pointer: fine)").matches);
+  test.skip(!finePointer, "PC-only fine-pointer navigation contract");
+  await page.goto("/landing.html");
+  await waitForBootHandoff(page);
+
+  const assertTargetClearsHeader = async () => {
+    await page.waitForFunction(() => location.hash === "#mods");
+    await page.waitForFunction(() => {
+      const nav = document.querySelector(".pkc-nav")?.getBoundingClientRect();
+      const target = document.querySelector("#mods")?.getBoundingClientRect();
+      return nav && target && target.top >= nav.bottom + 12;
+    });
+    const clearance = await page.evaluate(() => {
+      const nav = document.querySelector(".pkc-nav").getBoundingClientRect();
+      const target = document.querySelector("#mods").getBoundingClientRect();
+      return target.top - nav.bottom;
+    });
+    expect(clearance).toBeGreaterThanOrEqual(12);
+  };
+
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "// MODS" }).click();
+  await assertTargetClearsHeader();
+
+  await page.goto("/landing.html");
+  await waitForBootHandoff(page);
+  const skip = page.locator(".pkc-skip");
+  await skip.focus();
+  await page.keyboard.press("Enter");
+  await assertTargetClearsHeader();
+});
+
 test("landing controls expose focus and the mobile menu dismisses with Escape", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/landing.html");

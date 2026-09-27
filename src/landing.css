@@ -899,6 +899,12 @@
   .pkc-hero {
     padding-top: calc(104px + env(safe-area-inset-top, 0px));
   }
+  #mods,
+  #about,
+  #gallery,
+  #contact {
+    scroll-margin-top: calc(104px + 16px);
+  }
   .pkc-hero__inner {
     min-height: calc(100dvh - 104px);
     flex-direction: row;
