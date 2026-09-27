@@ -59,12 +59,6 @@ html.pkc-boot-pending #pkc-boot {
   grid-row: 2;
   align-self: end;
   margin: 0 clamp(16px, 3vw, 42px) clamp(16px, 3vw, 34px);
-  padding: 14px 16px 13px;
-  border: 1px solid rgba(242, 242, 240, 0.24);
-  border-left: 3px solid #FF5F1F;
-  background: rgba(5, 5, 5, 0.82);
-  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
 }
 
 .pkc-boot__meta,
@@ -88,10 +82,7 @@ html.pkc-boot-pending #pkc-boot {
 }
 
 .pkc-boot__track {
-  height: 2px;
-  margin-top: 11px;
-  overflow: hidden;
-  background: rgba(242, 242, 240, 0.17);
+  display: none;
 }
 
 .pkc-boot__progress {
