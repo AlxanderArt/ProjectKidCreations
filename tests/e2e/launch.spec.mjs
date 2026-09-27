@@ -171,7 +171,7 @@ test("secondary CTA has a perceivable boundary", async ({ page }) => {
   expect(ratio).toBeGreaterThanOrEqual(3);
 });
 
-test("landing stays centered on a vertical axis across phone, tablet, and desktop", async ({ page }) => {
+test("landing keeps vertical sections while the desktop hero and two-row header use the requested composition", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const viewports = [
     { name: "compact-phone", width: 320, height: 568 },
@@ -192,21 +192,42 @@ test("landing stays centered on a vertical axis across phone, tablet, and deskto
     await page.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height, viewport);
 
     const geometry = await page.evaluate(() => {
+      const rect = (selector) => {
+        const box = document.querySelector(selector)?.getBoundingClientRect();
+        return box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width } : null;
+      };
       const centerDelta = (selector) => {
-        const rect = document.querySelector(selector).getBoundingClientRect();
-        return Math.abs((rect.left + rect.width / 2) - (innerWidth / 2));
+        const box = document.querySelector(selector).getBoundingClientRect();
+        return Math.abs((box.left + box.width / 2) - (innerWidth / 2));
+      };
+      const centerWithin = (childSelector, parentSelector) => {
+        const child = document.querySelector(childSelector).getBoundingClientRect();
+        const parent = document.querySelector(parentSelector).getBoundingClientRect();
+        return Math.abs((child.left + child.width / 2) - (parent.left + parent.width / 2));
       };
       const styles = (selector) => getComputedStyle(document.querySelector(selector));
       const buttons = [...document.querySelectorAll(".pkc-hero__actions .pkc-button")]
         .map((button) => button.getBoundingClientRect());
       return {
+        finePointer: matchMedia("(pointer: fine)").matches,
+        brandCenter: centerWithin(".pkc-nav__logo", ".pkc-nav__brand-row"),
+        brand: rect(".pkc-nav__logo"),
+        navLinksCenter: centerWithin(".pkc-nav__links", ".pkc-nav__tabs"),
+        brandRow: rect(".pkc-nav__brand-row"),
+        navToggle: rect(".pkc-nav__toggle"),
+        navToggleCenter: centerWithin(".pkc-nav__toggle", ".pkc-nav__tabs"),
+        tabRow: rect(".pkc-nav__tabs"),
+        navLinksDisplay: styles(".pkc-nav__links").display,
         heroCenter: centerDelta(".pkc-hero__copy"),
         descriptionCenter: centerDelta(".pkc-hero__description"),
         actionCenter: centerDelta(".pkc-hero__actions"),
+        heroCopy: rect(".pkc-hero__copy"),
+        heroVisual: rect(".pkc-hero__visual"),
+        heroVisualDisplay: styles(".pkc-hero__visual").display,
         heroTextAlign: styles(".pkc-hero__copy").textAlign,
         actionDirection: styles(".pkc-hero__actions").flexDirection,
         actionAlign: styles(".pkc-hero__actions").alignItems,
-        buttonWidths: buttons.map((rect) => Math.round(rect.width)),
+        buttonWidths: buttons.map((box) => Math.round(box.width)),
         sectionTitleAlign: styles(".pkc-products__heading").textAlign,
         cardTextAlign: styles(".pkc-product-card__body").textAlign,
         valueTextAlign: styles(".pkc-value-card").textAlign,
@@ -216,13 +237,35 @@ test("landing stays centered on a vertical axis across phone, tablet, and deskto
       };
     });
 
-    expect(geometry.heroCenter, `${viewport.name} hero center`).toBeLessThanOrEqual(2);
-    expect(geometry.descriptionCenter, `${viewport.name} description center`).toBeLessThanOrEqual(2);
-    expect(geometry.actionCenter, `${viewport.name} actions center`).toBeLessThanOrEqual(2);
-    expect(geometry.heroTextAlign).toBe("center");
-    expect(geometry.actionDirection).toBe("column");
-    expect(geometry.actionAlign).toBe("center");
-    expect(new Set(geometry.buttonWidths).size).toBe(1);
+    const usesPcLayout = viewport.width >= 1024 && geometry.finePointer;
+    if (usesPcLayout) {
+      expect(geometry.brandCenter, `${viewport.name} centered brand`).toBeLessThanOrEqual(2);
+      expect(geometry.navLinksDisplay).toBe("flex");
+      expect(geometry.navLinksCenter, `${viewport.name} centered tabs`).toBeLessThanOrEqual(2);
+      expect(geometry.tabRow.top).toBeGreaterThanOrEqual(geometry.brandRow.bottom - 1);
+    } else if (viewport.width >= 768) {
+      expect(geometry.navLinksDisplay).toBe("flex");
+      expect(geometry.tabRow.top).toBeLessThanOrEqual(geometry.brandRow.top + 1);
+    } else {
+      expect(geometry.navLinksDisplay).toBe("none");
+      expect(geometry.tabRow.top).toBeLessThanOrEqual(geometry.brandRow.top + 1);
+    }
+
+    if (usesPcLayout) {
+      expect(geometry.heroVisualDisplay).toBe("flex");
+      expect(geometry.heroVisual.right, `${viewport.name} visual before copy`).toBeLessThanOrEqual(geometry.heroCopy.left);
+      expect(geometry.heroTextAlign).toBe("left");
+      expect(geometry.actionDirection).toBe("row");
+    } else {
+      expect(geometry.heroCenter, `${viewport.name} hero center`).toBeLessThanOrEqual(2);
+      expect(geometry.descriptionCenter, `${viewport.name} description center`).toBeLessThanOrEqual(2);
+      expect(geometry.actionCenter, `${viewport.name} actions center`).toBeLessThanOrEqual(2);
+      expect(geometry.heroTextAlign).toBe("center");
+      expect(geometry.actionDirection).toBe("column");
+      expect(geometry.actionAlign).toBe("center");
+      expect(new Set(geometry.buttonWidths).size).toBe(1);
+    }
+
     expect(geometry.sectionTitleAlign).toBe("center");
     expect(geometry.cardTextAlign).toBe("center");
     expect(geometry.valueTextAlign).toBe("center");

@@ -40,11 +40,13 @@ export function Nav() {
 
   return (
     <nav className="pkc-nav" aria-label="Primary">
-      <div className="pkc-nav__inner">
+      <div className="pkc-nav__brand-row">
         <a href="#top" className="pkc-nav__logo" aria-label="ProjectKidCreations — home">
           PROJECT<span className="pkc-accent-text">KID</span>CREATIONS
         </a>
+      </div>
 
+      <div className="pkc-nav__tabs">
         <ul className="pkc-nav__links">
           {NAV_ITEMS.map((item) => (
             <li key={item.href}>
@@ -57,7 +59,6 @@ export function Nav() {
             </a>
           </li>
         </ul>
-
         <button
           ref={toggleRef}
           className="pkc-nav__toggle"
