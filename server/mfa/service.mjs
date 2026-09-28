@@ -11,15 +11,15 @@ import {
 } from "./crypto.mjs";
 
 const HANDOFF_FIELDS = Object.freeze([
-  "aud", "exp", "iat", "iss", "jti", "kid", "login_attempt_id", "nbf",
-  "password_authenticated_at", "purpose", "sub", "typ", "version",
+  "aud", "exp", "iat", "is_admin", "iss", "jti", "kid", "login_attempt_id", "nbf",
+  "password_authenticated_at", "purpose", "sub", "typ", "username", "version",
 ]);
 const FINALIZE_FIELDS = Object.freeze([
-  "amr", "aud", "auth_epoch", "exp", "finalize_id", "iat", "iss", "jti", "kid",
+  "amr", "aud", "auth_epoch", "exp", "finalize_id", "iat", "is_admin", "iss", "jti", "kid",
   "login_attempt_id", "mfa_verified_at", "nbf", "password_authenticated_at", "purpose",
-  "session_expires_at", "session_id", "session_issued_at", "sub", "typ", "version",
+  "session_expires_at", "session_id", "session_issued_at", "sub", "typ", "username", "version",
 ]);
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const STABLE_ID_RE = /^[a-z][a-z0-9_-]{7,127}$/;
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
@@ -65,7 +65,8 @@ function verifyHandoffJwt(token, key, policy) {
   if (!exactKeys(claims, HANDOFF_FIELDS) || claims.kid !== header.kid || claims.kid !== policy.kid
       || claims.iss !== "pkc-n8n-account-login" || claims.aud !== "pkc-vercel-founder-mfa"
       || claims.typ !== "pkc-founder-password-handoff+jwt" || claims.purpose !== "founder_mfa_challenge"
-      || claims.version !== 1 || claims.sub !== policy.founderSubject || !STABLE_ID_RE.test(claims.jti)
+      || claims.version !== 1 || claims.sub !== policy.founderSubject
+      || claims.username !== "PK Blick" || claims.is_admin !== true || !UUID_RE.test(claims.sub) || !STABLE_ID_RE.test(claims.jti)
       || !UUID_RE.test(claims.login_attempt_id)) throw rejected();
   for (const field of ["password_authenticated_at", "iat", "nbf", "exp"]) {
     if (!Number.isSafeInteger(claims[field]) || claims[field] < 0) throw rejected();
@@ -155,7 +156,7 @@ function usable(challenge, now, purposes) {
 export function createFounderMfaService(dependencies) {
   const { store, config } = dependencies || {};
   if (!store || typeof store.transaction !== "function") throw new TypeError("invalid_mfa_store");
-  if (!config?.keys?.encryption || !config?.keys?.finalize || !config?.keys?.recovery) throw new TypeError("invalid_mfa_config");
+  if (!config?.keys?.encryption || !config?.keys?.finalize || !config?.keys?.recovery || !UUID_RE.test(config?.founderSubject || "")) throw new TypeError("invalid_mfa_config");
   const clock = dependencies.clock;
   const makeUuid = dependencies.randomUuid || randomUUID;
   const makeToken = dependencies.randomToken || createOpaqueToken;
@@ -184,7 +185,7 @@ export function createFounderMfaService(dependencies) {
   }
 
   async function beginChallenge(claims, options = {}) {
-    if (!claims || typeof claims.sub !== "string") throw rejected();
+    if (!claims || claims.sub !== config.founderSubject || claims.username !== "PK Blick" || claims.is_admin !== true) throw rejected();
     const token = makeToken();
     const csrf = makeToken();
     const challengeId = makeUuid();
@@ -229,7 +230,7 @@ export function createFounderMfaService(dependencies) {
       claims = verifyHandoffJwt(handoff, config.keys.handoff, {
         now: nowSeconds,
         kid: `handoff-v${config.keyVersions.handoff}`,
-        founderSubject: config.founderSubject || "PK Blick",
+        founderSubject: config.founderSubject,
       });
     } catch {
       throw rejected();
@@ -288,6 +289,8 @@ export function createFounderMfaService(dependencies) {
       version: 1,
       kid: `finalize-v${config.keyVersions.finalize}`,
       sub: locked.factor.founder_subject,
+      username: "PK Blick",
+      is_admin: true,
       jti: `grant-${grantJti}`,
       login_attempt_id: locked.challenge.login_attempt_id,
       finalize_id: `finalize-${finalizeId}`,

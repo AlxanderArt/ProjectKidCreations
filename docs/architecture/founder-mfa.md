@@ -50,7 +50,8 @@ Use transactional PostgreSQL for founder MFA state while preserving n8n/Vercel a
 - Recovery codes: at least 128 bits of entropy; store keyed hashes only.
 - Accepted TOTP counters advance under a row lock and must be strictly greater than the last accepted counter.
 - Seed encryption uses a unique 96-bit nonce and authenticated additional data binding the immutable founder ID, enrollment generation, algorithm, and envelope version.
-- Password handoffs and finalize grants use separate versioned signing keys. Claims are closed and bind `iss`, `aud`, `typ`, version, immutable founder subject, purpose, key version, JTI, challenge/finalize ID, password-authentication time, `iat`, `nbf`, and short `exp`.
+- `PKC_FOUNDER_SUBJECT` is required and must be the canonical founder account UUID. Founder classification requires that UUID to equal `account_id`, the username to equal `PK Blick` exactly, and `is_admin` to be true; email is never an authority signal and partial matches fail closed.
+- Password handoffs and finalize grants use separate versioned signing keys. Claims are closed and bind `iss`, `aud`, `typ`, version, UUID `sub`, exact `username`, `is_admin`, purpose, key version, JTI, challenge/finalize ID, password-authentication time, `iat`, `nbf`, and short `exp`.
 
 ### Privacy and observability
 

@@ -23,6 +23,7 @@ test("founder MFA migration creates the complete transactional authority", () =>
 });
 
 test("factor and challenge constraints fail closed on envelope, replay, state, and attempt drift", () => {
+  assert.match(sql, /founder_subject uuid NOT NULL UNIQUE/i);
   assert.match(sql, /octet_length\(secret_nonce\) = 12/i);
   assert.match(sql, /octet_length\(secret_tag\) = 16/i);
   assert.match(sql, /octet_length\(token_hash\) = 32/i);

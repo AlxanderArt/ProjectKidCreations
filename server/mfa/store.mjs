@@ -10,7 +10,7 @@ function bytes(value, length, name) {
 }
 
 function uuid(value, name) {
-  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
     throw new TypeError(`invalid_${name}`);
   }
   return value;
@@ -39,7 +39,7 @@ export function createFounderMfaStore({ pool }) {
   }
 
   async function readFactorAuthority(founderSubject) {
-    if (typeof founderSubject !== "string" || founderSubject.length < 1 || founderSubject.length > 255) throw new TypeError("invalid_founder_subject");
+    uuid(founderSubject, "founder_subject");
     const result = await pool.query(
       `SELECT founder_subject, state, auth_epoch, revoked_before
        FROM pkc_auth.founder_mfa_factors WHERE founder_subject=$1`,
@@ -58,7 +58,7 @@ export function createFounderMfaStore({ pool }) {
   }
 
   async function lockFactor(client, founderSubject) {
-    if (typeof founderSubject !== "string" || founderSubject.length < 1 || founderSubject.length > 255) throw new TypeError("invalid_founder_subject");
+    uuid(founderSubject, "founder_subject");
     await client.query(
       "INSERT INTO pkc_auth.founder_mfa_factors (founder_subject) VALUES ($1) ON CONFLICT (founder_subject) DO NOTHING",
       [founderSubject],

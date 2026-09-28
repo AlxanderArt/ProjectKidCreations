@@ -123,6 +123,9 @@ test("entry-state pins the n8n origin and forwards only the exact session cookie
   assert.match(source, /allowedOrigins\.has\(parsed\.origin\)/);
   assert.match(source, /parsed\.pathname\s*!==\s*["']\/["']/);
   assert.match(source, /Cookie: `pkc_session=\$\{cookie\}`/);
+  assert.match(source, /PKC_FOUNDER_SUBJECT/);
+  assert.match(source, /account\?\.account_id/);
+  assert.doesNotMatch(source, /OWNER_EMAIL|account\?\.email/);
   assert.doesNotMatch(source, /authorization/i);
   assert.doesNotMatch(source, /x-forwarded-for/i);
 });

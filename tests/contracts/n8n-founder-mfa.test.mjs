@@ -114,6 +114,23 @@ function sign(payload, key) {
   return `${input}.${signature}`;
 }
 
+function executeCode(source, { input = [], nodes = {}, env = {} } = {}) {
+  const items = Array.isArray(input) ? input : [input];
+  const $input = { first: () => items[0], all: () => items };
+  const $ = (name) => ({ first: () => nodes[name]?.[0], all: () => nodes[name] || [] });
+  return Function("$input", "$", "$env", "require", "Buffer", source)($input, $, env, (name) => {
+    if (name !== "crypto") throw new Error(`unsupported module ${name}`);
+    return crypto;
+  }, Buffer);
+}
+
+function accountSessionToken(payload, secret = "test-jwt-secret") {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto.createHmac("sha256", secret).update(`${header}.${body}`).digest("base64url");
+  return `${header}.${body}.${signature}`;
+}
+
 function validFinalizeClaims(now = 2_000_000_000) {
   return {
     iss: "pkc-vercel-founder-mfa",
@@ -122,7 +139,9 @@ function validFinalizeClaims(now = 2_000_000_000) {
     purpose: "founder_mfa_finalize",
     version: 1,
     kid: "finalize-v1",
-    sub: "PK Blick",
+    sub: "11111111-1111-4111-8111-111111111111",
+    username: "PK Blick",
+    is_admin: true,
     jti: "grant-7c37df64-7508-4bf6-a7b9-5f9a70c052a3",
     login_attempt_id: "22222222-2222-4222-8222-222222222222",
     finalize_id: "finalize-599a838d-93ce-46fb-950d-56d50683f47b",
@@ -166,6 +185,9 @@ test("founder password success branches before customer session construction", (
   assert.match(init, /login_attempt_id/);
   assert.match(init, /\^\[0-9a-f\]\{8\}/i);
   assert.match(verify, /founderTuple/);
+  assert.match(verify, /PKC_FOUNDER_SUBJECT/);
+  assert.match(verify, /account\.account_id/);
+  assert.doesNotMatch(verify, /projectkidcreations@gmail\.com/);
   assert.match(verify, /outcome: 'mfa_required'/);
   assert.ok(verify.indexOf("outcome: 'mfa_required'") < verify.indexOf("crypto.randomUUID()"));
   const founderBranch = verify.slice(verify.indexOf("const founderTuple"), verify.indexOf("// SUCCESS — build session + JWT"));
@@ -230,6 +252,52 @@ test("login transform fails closed instead of rerouting customer success", () =>
   assert.throws(() => patchAccountLoginForFounderMfa(fixture), /customer success route drift/);
 });
 
+test("transformed exact login executes UUID-only founder authority, changed contact email, and duplicate rejection", {
+  skip: fs.existsSync("/tmp/pkc-account-login-workflow.json") ? false : "protected workflow snapshot is unavailable",
+}, () => {
+  const founderSubject = "11111111-1111-4111-8111-111111111111";
+  const workflow = patchAccountLoginForFounderMfa(readProtectedSnapshot(protectedSnapshots.login));
+  const source = nodeByName(workflow, "Verify Credentials").parameters.jsCode;
+  const salt = "test-salt";
+  const password = "correct-horse-battery";
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  const account = {
+    account_id: founderSubject,
+    username: "PK Blick",
+    email: "changed-founder-address@example.test",
+    is_admin: "TRUE",
+    password_hash: `scrypt:${salt}:${hash}`,
+    status: "active",
+  };
+  const trace = { username: "PK Blick", password, login_attempt_id: "22222222-2222-4222-8222-222222222222", request_id: "request-1" };
+  const env = {
+    PKC_FOUNDER_SUBJECT: founderSubject,
+    PKC_FOUNDER_MFA_HANDOFF_KEY: Buffer.alloc(32, 7).toString("base64"),
+    PKC_FOUNDER_MFA_HANDOFF_KID: "handoff-v1",
+    PKC_JWT_SECRET: "test-jwt-secret",
+  };
+  const run = (rows, envOverride = env, traceOverride = trace) => executeCode(source, {
+    nodes: { "Init Trace": [{ json: traceOverride }], "Read Account": rows.map((row) => ({ json: row })) },
+    env: envOverride,
+  });
+  assert.equal(run([account])[0].json.outcome, "mfa_required");
+  assert.throws(
+    () => run([account, { ...account, username: "customer_1", is_admin: "FALSE" }]),
+    /account_authority_ambiguous/,
+    "duplicate immutable founder account_id rows must fail even when mutable usernames differ",
+  );
+  assert.throws(() => run([account, account]), /account_authority_ambiguous/);
+  for (const partial of [
+    { ...account, account_id: "33333333-3333-4333-8333-333333333333" },
+    { ...account, is_admin: "FALSE" },
+  ]) assert.throws(() => run([partial]), /founder_identity_mismatch/);
+  assert.throws(() => run([{ ...account, username: "customer_1" }]), /founder_identity_mismatch/);
+  assert.throws(() => run([{ ...account, account_id: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA" }]), /founder_identity_mismatch/);
+  assert.throws(() => run([account], { ...env, PKC_FOUNDER_SUBJECT: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA" }), /founder_mfa_not_configured/);
+  const customer = { ...account, account_id: "44444444-4444-4444-8444-444444444444", username: "customer_1", is_admin: "FALSE" };
+  assert.equal(run([customer], env, { ...trace, username: "customer_1" })[0].json.outcome, "success");
+});
+
 test("finalizer verifies a closed signed grant and rejects tampering, expiry, and extra claims", () => {
   const now = 2_000_000_000;
   const key = "test-only-finalize-key-not-a-production-secret";
@@ -242,6 +310,8 @@ test("finalizer verifies a closed signed grant and rejects tampering, expiry, an
   assert.throws(() => verifyFounderFinalizeGrant(`${head}.${Buffer.from(JSON.stringify(tampered)).toString("base64url")}.${signature}`, { key, expectedKid: "finalize-v1", now }), /invalid_finalize_signature/);
   assert.throws(() => verifyFounderFinalizeGrant(sign({ ...claims, exp: now - 1 }, key), { key, expectedKid: "finalize-v1", now }), /expired_finalize_grant/);
   assert.throws(() => verifyFounderFinalizeGrant(sign({ ...claims, unexpected: true }, key), { key, expectedKid: "finalize-v1", now }), /invalid_finalize_claims/);
+  assert.throws(() => verifyFounderFinalizeGrant(sign({ ...claims, sub: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA" }, key), { key, expectedKid: "finalize-v1", now }), /invalid_finalize_claims/);
+  assert.throws(() => verifyFounderFinalizeGrant(sign({ ...claims, sub: ` ${claims.sub}` }, key), { key, expectedKid: "finalize-v1", now }), /invalid_finalize_claims/);
   assert.throws(() => verifyFounderFinalizeGrant(sign({ ...claims, amr: ["pwd"] }, key), { key, expectedKid: "finalize-v1", now }), /invalid_finalize_claims/);
 });
 
@@ -269,7 +339,9 @@ test("finalizer preserves founder tuple but never authorizes from Sheet auth_epo
   const workflow = buildFounderMfaFinalizerWorkflow(loginFixture());
   const source = nodeByName(workflow, "Verify Finalize Grant").parameters.jsCode;
   assert.match(source, /account\.username === 'PK Blick'/);
-  assert.match(source, /projectkidcreations@gmail\.com/);
+  assert.match(source, /account\.account_id/);
+  assert.match(source, /claims\.sub/);
+  assert.doesNotMatch(source, /projectkidcreations@gmail\.com/);
   assert.match(source, /account\.is_admin/);
   assert.doesNotMatch(source, /account\.auth_epoch/);
   assert.doesNotMatch(source, /claims\.auth_epoch\s*!==\s*currentEpoch/);
@@ -396,6 +468,150 @@ test("exact protected profile and session snapshots transform and round-trip off
   assert.equal(loginSource.active, true, "login source object must not be mutated");
 });
 
+test("transformed protected Init Trace nodes execute canonical founder JWT authority and retain customer username subjects", {
+  skip: protectedSnapshotsAvailable ? false : "protected workflow snapshots are unavailable",
+}, () => {
+  const founderSubject = "11111111-1111-4111-8111-111111111111";
+  const secret = "test-jwt-secret";
+  const now = Math.floor(Date.now() / 1000);
+  const founderClaims = {
+    sub: founderSubject,
+    username: "PK Blick",
+    is_admin: true,
+    jti: "session-founder",
+    iat: now - 5,
+    exp: now + 300,
+    aud: "pkc-account",
+    amr: ["pwd", "otp"],
+    auth_epoch: 4,
+    mfa_verified_at: now - 5,
+  };
+  const env = { PKC_AUTH_KEY: "internal-key", PKC_JWT_SECRET: secret, PKC_FOUNDER_SUBJECT: founderSubject };
+  const run = (workflow, claims) => executeCode(nodeByName(workflow, "Init Trace").parameters.jsCode, {
+    input: [{ json: { headers: { "x-pkc-key": "internal-key", cookie: `pkc_session=${accountSessionToken(claims, secret)}` } } }],
+    env,
+  })[0].json;
+
+  for (const source of [protectedSnapshots.profile, protectedSnapshots.sessions]) {
+    const workflow = source === protectedSnapshots.profile
+      ? patchFounderProfileAuthority(readProtectedSnapshot(source))
+      : patchFounderSessionAuthority(readProtectedSnapshot(source));
+    assert.equal(run(workflow, founderClaims)._failed, false);
+    assert.equal(run(workflow, founderClaims).username, "PK Blick");
+    assert.equal(run(workflow, { sub: "customer_1", jti: "session-customer", iat: now - 5, exp: now + 300, aud: "pkc-account" }).username, "customer_1");
+    for (const hostile of [
+      { ...founderClaims, sub: "PK Blick" },
+      { ...founderClaims, username: undefined },
+      { ...founderClaims, is_admin: false },
+      { ...founderClaims, extra: true },
+    ]) assert.equal(run(workflow, hostile)._failed, true, JSON.stringify(hostile));
+  }
+});
+
+test("transformed protected profile output projects one exact canonical account_id", {
+  skip: protectedSnapshotsAvailable ? false : "protected workflow snapshots are unavailable",
+}, () => {
+  const founderSubject = "11111111-1111-4111-8111-111111111111";
+  const workflow = patchFounderProfileAuthority(readProtectedSnapshot(protectedSnapshots.profile));
+  const source = nodeByName(workflow, "Build Profile Response").parameters.jsCode;
+  const account = { account_id: founderSubject, username: "PK Blick", email: "changed@example.test", is_admin: "TRUE" };
+  const nodes = {
+    "Init Trace": [{ json: { username: "PK Blick", account_id: founderSubject, request_id: "request-1", trace_start_ms: Date.now() } }],
+    "Read Account": [{ json: account }],
+  };
+  const result = executeCode(source, { nodes })[0].json;
+  assert.equal(result.profile.account_id, founderSubject);
+  assert.throws(() => executeCode(source, {
+    nodes: {
+      ...nodes,
+      "Read Account": [{ json: account }, { json: { ...account, username: "customer_1", is_admin: "FALSE" } }],
+    },
+  }), /account_authority_ambiguous/);
+  assert.throws(() => executeCode(source, { nodes: { ...nodes, "Read Account": [{ json: account }, { json: account }] } }), /account_authority_ambiguous/);
+});
+
+test("transformed protected session assurance preserves legacy customers and fails closed on founder identity conflicts", {
+  skip: protectedSnapshotsAvailable ? false : "protected workflow snapshots are unavailable",
+}, () => {
+  const founderSubject = "11111111-1111-4111-8111-111111111111";
+  const workflow = patchFounderSessionAuthority(readProtectedSnapshot(protectedSnapshots.sessions));
+  const source = nodeByName(workflow, "Enforce Founder Session Assurance").parameters.jsCode;
+  const item = { sessions: [{ session_id: "session-1" }] };
+  const trace = { username: "customer_1", session_id: "session-1" };
+  const env = { PKC_FOUNDER_SUBJECT: founderSubject };
+  const run = (rows, traceOverride = trace) => executeCode(source, {
+    input: [{ json: item }],
+    nodes: {
+      "Init Trace": [{ json: traceOverride }],
+      "Read Current Session": rows.map((row) => ({ json: row })),
+    },
+    env,
+  });
+  const customer = { session_id: "session-1", username: "customer_1" };
+
+  for (const legacy of [
+    customer,
+    { ...customer, account_id: null },
+    { ...customer, account_id: "" },
+  ]) assert.deepEqual(run([legacy]), [{ json: item }]);
+
+  for (const invalid of [
+    { ...customer, account_id: "malformed" },
+    { ...customer, account_id: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA" },
+    { ...customer, account_id: ` ${founderSubject}` },
+    { ...customer, account_id: `${founderSubject} ` },
+    { ...customer, account_id: founderSubject },
+    { ...customer, username: "PK Blick" },
+    { ...customer, account_id: "22222222-2222-4222-8222-222222222222", username: "PK Blick" },
+  ]) assert.throws(() => run([invalid]), /founder_session_assurance_invalid/, JSON.stringify(invalid));
+
+  const founder = {
+    session_id: "session-1",
+    account_id: founderSubject,
+    username: "PK Blick",
+    auth_epoch: "4",
+    amr: "pwd otp",
+    mfa_verified_at: new Date(Math.floor(Date.now() / 1000) * 1000).toISOString(),
+  };
+  assert.deepEqual(run([founder], { username: "PK Blick", account_id: founderSubject, session_id: "session-1" })[0].json.founder_assurance.amr, ["pwd", "otp"]);
+  assert.throws(() => run([{ ...founder, amr: "pwd" }], { username: "PK Blick", account_id: founderSubject, session_id: "session-1" }), /founder_session_assurance_invalid/);
+  assert.throws(() => run([customer, customer]), /session_authority_ambiguous/);
+});
+
+test("transformed profile and session gates reject duplicate authority rows at runtime", {
+  skip: protectedSnapshotsAvailable ? false : "protected workflow snapshots are unavailable",
+}, () => {
+  const founderSubject = "11111111-1111-4111-8111-111111111111";
+  const account = { account_id: founderSubject, username: "PK Blick", is_admin: "TRUE" };
+  const session = { session_id: "session-1", account_id: founderSubject, username: "PK Blick", auth_epoch: "4", amr: "pwd otp", mfa_verified_at: new Date(Math.floor(Date.now() / 1000) * 1000).toISOString() };
+  const env = { PKC_FOUNDER_SUBJECT: founderSubject };
+
+  const profile = patchFounderProfileAuthority(readProtectedSnapshot(protectedSnapshots.profile));
+  const profileSource = nodeByName(profile, "Enforce Founder Profile Assurance").parameters.jsCode;
+  const profileNodes = {
+    "Init Trace": [{ json: { username: "PK Blick", account_id: founderSubject, session_id: "session-1" } }],
+    "Read Account": [{ json: account }, { json: account }],
+    "Read Sessions": [{ json: session }],
+  };
+  assert.throws(() => executeCode(profileSource, { input: [{ json: { profile: account } }], nodes: profileNodes, env }), /account_authority_ambiguous/);
+  assert.throws(() => executeCode(profileSource, {
+    input: [{ json: { profile: account } }],
+    nodes: {
+      ...profileNodes,
+      "Read Account": [{ json: account }, { json: { ...account, username: "customer_1", is_admin: "FALSE" } }],
+    },
+    env,
+  }), /account_authority_ambiguous/);
+
+  const sessions = patchFounderSessionAuthority(readProtectedSnapshot(protectedSnapshots.sessions));
+  const sessionSource = nodeByName(sessions, "Enforce Founder Session Assurance").parameters.jsCode;
+  const sessionNodes = {
+    "Init Trace": [{ json: { username: "PK Blick", session_id: "session-1" } }],
+    "Read Current Session": [{ json: session }, { json: session }],
+  };
+  assert.throws(() => executeCode(sessionSource, { input: [{ json: { sessions: [] } }], nodes: sessionNodes, env }), /session_authority_ambiguous/);
+});
+
 test("protected transforms fail closed on exact workflow and projection-locator drift", {
   skip: protectedSnapshotsAvailable ? false : "protected workflow snapshots are unavailable",
 }, () => {
@@ -413,6 +629,6 @@ test("protected transforms fail closed on exact workflow and projection-locator 
 });
 
 test("claim key constants are closed and stable", () => {
-  assert.deepEqual(HANDOFF_CLAIM_KEYS, ["aud", "exp", "iat", "iss", "jti", "kid", "login_attempt_id", "nbf", "password_authenticated_at", "purpose", "sub", "typ", "version"]);
-  assert.deepEqual(FINALIZE_CLAIM_KEYS, ["amr", "aud", "auth_epoch", "exp", "finalize_id", "iat", "iss", "jti", "kid", "login_attempt_id", "mfa_verified_at", "nbf", "password_authenticated_at", "purpose", "session_expires_at", "session_id", "session_issued_at", "sub", "typ", "version"]);
+  assert.deepEqual(HANDOFF_CLAIM_KEYS, ["aud", "exp", "iat", "is_admin", "iss", "jti", "kid", "login_attempt_id", "nbf", "password_authenticated_at", "purpose", "sub", "typ", "username", "version"]);
+  assert.deepEqual(FINALIZE_CLAIM_KEYS, ["amr", "aud", "auth_epoch", "exp", "finalize_id", "iat", "is_admin", "iss", "jti", "kid", "login_attempt_id", "mfa_verified_at", "nbf", "password_authenticated_at", "purpose", "session_expires_at", "session_id", "session_issued_at", "sub", "typ", "username", "version"]);
 });

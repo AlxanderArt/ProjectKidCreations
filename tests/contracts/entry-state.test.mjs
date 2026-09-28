@@ -7,6 +7,7 @@ const ENV = Object.freeze({
   PKC_N8N_BASE_URL: "https://n8n.example.test",
   PKC_AUTH_KEY: "test-only-key",
   PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test",
+  PKC_FOUNDER_SUBJECT: "11111111-1111-4111-8111-111111111111",
 });
 
 function response() {
@@ -51,8 +52,9 @@ test("entry-state forwards only the exact session cookie and preserves founder a
       requests.push({ url: String(url), init });
       return new Response(JSON.stringify({
         account: {
+          account_id: ENV.PKC_FOUNDER_SUBJECT,
           username: "PK Blick",
-          email: "projectkidcreations@gmail.com",
+          email: "changed-founder-address@example.test",
           display_name: "Founder",
           is_admin: true,
         },
@@ -62,6 +64,7 @@ test("entry-state forwards only the exact session cookie and preserves founder a
   const result = await call(handler, { method: "GET", headers: { cookie: "other=x; pkc_session=session-token" } });
   assert.equal(result.res.statusCode, 200);
   assert.equal(result.body.state, "owner_active");
+  assert.equal(result.body.account.account_id, ENV.PKC_FOUNDER_SUBJECT);
   assert.deepEqual(result.body.capabilities, { account: true, admin: true });
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, "https://n8n.example.test/webhook/pkc-accounts/profile");

@@ -1,5 +1,5 @@
 const OWNER_USERNAME = "PK Blick";
-const OWNER_EMAIL = "projectkidcreations@gmail.com";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const RESPONSE_LIMIT = 256 * 1024;
 const TIMEOUT_MS = 8000;
 
@@ -28,14 +28,15 @@ function upstreamUrl(env) {
   const base = env.PKC_N8N_BASE_URL;
   const key = env.PKC_AUTH_KEY;
   const allowed = env.PKC_N8N_ALLOWED_ORIGINS;
-  if (!base || !key || !allowed) throw new Error("service_unavailable");
+  const founderSubject = String(env.PKC_FOUNDER_SUBJECT || "");
+  if (!base || !key || !allowed || !UUID_RE.test(founderSubject)) throw new Error("service_unavailable");
   const parsed = new URL(base);
   const allowedOrigins = new Set(allowed.split(",").map((value) => value.trim()).filter(Boolean));
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.pathname !== "/" ||
       parsed.search || parsed.hash || !allowedOrigins.has(parsed.origin)) {
     throw new Error("service_unavailable");
   }
-  return { url: new URL("/webhook/pkc-accounts/profile", parsed), key };
+  return { url: new URL("/webhook/pkc-accounts/profile", parsed), key, founderSubject };
 }
 
 async function boundedJson(response) {
@@ -98,11 +99,14 @@ export function createEntryStateHandler(dependencies = {}) {
       const body = await boundedJson(upstream);
       const account = body?.account || body?.profile || body?.data || body;
       const username = String(account?.username || "");
-      const email = String(account?.email || "").toLowerCase();
       const displayName = String(account?.display_name || username);
       const isAdmin = account?.is_admin === true || String(account?.is_admin || "").toUpperCase() === "TRUE";
-      const ownerTuple = username === OWNER_USERNAME && email === OWNER_EMAIL;
-      if ((isAdmin && !ownerTuple) || (ownerTuple && !isAdmin)) {
+      const accountId = String(account?.account_id || "");
+      if (!UUID_RE.test(accountId)) return json(res, 409, { ok: false, error: "authority_conflict" });
+      const subjectMatch = accountId === config.founderSubject;
+      const usernameMatch = username === OWNER_USERNAME;
+      const ownerTuple = subjectMatch && usernameMatch && isAdmin;
+      if ((subjectMatch || usernameMatch || isAdmin) && !ownerTuple) {
         return json(res, 409, { ok: false, error: "authority_conflict" });
       }
       return json(res, 200, {
@@ -110,7 +114,7 @@ export function createEntryStateHandler(dependencies = {}) {
         schema_version: 1,
         state: ownerTuple ? "owner_active" : "customer_active",
         authenticated: true,
-        account: { username, display_name: displayName },
+        account: { account_id: accountId, username, display_name: displayName },
         capabilities: { account: true, admin: ownerTuple },
       });
     } catch {

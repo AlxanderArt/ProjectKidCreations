@@ -12,7 +12,7 @@ const COOKIE_VALUE_RE = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]*$/;
 const DEFAULT_TIMEOUT_MS = 20_000;
 const ADMIN_TIMEOUT_MS = 5_000;
 const OWNER_USERNAME = "PK Blick";
-const OWNER_EMAIL = "projectkidcreations@gmail.com";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export const utf8Size = (value) => new TextEncoder().encode(value).byteLength;
 
@@ -38,14 +38,16 @@ function exactOriginList(raw) {
 }
 
 function configuration(env) {
-  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS"];
+  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_SUBJECT"];
   for (const key of required) if (typeof env?.[key] !== "string" || env[key].trim() === "") throw new Error(`missing ${key}`);
   const upstreamOrigins = exactOriginList(env.PKC_N8N_ALLOWED_ORIGINS);
   const publicOrigins = exactOriginList(env.PKC_PUBLIC_ALLOWED_ORIGINS);
   const base = new URL(env.PKC_N8N_BASE_URL.trim());
   if (base.protocol !== "https:" || base.username || base.password || base.pathname !== "/" || base.search || base.hash) throw new Error("invalid base URL");
   if (!upstreamOrigins.has(base.origin)) throw new Error("base origin denied");
-  return { base: base.origin, authKey: env.PKC_AUTH_KEY.trim(), publicOrigins };
+  const founderSubject = env.PKC_FOUNDER_SUBJECT;
+  if (!UUID_RE.test(founderSubject)) throw new Error("invalid PKC_FOUNDER_SUBJECT");
+  return { base: base.origin, authKey: env.PKC_AUTH_KEY.trim(), publicOrigins, founderSubject };
 }
 
 async function readStreamLimited(stream, limit) {
@@ -269,7 +271,6 @@ async function validateActivationProof(proof, authKey) {
     || typeof claims.submission_id !== "string" || !claims.submission_id.trim()
     || typeof claims.username !== "string" || !/^[a-z0-9_.-]{3,32}$/.test(claims.username)
     || typeof claims.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(claims.email)
-    || claims.email.toLowerCase() === OWNER_EMAIL
     || /^pk blick$/i.test(claims.username)) {
     throw invalidActivationProof();
   }
@@ -371,10 +372,12 @@ async function assertFounderPolicy(config, cookie, dependencies, { adminOnly, re
   }
   if (checked.denied) return jsonError("unauthenticated", 401);
   const profile = checked.data?.profile || checked.data;
-  const isFounder = profile?.username === OWNER_USERNAME
-    && String(profile?.email || "").toLowerCase() === OWNER_EMAIL
-    && profile?.is_admin === true;
-  if (!isFounder) return adminOnly ? jsonError("admin_required", 403) : true;
+  const subjectMatch = profile?.account_id === config.founderSubject;
+  const usernameMatch = profile?.username === OWNER_USERNAME;
+  const adminMatch = profile?.is_admin === true;
+  const isFounder = subjectMatch && usernameMatch && adminMatch;
+  const hasFounderSignal = subjectMatch || usernameMatch || adminMatch;
+  if (!isFounder) return (adminOnly || hasFounderSignal) ? jsonError("admin_required", 403) : true;
 
   const assurance = profile?.founder_assurance;
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -383,13 +386,13 @@ async function assertFounderPolicy(config, cookie, dependencies, { adminOnly, re
   try {
     if (typeof dependencies.founderAuthority !== "function") throw new Error("founder_authority_unavailable");
     authority = await timedOperation(
-      () => dependencies.founderAuthority(OWNER_USERNAME),
+      () => dependencies.founderAuthority(config.founderSubject),
       dependencies.adminTimeoutMs,
     );
   } catch (error) {
     return jsonError(isTimeout(error) ? "founder_authority_timeout" : "founder_authority_failed", isTimeout(error) ? 504 : 503);
   }
-  const hasFreshFounderMfa = authority?.founderSubject === OWNER_USERNAME
+  const hasFreshFounderMfa = authority?.founderSubject === config.founderSubject
     && authority?.state === "active"
     && Number.isSafeInteger(authority?.authEpoch)
     && authority.authEpoch >= 1

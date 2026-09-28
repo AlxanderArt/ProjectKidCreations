@@ -10,6 +10,7 @@ import { createEdgeHandler } from "../../server/proxy/edge.mjs";
 import { createNodeHandler } from "../../server/proxy/node.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
+const FOUNDER_SUBJECT = "11111111-1111-4111-8111-111111111111";
 
 test("package declares ESM so Vercel Node wrappers can import the shared core", () => {
   const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
@@ -21,6 +22,7 @@ const GOOD_ENV = Object.freeze({
   PKC_AUTH_KEY: "server-secret",
   PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test,https://standby.example.test",
   PKC_PUBLIC_ALLOWED_ORIGINS: "https://app.example.test,https://www.example.test",
+  PKC_FOUNDER_SUBJECT: FOUNDER_SUBJECT,
 });
 
 const okJson = (body = { ok: true }, init = {}) => new Response(JSON.stringify(body), {
@@ -167,6 +169,18 @@ test("configuration fails closed before fetch for every missing or blank require
       assert.equal(fetches, 0, key);
       assertSecurityHeaders(response);
     }
+  }
+});
+
+test("proxy configuration rejects noncanonical founder UUID text before fetch", async () => {
+  for (const value of ["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", ` ${FOUNDER_SUBJECT}`, `${FOUNDER_SUBJECT} `, "not-a-uuid"]) {
+    let fetches = 0;
+    const response = await handleProxy("onboarding", request("/api/onboarding", { body: { submissionId: "s", data: {} } }), {
+      env: { ...GOOD_ENV, PKC_FOUNDER_SUBJECT: value },
+      fetch: async () => { fetches += 1; return okJson(); },
+    });
+    assert.equal(response.status, 503, value);
+    assert.equal(fetches, 0, value);
   }
 });
 
@@ -515,14 +529,14 @@ test("all founder session routes except logout use Node authority and reject sta
 
   const staleMfa = Math.floor(Date.now() / 1000) - 3600;
   const profile = {
-    username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true,
+    account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "any-address@example.test", is_admin: true,
     founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 3, mfa_verified_at: staleMfa },
   };
   let calls = 0;
   const denied = await call("accountProfile", request("/x", {
     method: "GET", body: undefined, origin: undefined, headers: { cookie: "pkc_session=old-founder" },
   }), async () => { calls += 1; return okJson({ profile }); }, {
-    founderAuthority: async () => ({ founderSubject: "PK Blick", state: "active", authEpoch: 4, revokedBefore: new Date() }),
+    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 4, revokedBefore: new Date() }; },
   });
   assert.equal(denied.status, 403);
   assert.equal(calls, 1);
@@ -531,7 +545,7 @@ test("all founder session routes except logout use Node authority and reject sta
   const accepted = await call("accountProfile", request("/x", {
     method: "GET", body: undefined, origin: undefined, headers: { cookie: "pkc_session=current-founder" },
   }), async () => { calls += 1; return okJson({ profile }); }, {
-    founderAuthority: async () => ({ founderSubject: "PK Blick", state: "active", authEpoch: 3, revokedBefore: null }),
+    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 3, revokedBefore: null }; },
   });
   assert.equal(accepted.status, 200);
   assert.equal(calls, 2, "non-sensitive founder profile permits older MFA only when the Postgres epoch is current");
@@ -546,10 +560,10 @@ test("founder-sensitive account mutations preserve customers and require current
     ["accountSessions", { session_id: "session-to-revoke" }],
   ];
   const founder = (assurance) => ({
-    username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true,
+    account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "irrelevant@example.test", is_admin: true,
     founder_assurance: assurance,
   });
-  const activeAuthority = { founderSubject: "PK Blick", state: "active", authEpoch: 7, revokedBefore: null };
+  const activeAuthority = { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 7, revokedBefore: null };
 
   for (const [routeId, body] of routes) {
     let calls = 0;
@@ -593,13 +607,13 @@ test("founder-sensitive account mutations preserve customers and require current
 
 test("admin routes require a bounded profile assertion and never forward session to the admin operation", async () => {
   const freshMfa = Math.floor(Date.now() / 1000) - 30;
-  const activeAuthority = async () => ({ founderSubject: "PK Blick", state: "active", authEpoch: 4, revokedBefore: null });
+  const activeAuthority = async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 4, revokedBefore: null }; };
   let calls = [];
   const fetchImpl = async (url, init) => {
     const headers = new Headers(init.headers);
     calls.push({ url, headers, signal: init.signal });
     if (url.endsWith("/webhook/pkc-accounts/profile")) return okJson({ profile: {
-      username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true,
+      account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "changed@example.test", is_admin: true,
       auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa },
     } });
     return okJson({ rows: [] });
@@ -625,9 +639,10 @@ test("admin routes require a bounded profile assertion and never forward session
 
   for (const profile of [
     { username: "customer", email: "customer@example.com", is_admin: true },
-    { username: "PK Blick", email: "attacker@example.com", is_admin: true },
-    { username: "pk blick", email: "projectkidcreations@gmail.com", is_admin: true },
-    { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: false },
+    { account_id: FOUNDER_SUBJECT, username: "customer", email: "founder@example.com", is_admin: true },
+    { account_id: "22222222-2222-4222-8222-222222222222", username: "PK Blick", email: "founder@example.com", is_admin: true },
+    { account_id: FOUNDER_SUBJECT, username: "pk blick", email: "founder@example.com", is_admin: true },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "founder@example.com", is_admin: false },
   ]) {
     calls = [];
     const conflict = await call("accountAdminList", request("/x", {
@@ -642,11 +657,11 @@ test("admin routes require a bounded profile assertion and never forward session
   }
 
   for (const profile of [
-    { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true },
-    { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd"], auth_epoch: 4, mfa_verified_at: freshMfa } },
-    { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 3, mfa_verified_at: freshMfa } },
-    { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa - 901 } },
-    { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa + 120 } },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd"], auth_epoch: 4, mfa_verified_at: freshMfa } },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 3, mfa_verified_at: freshMfa } },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa - 901 } },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa + 120 } },
   ]) {
     calls = [];
     const stale = await call("accountAdminList", request("/x", {

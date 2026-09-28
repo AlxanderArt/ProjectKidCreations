@@ -5,7 +5,7 @@ REVOKE ALL ON SCHEMA pkc_auth FROM PUBLIC;
 
 CREATE TABLE pkc_auth.founder_mfa_factors (
   factor_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  founder_subject text NOT NULL UNIQUE,
+  founder_subject uuid NOT NULL UNIQUE,
   state text NOT NULL DEFAULT 'unenrolled' CHECK (state IN ('unenrolled','pending','active','recovery_required','disabled')),
   enrollment_generation integer NOT NULL DEFAULT 0 CHECK (enrollment_generation >= 0),
   secret_algorithm text CHECK (secret_algorithm IS NULL OR secret_algorithm = 'aes-256-gcm'),

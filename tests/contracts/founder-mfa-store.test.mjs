@@ -17,8 +17,9 @@ const config = Object.freeze({
   keyVersions: Object.freeze({ encryption: 1, handoff: 1, finalize: 1, recovery: 1 }),
   handoff: Object.freeze({ issuer: "pkc-n8n-account-login", audience: "pkc-vercel-founder-mfa" }),
   finalize: Object.freeze({ issuer: "pkc-vercel-founder-mfa", audience: "pkc-n8n-founder-mfa-finalizer", ttlSeconds: 60 }),
+  founderSubject: "11111111-1111-4111-8111-111111111111",
 });
-const founder = "PK Blick";
+const founder = config.founderSubject;
 const nowMs = Date.parse("2026-09-27T12:00:00.000Z");
 const secret = Buffer.from("12345678901234567890", "ascii");
 
@@ -46,6 +47,8 @@ async function fixture(t, finalizer = async () => ({ status: "unknown" })) {
 function handoff(overrides = {}) {
   return {
     sub: founder,
+    username: "PK Blick",
+    is_admin: true,
     jti: randomUUID(),
     login_attempt_id: randomUUID(),
     password_authenticated_at: Math.floor(nowMs / 1000),
@@ -63,6 +66,8 @@ function signedHandoff(claims) {
     version: 1,
     kid: "handoff-v1",
     sub: founder,
+    username: "PK Blick",
+    is_admin: true,
     jti: `handoff-${"a".repeat(48)}`,
     login_attempt_id: randomUUID(),
     password_authenticated_at: Math.floor(nowMs / 1000),
@@ -74,6 +79,35 @@ function signedHandoff(claims) {
   const input = `${Buffer.from(JSON.stringify(header)).toString("base64url")}.${Buffer.from(JSON.stringify(body)).toString("base64url")}`;
   return `${input}.${createHmac("sha256", config.keys.handoff).update(input).digest("base64url")}`;
 }
+
+test("store founder subject inputs are canonical UUIDs", async () => {
+  let queries = 0;
+  const pool = {
+    connect: async () => ({ query: async () => ({ rows: [] }), release() {} }),
+    query: async () => { queries += 1; return { rows: [] }; },
+  };
+  const store = createFounderMfaStore({ pool });
+  for (const value of ["PK Blick", "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", ` ${founder}`, `${founder} `]) {
+    await assert.rejects(() => store.readFactorAuthority(value), /invalid_founder_subject/);
+    await assert.rejects(() => store.lockFactor({ query: async () => { queries += 1; } }, value), /invalid_founder_subject/);
+  }
+  assert.equal(queries, 0);
+});
+
+test("service rejects noncanonical configured founder subjects before store access", () => {
+  const store = { transaction: async () => { throw new Error("must_not_reach_store"); } };
+  for (const founderSubject of ["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", ` ${founder}`, `${founder} `, "malformed"]) {
+    assert.throws(() => createFounderMfaService({ store, config: { ...config, founderSubject } }), /invalid_mfa_config/);
+  }
+});
+
+test("signed handoff rejects noncanonical founder sub before store access", async () => {
+  const store = { transaction: async () => { throw new Error("must_not_reach_store"); } };
+  const service = createFounderMfaService({ store, config, clock: () => nowMs });
+  for (const sub of ["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", ` ${founder}`, `${founder} `]) {
+    await assert.rejects(() => service.beginFromSignedHandoff(signedHandoff({ sub })), /mfa_rejected/);
+  }
+});
 
 native("signed founder handoffs use the dormant n8n JWT contract", async (t) => {
   const { service } = await fixture(t);

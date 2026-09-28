@@ -53,6 +53,8 @@ test("public bootstrap derives non-owner identity only from a valid activation p
   assert.match(code, /activation_proof_expired/);
   assert.match(code, /claims\.submission_id/);
   assert.doesNotMatch(code, /rawUsername/);
+  assert.doesNotMatch(code, /OWNER_EMAIL|projectkidcreations@gmail\.com/);
+  assert.doesNotMatch(code, /is_owner = true/);
 });
 
 test("unsupported workflows fail closed", () => {

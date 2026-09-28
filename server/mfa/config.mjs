@@ -34,6 +34,14 @@ function positiveVersion(env, name, fallback = 1) {
   return value;
 }
 
+function uuid(env, name) {
+  const value = env?.[name];
+  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
+    throw new Error(`invalid ${name}`);
+  }
+  return value;
+}
+
 export function loadMfaConfig(env = process.env) {
   const databaseUrl = required(env, "PKC_DATABASE_URL");
   const database = new URL(databaseUrl);
@@ -58,6 +66,7 @@ export function loadMfaConfig(env = process.env) {
 
   return Object.freeze({
     databaseUrl,
+    founderSubject: uuid(env, "PKC_FOUNDER_SUBJECT"),
     keys,
     keyVersions: Object.freeze({
       encryption: positiveVersion(env, "PKC_TOTP_ENCRYPTION_KEY_VERSION"),

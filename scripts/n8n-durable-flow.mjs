@@ -61,8 +61,6 @@ return respond(true, 'SUCCESS', persisted ? 'Profile committed.' : 'Test mode: p
 }
 
 const BOOTSTRAP_INIT = `const crypto = require('crypto');
-const OWNER_USERNAME = 'PK Blick';
-const OWNER_EMAIL = 'projectkidcreations@gmail.com';
 const PUBLIC_USERNAME_RE = /^[a-z0-9_.-]{3,32}$/;
 const headers = ($input.first()?.json?.headers) || {};
 const expectedKey = $env.PKC_AUTH_KEY;
@@ -104,18 +102,9 @@ if (proof) {
   if (!submission_id || !PUBLIC_USERNAME_RE.test(username) || username !== username.toLowerCase()) {
     throw new Error('403: invalid_activation_claims');
   }
-  if (email === OWNER_EMAIL || /^pk blick$/i.test(username)) throw new Error('403: owner_identity_mismatch');
+  if (/^pk blick$/i.test(username)) throw new Error('403: owner_identity_mismatch');
 } else {
-  const ownerUsername = String(body.username || '').trim();
-  const ownerEmail = String(body.email || '').trim().toLowerCase();
-  if (ownerUsername !== OWNER_USERNAME || ownerEmail !== OWNER_EMAIL) {
-    throw new Error('403: activation_proof_required');
-  }
-  submission_id = String(body.submission_id || '').trim();
-  username = OWNER_USERNAME;
-  email = OWNER_EMAIL;
-  first_name = OWNER_USERNAME;
-  is_owner = true;
+  throw new Error('403: activation_proof_required');
 }
 if (!submission_id) throw new Error('400: missing_submission_id');
 if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) throw new Error('400: invalid_email');

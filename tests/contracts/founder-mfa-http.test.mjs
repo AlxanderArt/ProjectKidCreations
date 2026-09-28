@@ -12,6 +12,7 @@ import {
 
 const opaque = "A".repeat(43);
 const originEnv = "https://projectkidcreations.io,https://www.projectkidcreations.io";
+const founderSubject = "11111111-1111-4111-8111-111111111111";
 
 test("MFA configuration is strict, key-separated, and loaded only on demand", () => {
   const base = {
@@ -24,6 +25,7 @@ test("MFA configuration is strict, key-separated, and loaded only on demand", ()
     PKC_N8N_BASE_URL: "https://n8n.example.invalid",
     PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.invalid",
     PKC_AUTH_KEY: "internal-auth-key",
+    PKC_FOUNDER_SUBJECT: founderSubject,
   };
   const config = loadMfaConfig(base);
   assert.equal(config.keyVersions.encryption, 1);
@@ -33,14 +35,22 @@ test("MFA configuration is strict, key-separated, and loaded only on demand", ()
   assert.equal(config.keys.recovery.byteLength, 32);
   assert.notDeepEqual(config.keys.encryption, config.keys.handoff);
   assert.equal(config.databaseUrl, base.PKC_DATABASE_URL);
+  assert.equal(config.founderSubject, founderSubject);
   assert.deepEqual([...config.publicOrigins].sort(), originEnv.split(",").sort());
 
-  for (const name of ["PKC_DATABASE_URL", "PKC_TOTP_ENCRYPTION_KEY", "PKC_MFA_HANDOFF_KEY", "PKC_MFA_FINALIZE_KEY", "PKC_MFA_RECOVERY_PEPPER"]) {
+  for (const name of ["PKC_DATABASE_URL", "PKC_TOTP_ENCRYPTION_KEY", "PKC_MFA_HANDOFF_KEY", "PKC_MFA_FINALIZE_KEY", "PKC_MFA_RECOVERY_PEPPER", "PKC_FOUNDER_SUBJECT"]) {
     const broken = { ...base };
     delete broken[name];
     assert.throws(() => loadMfaConfig(broken), new RegExp(name));
   }
   assert.throws(() => loadMfaConfig({ ...base, PKC_MFA_HANDOFF_KEY: base.PKC_TOTP_ENCRYPTION_KEY }), /key_reuse/);
+  for (const value of [
+    "PK Blick",
+    "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+    ` ${founderSubject}`,
+    `${founderSubject} `,
+    "11111111-1111-1111-1111-111111111111",
+  ]) assert.throws(() => loadMfaConfig({ ...base, PKC_FOUNDER_SUBJECT: value }), /invalid PKC_FOUNDER_SUBJECT/);
 });
 
 test("pre-auth cookies are strict host-only opaque values and duplicates fail closed", () => {

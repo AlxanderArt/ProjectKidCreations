@@ -1,19 +1,19 @@
 import crypto from "node:crypto";
 
 export const HANDOFF_CLAIM_KEYS = Object.freeze([
-  "aud", "exp", "iat", "iss", "jti", "kid", "login_attempt_id", "nbf",
-  "password_authenticated_at", "purpose", "sub", "typ", "version",
+  "aud", "exp", "iat", "is_admin", "iss", "jti", "kid", "login_attempt_id", "nbf",
+  "password_authenticated_at", "purpose", "sub", "typ", "username", "version",
 ]);
 
 export const FINALIZE_CLAIM_KEYS = Object.freeze([
-  "amr", "aud", "auth_epoch", "exp", "finalize_id", "iat", "iss", "jti", "kid",
+  "amr", "aud", "auth_epoch", "exp", "finalize_id", "iat", "is_admin", "iss", "jti", "kid",
   "login_attempt_id", "mfa_verified_at", "nbf", "password_authenticated_at", "purpose",
-  "session_expires_at", "session_id", "session_issued_at", "sub", "typ", "version",
+  "session_expires_at", "session_id", "session_issued_at", "sub", "typ", "username", "version",
 ]);
 
 const OWNER_USERNAME = "PK Blick";
-const OWNER_EMAIL = "projectkidcreations@gmail.com";
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const STABLE_ID_RE = /^[a-z][a-z0-9_-]{7,127}$/;
 const PROFILE_WORKFLOW_SOURCE_FINGERPRINT = "8287746c2654b22b8f7285cbdeddfeef655be6fa3ec9137d820ce25b810afebe";
 const SESSION_WORKFLOW_SOURCE_FINGERPRINT = "0b85af35abcc64453e0225c102d79afa426088563a12ca7d05845aad40985eee";
@@ -106,9 +106,15 @@ function disableExecutionPersistence(workflow) {
   return workflow;
 }
 
-const HANDOFF_BRANCH_SOURCE = `const founderTuple = account.username === 'PK Blick'
-  && String(account.email || '').trim().toLowerCase() === 'projectkidcreations@gmail.com'
-  && String(account.is_admin || '').toUpperCase() === 'TRUE';
+const HANDOFF_BRANCH_SOURCE = `const founderSubject = String($env.PKC_FOUNDER_SUBJECT || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('503: founder_mfa_not_configured');
+const accountSubject = String(account.account_id || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(accountSubject)) throw new Error('403: founder_identity_mismatch');
+const subjectMatch = accountSubject === founderSubject;
+const usernameMatch = account.username === 'PK Blick';
+const adminMatch = String(account.is_admin || '').toUpperCase() === 'TRUE';
+const founderTuple = subjectMatch && usernameMatch && adminMatch;
+if ((subjectMatch || usernameMatch || adminMatch) && !founderTuple) throw new Error('403: founder_identity_mismatch');
 if (founderTuple) {
   const login_attempt_id = String(trace.login_attempt_id || '');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(login_attempt_id)) {
@@ -125,7 +131,7 @@ if (founderTuple) {
   const nbf = iat - 2;
   const exp = iat + 60;
   const jti = 'handoff-' + crypto.createHmac('sha256', handoffKey)
-    .update('v1\\n' + trace.username + '\\n' + login_attempt_id, 'utf8').digest('hex').slice(0, 48);
+    .update('v1\\n' + founderSubject + '\\n' + login_attempt_id, 'utf8').digest('hex').slice(0, 48);
   const claims = {
     iss: 'pkc-n8n-account-login',
     aud: 'pkc-vercel-founder-mfa',
@@ -133,7 +139,9 @@ if (founderTuple) {
     purpose: 'founder_mfa_challenge',
     version: 1,
     kid,
-    sub: trace.username,
+    sub: founderSubject,
+    username: 'PK Blick',
+    is_admin: true,
     jti,
     login_attempt_id,
     password_authenticated_at,
@@ -219,6 +227,25 @@ export function patchAccountLoginForFounderMfa(input) {
   if (!LOGIN_VERIFY_SOURCE_FINGERPRINTS.has(fingerprint(verify.parameters.jsCode))) {
     throw new Error("Verify Credentials: source fingerprint drift");
   }
+  verify.parameters.jsCode = exactReplace(
+    verify.parameters.jsCode,
+    "const account = rows.find(r => String(r.username||'') === trace.username) || null;",
+    "const lookupFounderSubject = String($env.PKC_FOUNDER_SUBJECT || '');\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(lookupFounderSubject)) throw new Error('503: founder_mfa_not_configured');\nconst founderLookup = trace.username === 'PK Blick';\nconst accountMatches = rows.filter(r => founderLookup ? String(r.account_id||'') === lookupFounderSubject : String(r.username||'') === trace.username);\nif (accountMatches.length > 1) throw new Error('409: account_authority_ambiguous');\nconst account = accountMatches.length === 1 ? accountMatches[0] : null;\nconst conflictingFounderRows = rows.filter(r => { const subject = String(r.account_id||''); const username = r.username === 'PK Blick'; const admin = String(r.is_admin||'').toUpperCase() === 'TRUE'; const signal = subject === lookupFounderSubject || username || admin; return signal && !(subject === lookupFounderSubject && username && admin); });\nif (conflictingFounderRows.length) throw new Error('403: founder_identity_mismatch');",
+    "Verify Credentials:exact account cardinality",
+  );
+  const legacyOwnerAuthority = `const ownerTuple = account && account.username === 'PK Blick' && String(account.email||'').trim().toLowerCase() === 'projectkidcreations@gmail.com';
+if (account && ownerTuple && String(account.is_admin||'').toUpperCase() !== 'TRUE') throw new Error('403: owner_admin_state_invalid');
+if (account && !ownerTuple && String(account.is_admin||'').toUpperCase() === 'TRUE') throw new Error('403: public_admin_state_invalid');
+
+`;
+  if (verify.parameters.jsCode.includes(legacyOwnerAuthority)) {
+    verify.parameters.jsCode = exactReplace(
+      verify.parameters.jsCode,
+      legacyOwnerAuthority,
+      "",
+      "Verify Credentials:remove email owner authority",
+    );
+  }
   const successAnchor = verify.parameters.jsCode.indexOf("// SUCCESS — build session + JWT");
   const sessionCreation = verify.parameters.jsCode.indexOf("const session_id = crypto.randomUUID();");
   if (successAnchor < 0 || sessionCreation < 0 || successAnchor > sessionCreation) {
@@ -294,7 +321,9 @@ export function verifyFounderFinalizeGrant(token, { key, expectedKid, now = Math
     || payload.purpose !== "founder_mfa_finalize"
     || payload.version !== 1
     || payload.kid !== expectedKid
-    || payload.sub !== OWNER_USERNAME) throw new Error("invalid_finalize_claims");
+    || !UUID_RE.test(payload.sub)
+    || payload.username !== OWNER_USERNAME
+    || payload.is_admin !== true) throw new Error("invalid_finalize_claims");
   if (!UUID_RE.test(payload.login_attempt_id)
     || !STABLE_ID_RE.test(payload.jti)
     || !STABLE_ID_RE.test(payload.finalize_id)
@@ -327,17 +356,22 @@ const parts = grant.split('.');
 if (parts.length !== 3) throw new Error('401: invalid_finalize_grant');
 let untrusted;
 try { untrusted = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')); } catch { throw new Error('401: invalid_finalize_grant'); }
-if (!untrusted || untrusted.sub !== 'PK Blick') throw new Error('401: invalid_finalize_grant');
-return [{ json: { grant, founder_lookup_username: 'PK Blick' } }];`;
+const founderSubject = String($env.PKC_FOUNDER_SUBJECT || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('503: finalizer_not_configured');
+if (!untrusted || untrusted.sub !== founderSubject || untrusted.username !== 'PK Blick' || untrusted.is_admin !== true) throw new Error('401: invalid_finalize_grant');
+return [{ json: { grant, founder_lookup_subject: founderSubject } }];`;
 
 const VERIFY_FINALIZE_SOURCE = `const crypto = require('crypto');
 const request = $('Authenticate Finalizer').first().json;
 const rows = $('Read Founder Account').all().map(item => item.json).filter(Boolean);
 if (rows.length !== 1) throw new Error('403: founder_identity_mismatch');
 const account = rows[0];
-const founderTuple = account.username === 'PK Blick'
-  && String(account.email || '').trim().toLowerCase() === 'projectkidcreations@gmail.com'
-  && String(account.is_admin || '').toUpperCase() === 'TRUE';
+const accountSubject = String(account.account_id || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(accountSubject)) throw new Error('403: founder_identity_mismatch');
+const subjectMatch = accountSubject === request.founder_lookup_subject;
+const usernameMatch = account.username === 'PK Blick';
+const adminMatch = String(account.is_admin || '').toUpperCase() === 'TRUE';
+const founderTuple = subjectMatch && usernameMatch && adminMatch;
 if (!founderTuple) throw new Error('403: founder_identity_mismatch');
 const encodedKey = String($env.PKC_FOUNDER_MFA_FINALIZE_KEY || '');
 const key = Buffer.from(encodedKey, 'base64');
@@ -357,7 +391,7 @@ if (!exactKeys(header, ['alg','kid','typ']) || header.alg !== 'HS256' || header.
 const expected = crypto.createHmac('sha256', key).update(parts[0] + '.' + parts[1], 'utf8').digest();
 const provided = Buffer.from(parts[2], 'base64url');
 if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) throw new Error('401: invalid_finalize_signature');
-const claimKeys = ['amr','aud','auth_epoch','exp','finalize_id','iat','iss','jti','kid','login_attempt_id','mfa_verified_at','nbf','password_authenticated_at','purpose','session_expires_at','session_id','session_issued_at','sub','typ','version'];
+const claimKeys = ['amr','aud','auth_epoch','exp','finalize_id','iat','is_admin','iss','jti','kid','login_attempt_id','mfa_verified_at','nbf','password_authenticated_at','purpose','session_expires_at','session_id','session_issued_at','sub','typ','username','version'];
 if (!exactKeys(claims, claimKeys)) throw new Error('401: invalid_finalize_claims');
 const integer = value => Number.isSafeInteger(value) && value >= 0;
 const stableId = value => /^[a-z][a-z0-9_-]{7,127}$/.test(value);
@@ -365,7 +399,8 @@ if (claims.iss !== 'pkc-vercel-founder-mfa'
   || claims.aud !== 'pkc-n8n-founder-mfa-finalizer'
   || claims.typ !== 'pkc-founder-mfa-finalize+jwt'
   || claims.purpose !== 'founder_mfa_finalize'
-  || claims.version !== 1 || claims.kid !== expectedKid || claims.sub !== 'PK Blick'
+  || claims.version !== 1 || claims.kid !== expectedKid || claims.sub !== request.founder_lookup_subject
+  || claims.username !== 'PK Blick' || claims.is_admin !== true
   || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claims.login_attempt_id)
   || !stableId(claims.jti) || !stableId(claims.finalize_id) || !stableId(claims.session_id)
   || !integer(claims.auth_epoch) || JSON.stringify(claims.amr) !== '["pwd","otp"]') throw new Error('401: invalid_finalize_claims');
@@ -375,15 +410,15 @@ if (claims.nbf > now + 5 || claims.iat > now + 5 || claims.exp <= now || claims.
 if (claims.password_authenticated_at > claims.mfa_verified_at || claims.mfa_verified_at !== claims.session_issued_at || claims.session_expires_at <= claims.session_issued_at) throw new Error('401: invalid_finalize_claims');
 const jwtKey = $env.PKC_JWT_SECRET;
 if (!jwtKey) throw new Error('503: finalizer_not_configured');
-const sessionClaims = { sub: claims.sub, jti: claims.session_id, iat: claims.session_issued_at, exp: claims.session_expires_at, aud: 'pkc-account', amr: claims.amr, auth_epoch: claims.auth_epoch, mfa_verified_at: claims.mfa_verified_at };
+const sessionClaims = { sub: claims.sub, username: claims.username, is_admin: claims.is_admin, jti: claims.session_id, iat: claims.session_issued_at, exp: claims.session_expires_at, aud: 'pkc-account', amr: claims.amr, auth_epoch: claims.auth_epoch, mfa_verified_at: claims.mfa_verified_at };
 const encode = value => Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 const signingInput = encode({alg:'HS256',typ:'JWT'}) + '.' + encode(sessionClaims);
 const jwt = signingInput + '.' + crypto.createHmac('sha256', jwtKey).update(signingInput, 'utf8').digest('base64url');
-const receipt = { ok: true, status: 'authenticated', receipt_version: 1, finalize_id: claims.finalize_id, grant_jti: claims.jti, session_id: claims.session_id, session_token: jwt, username: claims.sub, auth_epoch: claims.auth_epoch, mfa_verified_at: claims.mfa_verified_at, issued_at: claims.session_issued_at, expires_at: claims.session_expires_at };
+const receipt = { ok: true, status: 'authenticated', receipt_version: 1, finalize_id: claims.finalize_id, grant_jti: claims.jti, session_id: claims.session_id, session_token: jwt, username: claims.username, auth_epoch: claims.auth_epoch, mfa_verified_at: claims.mfa_verified_at, issued_at: claims.session_issued_at, expires_at: claims.session_expires_at };
 return [{ json: {
   receipt,
-  session_projection: { session_id: claims.session_id, username: claims.sub, created_at: new Date(claims.session_issued_at * 1000).toISOString(), expires_at: new Date(claims.session_expires_at * 1000).toISOString(), revoked_at: '', auth_epoch: String(claims.auth_epoch), mfa_verified_at: new Date(claims.mfa_verified_at * 1000).toISOString(), amr: 'pwd otp' },
-  audit_projection: { request_id: claims.finalize_id, timestamp: new Date(claims.mfa_verified_at * 1000).toISOString(), event_type: 'FOUNDER_MFA_LOGIN_SUCCESS', actor: claims.sub, target_username: claims.sub, ip_hash: '', details_json: JSON.stringify({ finalize_id: claims.finalize_id, session_id: claims.session_id, auth_epoch: claims.auth_epoch, grant_jti: claims.jti }) }
+  session_projection: { session_id: claims.session_id, account_id: claims.sub, username: claims.username, created_at: new Date(claims.session_issued_at * 1000).toISOString(), expires_at: new Date(claims.session_expires_at * 1000).toISOString(), revoked_at: '', auth_epoch: String(claims.auth_epoch), mfa_verified_at: new Date(claims.mfa_verified_at * 1000).toISOString(), amr: 'pwd otp' },
+  audit_projection: { request_id: claims.finalize_id, timestamp: new Date(claims.mfa_verified_at * 1000).toISOString(), event_type: 'FOUNDER_MFA_LOGIN_SUCCESS', actor: claims.sub, target_username: claims.username, ip_hash: '', details_json: JSON.stringify({ finalize_id: claims.finalize_id, session_id: claims.session_id, auth_epoch: claims.auth_epoch, grant_jti: claims.jti }) }
 } }];`;
 
 function requireProjectionTemplate(template, sourceName, expectedFields, expectedSheetFingerprint, label) {
@@ -457,10 +492,10 @@ export function buildFounderMfaFinalizerWorkflow(accountLoginWorkflow) {
   delete readAccount.id;
   delete readAccount.continueOnFail;
   delete readAccount.onError;
-  readAccount.parameters.filtersUI = { values: [{ lookupColumn: "username", lookupValue: "={{ $('Authenticate Finalizer').first().json.founder_lookup_username }}" }] };
+  readAccount.parameters.filtersUI = { values: [{ lookupColumn: "account_id", lookupValue: "={{ $('Authenticate Finalizer').first().json.founder_lookup_subject }}" }] };
 
   const session = sheetClone(template, "Append New Session", "Upsert Founder Session Projection", sessionTemplateFields, SESSION_SHEET_FINGERPRINT, "session");
-  const sessionFields = ["session_id", "username", "created_at", "expires_at", "revoked_at", "auth_epoch", "mfa_verified_at", "amr"];
+  const sessionFields = ["session_id", "account_id", "username", "created_at", "expires_at", "revoked_at", "auth_epoch", "mfa_verified_at", "amr"];
   session.parameters = projectionParameters(session.parameters, "session_id", "Verify Finalize Grant", sessionFields);
 
   const audit = sheetClone(template, "Audit Success", "Upsert Founder Audit Projection", auditTemplateFields, AUDIT_SHEET_FINGERPRINT, "audit");
@@ -506,9 +541,10 @@ export function buildFounderMfaFinalizerWorkflow(accountLoginWorkflow) {
   return disableExecutionPersistence(workflow);
 }
 
-function insertAuthorityGate(input, { expectedFingerprint, label, anchorName, expectedTarget, gateName, jsCode }) {
+function insertAuthorityGate(input, { expectedFingerprint, label, anchorName, expectedTarget, gateName, jsCode, prepare }) {
   requireSourceFingerprint(input, expectedFingerprint, label);
   const workflow = disableExecutionPersistence(clone(input));
+  if (prepare) prepare(workflow);
   requireCodeNode(workflow, anchorName);
   const target = getNode(workflow, expectedTarget);
   if (target.type !== "n8n-nodes-base.respondToWebhook") throw new Error(`${label}: response target drift`);
@@ -525,15 +561,47 @@ function insertAuthorityGate(input, { expectedFingerprint, label, anchorName, ex
   return workflow;
 }
 
+const LEGACY_SESSION_SUBJECT_VALIDATOR = "const canonicalUsername = value => { const raw = String(value || '').trim(); if (raw === 'PK Blick') return 'PK Blick'; if (/^pk blick$/i.test(raw)) throw new Error('401:reserved_owner_identity'); const normalized = raw.toLowerCase(); if (!/^[a-z0-9_.-]{3,32}$/.test(normalized)) throw new Error('401:invalid_session_subject'); return normalized; };";
+const FOUNDER_SESSION_SUBJECT_VALIDATOR = "const canonicalUsername = (value, claims) => { const raw = String(value || ''); const founderSubject = String($env.PKC_FOUNDER_SUBJECT || ''); if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('503:founder_authority_not_configured'); const founderKeys = ['amr','aud','auth_epoch','exp','iat','is_admin','jti','mfa_verified_at','sub','username']; const founderSignal = raw === founderSubject || /^pk blick$/i.test(raw) || claims?.username === 'PK Blick' || claims?.is_admin === true; if (founderSignal) { const exact = claims && JSON.stringify(Object.keys(claims).sort()) === JSON.stringify(founderKeys); if (!exact || raw !== founderSubject || claims.username !== 'PK Blick' || claims.is_admin !== true) throw new Error('401:invalid_founder_session_subject'); return 'PK Blick'; } const normalized = raw.trim().toLowerCase(); if (!/^[a-z0-9_.-]{3,32}$/.test(normalized)) throw new Error('401:invalid_session_subject'); return normalized; };";
+
+function patchProtectedInitTrace(workflow) {
+  const init = requireCodeNode(workflow, "Init Trace");
+  init.parameters.jsCode = exactReplace(init.parameters.jsCode, LEGACY_SESSION_SUBJECT_VALIDATOR, FOUNDER_SESSION_SUBJECT_VALIDATOR, `${workflow.name}:Init Trace founder subject validator`);
+  init.parameters.jsCode = exactReplace(init.parameters.jsCode, "username: canonicalUsername(payload.sub),", "username: canonicalUsername(payload.sub, payload), account_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(String(payload.sub || '')) ? String(payload.sub) : null,", `${workflow.name}:Init Trace founder claims`);
+}
+
+function patchProfileProjection(workflow) {
+  const build = requireCodeNode(workflow, "Build Profile Response");
+  build.parameters.jsCode = exactReplace(
+    build.parameters.jsCode,
+    "const acct = $('Read Account').all().map(i => i.json).find(r => r && r.username) || {};",
+    "const trace = $('Init Trace').first().json;\nconst traceAccountId = trace.account_id == null ? null : String(trace.account_id);\nif (traceAccountId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(traceAccountId)) throw new Error('403: account_identity_invalid');\nconst accountMatches = $('Read Account').all().map(i => i.json).filter(r => r && (traceAccountId !== null ? String(r.account_id || '') === traceAccountId : String(r.username || '') === String(trace.username || '')));\nif (accountMatches.length !== 1) throw new Error('403: account_authority_ambiguous');\nconst acct = accountMatches[0];\nconst accountId = String(acct.account_id || '');\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(accountId)) throw new Error('403: account_identity_invalid');",
+    "Build Profile Response:exact account",
+  );
+  build.parameters.jsCode = exactReplace(build.parameters.jsCode, "const safe = {\n  username: acct.username,", "const safe = {\n  account_id: accountId,\n  username: acct.username,", "Build Profile Response:account_id");
+}
+
 const PROFILE_ASSURANCE_SOURCE = `const item = $input.first()?.json || {};
-const account = $('Read Account').all().map(entry => entry.json).find(row => row && row.username) || {};
-const founderTuple = account.username === 'PK Blick'
-  && String(account.email || '').trim().toLowerCase() === 'projectkidcreations@gmail.com'
-  && String(account.is_admin || '').toUpperCase() === 'TRUE';
-if (!founderTuple) return [{ json: item }];
 const trace = $('Init Trace').first().json;
-const session = $('Read Sessions').all().map(entry => entry.json)
-  .find(row => row && String(row.session_id) === String(trace.session_id));
+const traceAccountId = trace.account_id == null ? null : String(trace.account_id);
+if (traceAccountId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(traceAccountId)) throw new Error('403: founder_identity_mismatch');
+const accountMatches = $('Read Account').all().map(entry => entry.json).filter(row => row && (traceAccountId !== null ? String(row.account_id || '') === traceAccountId : String(row.username || '') === String(trace.username || '')));
+if (accountMatches.length !== 1) throw new Error('403: account_authority_ambiguous');
+const account = accountMatches[0];
+const founderSubject = String($env.PKC_FOUNDER_SUBJECT || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('503: founder_authority_not_configured');
+const accountSubject = String(account.account_id || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(accountSubject)) throw new Error('403: founder_identity_mismatch');
+const subjectMatch = accountSubject === founderSubject;
+const usernameMatch = account.username === 'PK Blick';
+const adminMatch = String(account.is_admin || '').toUpperCase() === 'TRUE';
+const founderTuple = subjectMatch && usernameMatch && adminMatch;
+if ((subjectMatch || usernameMatch || adminMatch) && !founderTuple) throw new Error('403: founder_identity_mismatch');
+if (!founderTuple) return [{ json: item }];
+const sessionMatches = $('Read Sessions').all().map(entry => entry.json)
+  .filter(row => row && String(row.session_id) === String(trace.session_id));
+if (sessionMatches.length !== 1) throw new Error('403: session_authority_ambiguous');
+const session = sessionMatches[0];
 const sessionEpoch = Number(session?.auth_epoch);
 if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) throw new Error('403: founder_session_assurance_invalid');
 const amr = String(session?.amr || '').trim().split(/\\s+/).filter(Boolean);
@@ -545,9 +613,19 @@ return [{ json: { ...item, profile: { ...(item.profile || {}), auth_epoch: sessi
 
 const SESSION_ASSURANCE_SOURCE = `const item = $input.first()?.json || {};
 const trace = $('Init Trace').first().json;
-const session = $('Read Current Session').all().map(entry => entry.json)
-  .find(row => row && String(row.session_id) === String(trace.session_id));
-const founderSession = session?.username === 'PK Blick';
+const sessionMatches = $('Read Current Session').all().map(entry => entry.json)
+  .filter(row => row && String(row.session_id) === String(trace.session_id));
+if (sessionMatches.length !== 1) throw new Error('403: session_authority_ambiguous');
+const session = sessionMatches[0];
+const founderSubject = String($env.PKC_FOUNDER_SUBJECT || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('503: founder_authority_not_configured');
+const rawAccountSubject = session.account_id;
+const accountSubject = rawAccountSubject == null ? '' : String(rawAccountSubject);
+if (accountSubject && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(accountSubject)) throw new Error('403: founder_session_assurance_invalid');
+const subjectMatch = accountSubject === founderSubject;
+const usernameMatch = session?.username === 'PK Blick';
+const founderSession = subjectMatch && usernameMatch;
+if (subjectMatch !== usernameMatch) throw new Error('403: founder_session_assurance_invalid');
 if (!founderSession) return [{ json: item }];
 const authEpoch = Number(session.auth_epoch);
 const amr = String(session.amr || '').trim().split(/\\s+/).filter(Boolean);
@@ -567,6 +645,10 @@ export function patchFounderProfileAuthority(input) {
     expectedTarget: "Respond OK",
     gateName: "Enforce Founder Profile Assurance",
     jsCode: PROFILE_ASSURANCE_SOURCE,
+    prepare: (workflow) => {
+      patchProtectedInitTrace(workflow);
+      patchProfileProjection(workflow);
+    },
   });
 }
 
@@ -578,5 +660,6 @@ export function patchFounderSessionAuthority(input) {
     expectedTarget: "Respond OK",
     gateName: "Enforce Founder Session Assurance",
     jsCode: SESSION_ASSURANCE_SOURCE,
+    prepare: patchProtectedInitTrace,
   });
 }

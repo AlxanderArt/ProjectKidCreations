@@ -140,6 +140,7 @@ test("the catch-all consumes founder handoffs internally and never returns them 
         PKC_AUTH_KEY: "test-auth-key",
         PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test",
         PKC_PUBLIC_ALLOWED_ORIGINS: "https://projectkidcreations.test",
+        PKC_FOUNDER_SUBJECT: "11111111-1111-4111-8111-111111111111",
       },
       fetch: async () => new Response(JSON.stringify({
         ok: true,
