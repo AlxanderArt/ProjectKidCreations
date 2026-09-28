@@ -100,31 +100,25 @@ function mockNodeResponse() {
   };
 }
 
-test("inventory preserves 23 generic proxy mappings plus four direct MFA Node routes", async () => {
+test("inventory preserves nine Edge wrappers and consolidates every Node URL into one catch-all", async () => {
   const files = routeFiles();
-  const manifestFiles = Object.values(ROUTES).map((route) => route.file).sort();
-  const directMfaFiles = [
-    "api/account/mfa-enrollment.js",
-    "api/account/mfa-finalize.js",
-    "api/account/mfa-recovery.js",
-    "api/account/mfa-verify.js",
-  ];
-  assert.equal(files.length, 27);
-  assert.equal(manifestFiles.length, 23);
-  assert.deepEqual(files, [...manifestFiles, ...directMfaFiles].sort());
+  const edgeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "edge");
+  const nodeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "nodejs");
+  assert.equal(files.length, 10);
+  assert.equal(edgeRoutes.length, 9);
+  assert.equal(nodeRoutes.length, 14);
+  assert.deepEqual(files, [
+    ...edgeRoutes.map(([, route]) => route.file),
+    "api/[...route].js",
+  ].sort());
   assert.equal(files.includes("api/account/mfa-start.js"), false);
-  assert.equal(Object.values(ROUTES).filter((r) => r.runtime === "edge").length, 9);
-  assert.equal(Object.values(ROUTES).filter((r) => r.runtime === "nodejs").length, 14);
-  for (const [id, route] of Object.entries(ROUTES)) {
+  for (const [id, route] of edgeRoutes) {
     const mod = await import(`../../${route.file}?inventory=${encodeURIComponent(id)}`);
-    assert.equal(mod.config.runtime, route.runtime, route.file);
-    if (route.runtime === "nodejs") assert.equal(mod.config.maxDuration, 60, route.file);
+    assert.equal(mod.config.runtime, "edge", route.file);
   }
-  for (const file of directMfaFiles) {
-    const mod = await import(`../../${file}?inventory=direct-mfa`);
-    assert.equal(mod.config.runtime, "nodejs", file);
-    assert.equal(mod.config.maxDuration, 60, file);
-  }
+  const catchAll = await import("../../api/[...route].js?inventory=node-catch-all");
+  assert.equal(catchAll.config.runtime, "nodejs");
+  assert.equal(catchAll.config.maxDuration, 60);
 });
 
 test("manifest preserves every upstream endpoint and exact method set", () => {
@@ -698,13 +692,15 @@ test("activity forwards only allowlisted limit/cursor query parameters", async (
   assert.equal(fetchedUrl, "https://n8n.example.test/webhook/pkc-accounts/activity?limit=50&cursor=a%2Fb");
 });
 
-test("source adapters stay separate and all route files delegate to one of them", () => {
+test("source adapters stay separate while only Edge routes retain wrappers", () => {
   const edge = readFileSync(resolve(root, "server/proxy/edge.mjs"), "utf8");
   const node = readFileSync(resolve(root, "server/proxy/node.mjs"), "utf8");
+  const catchAll = readFileSync(resolve(root, "api/[...route].js"), "utf8");
   assert.match(edge, /createEdgeHandler/);
   assert.match(node, /createNodeHandler/);
-  for (const route of Object.values(ROUTES)) {
+  assert.match(catchAll, /createNodeRouter/);
+  for (const route of Object.values(ROUTES).filter((entry) => entry.runtime === "edge")) {
     const source = readFileSync(resolve(root, route.file), "utf8");
-    assert.match(source, route.runtime === "edge" ? /createEdgeHandler/ : /createNodeHandler/, route.file);
+    assert.match(source, /createEdgeHandler/, route.file);
   }
 });

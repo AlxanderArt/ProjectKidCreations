@@ -22,6 +22,20 @@ jobs:
     name: Build, contracts, and security
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: pkc_mfa_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pkc_mfa_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +54,19 @@ jobs:
 
       - name: Run contract and security tests
         run: npm run test:contracts
+
+      - name: Apply founder MFA migration
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGDATABASE: pkc_mfa_test
+        run: psql --set ON_ERROR_STOP=1 --file db/migrations/001_founder_mfa.sql
+
+      - name: Run native founder MFA transaction suite
+        env:
+          PKC_MFA_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/pkc_mfa_test
+        run: node --test tests/contracts/founder-mfa-store.test.mjs
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
@@ -103,5 +130,63 @@ jobs:
             playwright-report/
             test-results/
             /tmp/pkc-ci-server.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  founder-mfa-browser:
+    name: Founder MFA — Chromium and mobile WebKit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run full founder MFA browser verification
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/pkc-founder-mfa-ci-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:4173/account/login/; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/pkc-founder-mfa-ci-server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent --output /dev/null http://127.0.0.1:4173/account/login/
+          npx playwright test tests/e2e/founder-mfa.spec.mjs \
+            --project=desktop-chromium \
+            --project=mobile-webkit
+
+      - name: Upload founder MFA browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: founder-mfa-playwright-failure-evidence
+          path: |
+            playwright-report/
+            test-results/
+            /tmp/pkc-founder-mfa-ci-server.log
           if-no-files-found: ignore
           retention-days: 7

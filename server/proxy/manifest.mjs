@@ -3,8 +3,9 @@ const DEFAULT_BODY = 16 * KiB;
 const DEFAULT_RESPONSE = 256 * KiB;
 const LARGE_RESPONSE = 1024 * KiB;
 
-const route = (file, runtime, methods, upstream, allowedFields, options = {}) => Object.freeze({
-  file,
+const route = (sourceFile, runtime, methods, upstream, allowedFields, options = {}) => Object.freeze({
+  file: runtime === "nodejs" ? "api/[...route].js" : sourceFile,
+  publicPath: `/${sourceFile.slice(0, -3)}`,
   runtime,
   methods: Object.freeze(methods),
   upstream: typeof upstream === "object" ? Object.freeze(upstream) : upstream,
