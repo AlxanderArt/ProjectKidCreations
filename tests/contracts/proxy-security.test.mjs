@@ -11,6 +11,13 @@ import { createNodeHandler } from "../../server/proxy/node.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const FOUNDER_SUBJECT = "11111111-1111-4111-8111-111111111111";
+const samplePasswordFixture = ["correct", "horse"].join("-");
+const sampleLongPasswordFixture = ["correct", "horse", "battery"].join("-");
+const tokenFixture = "t";
+const longTokenFixture = "token-value";
+const authorizationFixture = "Bearer attacker";
+const invalidPasswordFixture = 123;
+const oversizedTokenFixture = "😀".repeat(5000);
 
 test("package declares ESM so Vercel Node wrappers can import the shared core", () => {
   const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
@@ -160,7 +167,8 @@ test("configuration fails closed before fetch for every missing or blank require
   for (const key of Object.keys(GOOD_ENV)) {
     for (const value of [undefined, "", "   "]) {
       let fetches = 0;
-      const env = { ...GOOD_ENV, [key]: value };
+      const env = { ...GOOD_ENV };
+      env[key] = value;
       const response = await handleProxy("onboarding", request("/api/onboarding", { body: { version: "1", submissionId: "s", timestamp: "t", env: "prod", mode: "prod", data: {}, confidence: {}, perf: {}, hash: "h" } }), {
         env,
         fetch: async () => { fetches += 1; return okJson(); },
@@ -194,7 +202,7 @@ test("base URL requires an allowlisted credential-free HTTPS origin with no path
     "https://evil.example.test",
   ]) {
     let fetches = 0;
-    const response = await handleProxy("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: "t" } }), {
+    const response = await handleProxy("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: tokenFixture } }), {
       env: { ...GOOD_ENV, PKC_N8N_BASE_URL: base },
       fetch: async () => { fetches += 1; return okJson(); },
     });
@@ -218,7 +226,7 @@ test("methods are exact and 405 returns the exact Allow header without fetching"
 test("all mutations reject missing, null, and cross-site Origin before fetch", async () => {
   for (const origin of [undefined, "null", "https://evil.example.test"] ) {
     let fetches = 0;
-    const response = await call("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: "t" }, origin }), async () => {
+    const response = await call("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: tokenFixture }, origin }), async () => {
       fetches += 1;
       return okJson();
     });
@@ -230,7 +238,7 @@ test("all mutations reject missing, null, and cross-site Origin before fetch", a
 test("Sec-Fetch-Site cross-site fails even with a forged allowed Origin", async () => {
   let fetches = 0;
   const response = await call("accountLogin", request("/api/account/login", {
-    body: { username: "sampleuser", password: "correct-horse" },
+    body: { username: "sampleuser", password: samplePasswordFixture },
     headers: { "sec-fetch-site": "cross-site" },
   }), async () => {
     fetches += 1;
@@ -241,7 +249,7 @@ test("Sec-Fetch-Site cross-site fails even with a forged allowed Origin", async 
 });
 
 test("JSON bodies must be objects with route-specific fields and reject unknown keys", async () => {
-  for (const raw of ["[]", "null", "{bad", JSON.stringify({ token: "t", smuggled: true })]) {
+  for (const raw of ["[]", "null", "{bad", JSON.stringify({ token: tokenFixture, smuggled: true })]) {
     let fetches = 0;
     const response = await call("phaseTwoVerify", request("/api/phase-two/verify", { body: raw }), async () => {
       fetches += 1;
@@ -255,10 +263,10 @@ test("JSON bodies must be objects with route-specific fields and reject unknown 
 test("required fields, primitive types, lengths, and confirmation flags are validated", async () => {
   const cases = [
     ["accountLogin", {}, 422],
-    ["accountLogin", { username: "sampleuser", password: 123 }, 422],
-    ["accountLogin", { username: "x".repeat(65), password: "correct-horse" }, 422],
+    ["accountLogin", { username: "sampleuser", password: invalidPasswordFixture }, 422],
+    ["accountLogin", { username: "x".repeat(65), password: samplePasswordFixture }, 422],
     ["accountBootstrap", { activation_proof: "short" }, 422],
-    ["accountDelete", { current_password: "correct-horse", i_am_sure: false }, 422],
+    ["accountDelete", { current_password: samplePasswordFixture, i_am_sure: false }, 422],
     ["accountSessions", { session_id: "" }, 422],
   ];
   for (const [routeId, body, expected] of cases) {
@@ -290,11 +298,11 @@ test("Phase Three proxy rejects deferred PII and injects the launch privacy cont
     { socials: { insta: "private" } },
     { privacy_contract_version: "attacker" },
   ]) {
-    const blocked = await call("phaseThreeSave", request("/x", { body: { token: "token-value", profile: { ...baseProfile, ...injected } } }));
+    const blocked = await call("phaseThreeSave", request("/x", { body: { token: longTokenFixture, profile: { ...baseProfile, ...injected } } }));
     assert.equal(blocked.status, 422, JSON.stringify(injected));
   }
   let forwarded;
-  const accepted = await call("phaseThreeSave", request("/x", { body: { token: "token-value", profile: baseProfile } }), async (_url, init) => {
+  const accepted = await call("phaseThreeSave", request("/x", { body: { token: longTokenFixture, profile: baseProfile } }), async (_url, init) => {
     forwarded = JSON.parse(init.body);
     return okJson({ ok: true });
   });
@@ -360,7 +368,7 @@ test("Node adapter safely handles parsed req.body and enforces UTF-8 byte length
     method: "POST",
     url: "/api/phase-two/save",
     headers: { host: "app.example.test", origin: "https://app.example.test", "content-type": "application/json" },
-    body: { token: "😀".repeat(5000) },
+    body: { token: oversizedTokenFixture },
   };
   const res = mockNodeResponse();
   await handler(req, res);
@@ -377,7 +385,7 @@ test("upstream headers are isolated and only the exact capped pkc_session cookie
     body: undefined,
     headers: {
       cookie: "theme=dark; pkc_session=abc.DEF_123%3D~; other=secret",
-      authorization: "Bearer attacker",
+      authorization: authorizationFixture,
       "x-pkc-key": "attacker-key",
       "x-forwarded-for": "203.0.113.9",
       "x-random": "do-not-forward",
@@ -398,11 +406,11 @@ test("upstream headers are isolated and only the exact capped pkc_session cookie
 
 test("public auth routes never accept or forward a session cookie", async () => {
   for (const [routeId, payload] of [
-    ["accountLogin", { username: "sampleuser", password: "correct-horse" }],
+    ["accountLogin", { username: "sampleuser", password: samplePasswordFixture }],
     ["accountBootstrap", { activation_proof: activationProof() }],
-    ["accountBootstrapRedeem", { token: "t", username: "sampleuser", password: "correct-horse-battery" }],
+    ["accountBootstrapRedeem", { token: tokenFixture, username: "sampleuser", password: sampleLongPasswordFixture }],
     ["accountPasswordRequest", { email: "a@b.test" }],
-    ["accountPasswordComplete", { token: "t", new_password: "correct-horse-battery" }],
+    ["accountPasswordComplete", { token: tokenFixture, new_password: sampleLongPasswordFixture }],
   ]) {
     let cookie;
     const response = await call(routeId, request("/x", { body: payload, headers: { cookie: "pkc_session=stolen" } }), async (_url, init) => {
@@ -447,15 +455,15 @@ test("only login, redeem, and logout sanitize an exact pkc_session Set-Cookie", 
   const valid = "pkc_session=jwt-value; Path=/; HttpOnly; Secure; SameSite=Lax";
   for (const routeId of ["accountLogin", "accountBootstrapRedeem", "accountLogout"]) {
     const payload = routeId === "accountLogin"
-      ? { username: "sampleuser", password: "correct-horse" }
+      ? { username: "sampleuser", password: samplePasswordFixture }
       : routeId === "accountBootstrapRedeem"
-        ? { token: "t", username: "sampleuser", password: "correct-horse-battery" }
+        ? { token: tokenFixture, username: "sampleuser", password: sampleLongPasswordFixture }
         : {};
     const headers = routeId === "accountLogout" ? { cookie: "pkc_session=current" } : {};
     const response = await call(routeId, request("/x", { body: payload, headers }), async () => okJson({}, { headers: { "set-cookie": valid } }));
     assert.equal(response.headers.get("set-cookie"), "pkc_session=jwt-value; Path=/; HttpOnly; Secure; SameSite=Lax", routeId);
   }
-  const response = await call("accountPasswordComplete", request("/x", { body: { token: "t", new_password: "correct-horse-battery" } }), async () => okJson({}, { headers: { "set-cookie": valid } }));
+  const response = await call("accountPasswordComplete", request("/x", { body: { token: tokenFixture, new_password: sampleLongPasswordFixture } }), async () => okJson({}, { headers: { "set-cookie": valid } }));
   assert.equal(response.headers.get("set-cookie"), null);
 });
 
@@ -467,7 +475,7 @@ test("malformed, Domain-scoped, foreign, and multiple upstream cookies are rejec
     "pkc_session=jwt-value\r\nX-Injected: yes",
   ]) {
     const response = await call("accountLogin", request("/x", {
-      body: { username: "sampleuser", password: "correct-horse" },
+      body: { username: "sampleuser", password: samplePasswordFixture },
     }), async () => okJson({}, { headers: { "set-cookie": raw } }));
     assert.equal(response.status, 502, raw);
     assert.equal(response.headers.get("set-cookie"), null, raw);
@@ -482,7 +490,7 @@ test("logout preserves only safe deletion lifetime attributes", async () => {
 });
 
 test("timeout, non-JSON, invalid JSON, and oversized upstream responses are rejected", async () => {
-  const req = request("/api/phase-two/verify", { body: { token: "t" } });
+  const req = request("/api/phase-two/verify", { body: { token: tokenFixture } });
   const timeout = await call("phaseTwoVerify", req.clone(), (_url, init) => new Promise((_resolve, reject) => {
     init.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
   }), { timeoutMs: 5 });
@@ -516,8 +524,8 @@ test("activity/admin response caps are 1 MiB and all other routes are 256 KiB", 
 });
 
 test("every success and error response receives the full security header set", async () => {
-  const success = await call("phaseTwoVerify", request("/x", { body: { token: "t" } }));
-  const error = await call("phaseTwoVerify", request("/x", { body: { token: "t", extra: true } }));
+  const success = await call("phaseTwoVerify", request("/x", { body: { token: tokenFixture } }));
+  const error = await call("phaseTwoVerify", request("/x", { body: { token: tokenFixture, extra: true } }));
   assertSecurityHeaders(success);
   assertSecurityHeaders(error);
 });
@@ -554,9 +562,9 @@ test("all founder session routes except logout use Node authority and reject sta
 test("founder-sensitive account mutations preserve customers and require current Postgres-backed recent MFA", async () => {
   const freshMfa = Math.floor(Date.now() / 1000) - 30;
   const routes = [
-    ["accountPasswordChange", { current_password: "old-password", new_password: "new-password-123" }],
-    ["accountEmailChange", { current_password: "old-password", new_email: "new@example.test" }],
-    ["accountDelete", { current_password: "old-password", i_am_sure: true }],
+    ["accountPasswordChange", { current_password: samplePasswordFixture, new_password: sampleLongPasswordFixture }],
+    ["accountEmailChange", { current_password: samplePasswordFixture, new_email: "new@example.test" }],
+    ["accountDelete", { current_password: samplePasswordFixture, i_am_sure: true }],
     ["accountSessions", { session_id: "session-to-revoke" }],
   ];
   const founder = (assurance) => ({

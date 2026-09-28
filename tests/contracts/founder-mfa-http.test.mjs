@@ -15,16 +15,25 @@ const originEnv = "https://projectkidcreations.io,https://www.projectkidcreation
 const founderSubject = "11111111-1111-4111-8111-111111111111";
 
 test("MFA configuration is strict, key-separated, and loaded only on demand", () => {
+  const databaseFixture = "postgresql://runtime@pool.db.example.invalid/pkc?sslmode=verify-full";
+  const encryptionFixture = Buffer.alloc(32, 1).toString("base64");
+  const handoffFixture = Buffer.alloc(32, 2).toString("base64");
+  const finalizeFixture = Buffer.alloc(32, 3).toString("base64");
+  const recoveryFixture = Buffer.alloc(32, 4).toString("base64");
+  const runtimeAuthFixture = "internal-auth-key";
   const base = {
-    PKC_DATABASE_URL: "postgresql://runtime@db.example.invalid/pkc?sslmode=require",
-    PKC_TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
-    PKC_MFA_HANDOFF_KEY: Buffer.alloc(32, 2).toString("base64"),
-    PKC_MFA_FINALIZE_KEY: Buffer.alloc(32, 3).toString("base64"),
-    PKC_MFA_RECOVERY_PEPPER: Buffer.alloc(32, 4).toString("base64"),
+    PKC_DATABASE_URL: databaseFixture,
+    PKC_DATABASE_NAME: "pkc",
+    PKC_DATABASE_USER: "runtime",
+    PKC_DATABASE_ENVIRONMENT: "test",
+    PKC_TOTP_ENCRYPTION_KEY: encryptionFixture,
+    PKC_MFA_HANDOFF_KEY: handoffFixture,
+    PKC_MFA_FINALIZE_KEY: finalizeFixture,
+    PKC_MFA_RECOVERY_PEPPER: recoveryFixture,
     PKC_PUBLIC_ALLOWED_ORIGINS: originEnv,
     PKC_N8N_BASE_URL: "https://n8n.example.invalid",
     PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.invalid",
-    PKC_AUTH_KEY: "internal-auth-key",
+    PKC_AUTH_KEY: runtimeAuthFixture,
     PKC_FOUNDER_SUBJECT: founderSubject,
   };
   const config = loadMfaConfig(base);

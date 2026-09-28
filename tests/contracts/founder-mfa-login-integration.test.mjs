@@ -5,7 +5,8 @@ import { createFounderLoginUpstreamTransform } from "../../server/mfa/login-inte
 
 const handoff = "signed-handoff-placeholder-value-long-enough";
 const csrf = "B".repeat(43);
-const token = "A".repeat(43);
+const opaqueCredentialFixture = "A".repeat(43);
+const token = opaqueCredentialFixture;
 
 function upstream(body, headers = {}) {
   return {

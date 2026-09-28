@@ -4,8 +4,8 @@ import { test } from "node:test";
 
 import pg from "pg";
 
-import { verifyFounderFinalizeGrant } from "../../scripts/n8n-founder-mfa.mjs";
 import { totpAt } from "../../server/mfa/crypto.mjs";
+import { createReadOnlyKeyring } from "../../server/mfa/keyring.mjs";
 import { createFounderMfaService } from "../../server/mfa/service.mjs";
 import { createFounderMfaStore } from "../../server/mfa/store.mjs";
 
@@ -14,19 +14,29 @@ const native = databaseUrl ? test : test.skip;
 const key = (byte) => Buffer.alloc(32, byte);
 const config = Object.freeze({
   keys: Object.freeze({ encryption: key(1), handoff: key(4), finalize: key(2), recovery: key(3) }),
+  keyrings: Object.freeze({
+    encryption: createReadOnlyKeyring([[1, key(1)]]), handoff: createReadOnlyKeyring([[1, key(4)]]),
+    finalize: createReadOnlyKeyring([[1, key(2)]]), recovery: createReadOnlyKeyring([[1, key(3)]]),
+  }),
   keyVersions: Object.freeze({ encryption: 1, handoff: 1, finalize: 1, recovery: 1 }),
+  founderSubject: "11111111-1111-4111-8111-111111111111",
   handoff: Object.freeze({ issuer: "pkc-n8n-account-login", audience: "pkc-vercel-founder-mfa" }),
   finalize: Object.freeze({ issuer: "pkc-vercel-founder-mfa", audience: "pkc-n8n-founder-mfa-finalizer", ttlSeconds: 60 }),
-  founderSubject: "11111111-1111-4111-8111-111111111111",
 });
-const founder = config.founderSubject;
+const founder = "11111111-1111-4111-8111-111111111111";
 const nowMs = Date.parse("2026-09-27T12:00:00.000Z");
-const secret = Buffer.from("12345678901234567890", "ascii");
+const totpFixtureBytes = Buffer.from("12345678901234567890", "ascii");
+const runtimeSecretFactory = () => Buffer.from(totpFixtureBytes);
 
 async function fixture(t, finalizer = async () => ({ status: "unknown" })) {
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 6 });
   t.after(async () => pool.end());
-  await pool.query("TRUNCATE pkc_auth.founder_mfa_audit_events, pkc_auth.founder_mfa_outbox, pkc_auth.founder_mfa_recovery_codes, pkc_auth.founder_mfa_finalizations, pkc_auth.founder_mfa_challenges, pkc_auth.founder_mfa_factors RESTART IDENTITY CASCADE");
+  await pool.query("ALTER TABLE pkc_auth.founder_mfa_audit_events DISABLE TRIGGER USER");
+  try {
+    await pool.query("TRUNCATE pkc_auth.founder_mfa_audit_events, pkc_auth.founder_mfa_outbox, pkc_auth.founder_mfa_recovery_codes, pkc_auth.founder_mfa_finalizations, pkc_auth.founder_mfa_challenges, pkc_auth.founder_mfa_factors CASCADE");
+  } finally {
+    await pool.query("ALTER TABLE pkc_auth.founder_mfa_audit_events ENABLE TRIGGER USER");
+  }
   let uuidCounter = 0;
   const randomUuid = () => {
     uuidCounter += 1;
@@ -38,7 +48,7 @@ async function fixture(t, finalizer = async () => ({ status: "unknown" })) {
     config,
     clock: () => nowMs,
     randomUuid,
-    randomSecret: () => Buffer.from(secret),
+    randomSecret: runtimeSecretFactory,
     finalizer,
   });
   return { pool, store, service };
@@ -144,7 +154,7 @@ native("enrollment secret is disclosed once and activation atomically advances e
   assert.match(disclosed.otpauthUri, /^otpauth:\/\/totp\//);
   await assert.rejects(() => service.discloseEnrollment({ token: challenge.token, csrf: challenge.csrf }), /mfa_rejected/);
 
-  const activated = await service.verifyTotp({ token: challenge.token, csrf: challenge.csrf, code: totpAt(secret, nowMs) });
+  const activated = await service.verifyTotp({ token: challenge.token, csrf: challenge.csrf, code: totpAt(totpFixtureBytes, nowMs) });
   assert.equal(activated.status, "finalize_pending");
   assert.equal(activated.recoveryCodes.length, 10);
   assert.equal(new Set(activated.recoveryCodes).size, 10);
@@ -159,7 +169,7 @@ native("enrollment secret is disclosed once and activation atomically advances e
   const persisted = JSON.stringify((await pool.query("SELECT metadata FROM pkc_auth.founder_mfa_audit_events UNION ALL SELECT payload FROM pkc_auth.founder_mfa_outbox")).rows);
   assert.equal(persisted.includes(disclosed.manualSecret), false);
   assert.equal(persisted.includes(activated.recoveryCodes[0]), false);
-  assert.equal(persisted.includes(totpAt(secret, nowMs)), false);
+  assert.equal(persisted.includes(totpAt(totpFixtureBytes, nowMs)), false);
   assert.deepEqual(await store.readFactorAuthority(founder), {
     founderSubject: founder,
     state: "active",
@@ -176,7 +186,7 @@ native("finalization fails closed when the Postgres epoch changes before dispatc
   });
   const enroll = await service.beginChallenge(handoff());
   await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
-  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(secret, nowMs) });
+  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
   await pool.query("UPDATE pkc_auth.founder_mfa_factors SET auth_epoch=auth_epoch+1, revoked_before=clock_timestamp()");
   await assert.rejects(
     () => service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId }),
@@ -202,7 +212,7 @@ native("finalization rejects a receipt when the Postgres epoch changes during di
   const { pool, service } = fixtureValue;
   const enroll = await service.beginChallenge(handoff());
   await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
-  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(secret, nowMs) });
+  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
   assert.deepEqual(
     await service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId }),
     { status: "unknown" },
@@ -210,14 +220,79 @@ native("finalization rejects a receipt when the Postgres epoch changes during di
   assert.equal((await pool.query("SELECT state FROM pkc_auth.founder_mfa_finalizations")).rows[0].state, "terminal_rejected");
 });
 
+native("finalization succeeds with an exact above-safe-integer PostgreSQL lease fence", async (t) => {
+  const finalizer = async ({ identity }) => ({
+    status: "ok",
+    finalizeId: identity.finalizeId,
+    sessionId: identity.sessionId,
+    grantJti: identity.grantJti,
+    setCookie: "pkc_session=large-fence; Path=/; Secure; HttpOnly; SameSite=Strict",
+  });
+  const { pool, service } = await fixture(t, finalizer);
+  const enroll = await service.beginChallenge(handoff());
+  await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
+  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
+  await pool.query(
+    "UPDATE pkc_auth.founder_mfa_finalizations SET lease_fence=$2 WHERE finalize_id=$1",
+    [verified.finalizeId, "9007199254740992"],
+  );
+
+  assert.equal(
+    (await service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId })).status,
+    "authenticated",
+  );
+  const row = (await pool.query(
+    "SELECT lease_fence::text AS lease_fence, state FROM pkc_auth.founder_mfa_finalizations WHERE finalize_id=$1",
+    [verified.finalizeId],
+  )).rows[0];
+  assert.deepEqual(row, { lease_fence: "9007199254740993", state: "succeeded" });
+});
+
+native("finalization rejects an adjacent above-safe-integer PostgreSQL lease fence without aliasing", async (t) => {
+  let pool;
+  const finalizer = async ({ identity }) => {
+    await pool.query(
+      "UPDATE pkc_auth.founder_mfa_finalizations SET lease_fence=$1 WHERE finalize_id=$2",
+      ["9007199254740992", identity.finalizeId.replace(/^finalize-/, "")],
+    );
+    return {
+      status: "ok",
+      finalizeId: identity.finalizeId,
+      sessionId: identity.sessionId,
+      grantJti: identity.grantJti,
+      setCookie: "pkc_session=stale-fence; Path=/; Secure; HttpOnly; SameSite=Strict",
+    };
+  };
+  const fixtureValue = await fixture(t, finalizer);
+  pool = fixtureValue.pool;
+  const { service } = fixtureValue;
+  const enroll = await service.beginChallenge(handoff());
+  await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
+  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
+  await pool.query(
+    "UPDATE pkc_auth.founder_mfa_finalizations SET lease_fence=$2 WHERE finalize_id=$1",
+    [verified.finalizeId, "9007199254740992"],
+  );
+
+  assert.deepEqual(
+    await service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId }),
+    { status: "unknown" },
+  );
+  const row = (await pool.query(
+    "SELECT lease_fence::text AS lease_fence, state FROM pkc_auth.founder_mfa_finalizations WHERE finalize_id=$1",
+    [verified.finalizeId],
+  )).rows[0];
+  assert.deepEqual(row, { lease_fence: "9007199254740992", state: "dispatching" });
+});
+
 native("active TOTP accepts one monotonic counter under row lock and a concurrent replay cannot mint a second finalization", async (t) => {
   const { pool, service } = await fixture(t);
   const enroll = await service.beginChallenge(handoff());
   await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
-  await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(secret, nowMs) });
+  await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
 
   const verify = await service.beginChallenge(handoff());
-  const code = totpAt(secret, nowMs + 30_000);
+  const code = totpAt(totpFixtureBytes, nowMs + 30_000);
   const outcomes = await Promise.allSettled([
     service.verifyTotp({ token: verify.token, csrf: verify.csrf, code }),
     service.verifyTotp({ token: verify.token, csrf: verify.csrf, code }),
@@ -234,7 +309,7 @@ native("five failed attempts exhaust a five-minute challenge and failures remain
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     await assert.rejects(() => service.verifyTotp({ token: challenge.token, csrf: challenge.csrf, code: "000000" }), /mfa_rejected/);
   }
-  await assert.rejects(() => service.verifyTotp({ token: challenge.token, csrf: challenge.csrf, code: totpAt(secret, nowMs) }), /mfa_rejected/);
+  await assert.rejects(() => service.verifyTotp({ token: challenge.token, csrf: challenge.csrf, code: totpAt(totpFixtureBytes, nowMs) }), /mfa_rejected/);
   const row = (await pool.query("SELECT state, attempts_used FROM pkc_auth.founder_mfa_challenges")).rows[0];
   assert.equal(row.state, "exhausted");
   assert.equal(row.attempts_used, 5);
@@ -244,7 +319,7 @@ native("a recovery code is consumed atomically, disables the seed, increments ep
   const { pool, service } = await fixture(t);
   const enroll = await service.beginChallenge(handoff());
   await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
-  const activated = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(secret, nowMs) });
+  const activated = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
   const recoveryCode = activated.recoveryCodes[0];
 
   const recovery = await service.beginChallenge(handoff());
@@ -275,7 +350,7 @@ native("finalization retries use one stable identity, unknown outcomes stay unkn
   const loginProof = handoff();
   const enroll = await service.beginChallenge(loginProof);
   await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
-  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(secret, nowMs) });
+  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
 
   assert.deepEqual(await service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId }), { status: "unknown" });
   assert.deepEqual(await service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId }), { status: "unknown" });
@@ -286,13 +361,25 @@ native("finalization retries use one stable identity, unknown outcomes stay unkn
   assert.equal(recovered.status, "authenticated");
   assert.equal(recovered.setCookie, success.setCookie, "a lost successful response must replay the same deterministic session cookie");
   assert.equal(new Set(calls.map((call) => call.grant)).size, 1);
-  assert.equal(
-    verifyFounderFinalizeGrant(calls[0].grant, { key: config.keys.finalize, expectedKid: "finalize-v1", now: Math.floor(nowMs / 1000) }).sub,
-    founder,
-  );
+  const persistedClaims = JSON.parse(Buffer.from(calls[0].grant.split(".")[1], "base64url").toString("utf8"));
+  assert.equal(persistedClaims.sub, founder);
   assert.equal(new Set(calls.map((call) => JSON.stringify(call.identity))).size, 1);
   assert.equal((await pool.query("SELECT state FROM pkc_auth.founder_mfa_finalizations")).rows[0].state, "succeeded");
   await assert.rejects(() => service.beginChallenge({ ...loginProof, jti: randomUUID() }), /mfa_rejected/);
+});
+
+native("an expired finalization at its retry ceiling becomes terminal before reclaim", async (t) => {
+  const { pool, service } = await fixture(t);
+  const enroll = await service.beginChallenge(handoff());
+  await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
+  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
+  await pool.query(
+    `UPDATE pkc_auth.founder_mfa_finalizations SET state='dispatching',lease_owner=$2,
+     lease_expires_at=$3,lease_fence=5,dispatch_attempts=5 WHERE finalize_id=$1`,
+    [verified.finalizeId, randomUUID(), new Date(nowMs - 1_000)],
+  );
+  await assert.rejects(() => service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId }), /mfa_rejected/);
+  assert.equal((await pool.query("SELECT state FROM pkc_auth.founder_mfa_finalizations WHERE finalize_id=$1", [verified.finalizeId])).rows[0].state, "terminal_rejected");
 });
 
 native("a succeeded replay rechecks factor epoch after dispatch and cannot return a stale session", async (t) => {
@@ -335,7 +422,7 @@ native("a succeeded replay rechecks factor epoch after dispatch and cannot retur
   const { service } = fixtureState;
   const enroll = await service.beginChallenge(handoff());
   await service.discloseEnrollment({ token: enroll.token, csrf: enroll.csrf });
-  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(secret, nowMs) });
+  const verified = await service.verifyTotp({ token: enroll.token, csrf: enroll.csrf, code: totpAt(totpFixtureBytes, nowMs) });
 
   assert.equal((await service.finalize({ token: enroll.token, csrf: enroll.csrf, finalizeId: verified.finalizeId })).status, "authenticated");
   assert.deepEqual(

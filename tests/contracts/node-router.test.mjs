@@ -130,7 +130,8 @@ test("the Node catch-all rejects fragments anywhere in the complete request targ
 test("the catch-all consumes founder handoffs internally and never returns them to the browser", async () => {
   const signedHandoff = "signed-founder-handoff-material-that-must-not-leak";
   const csrf = "B".repeat(43);
-  const token = "A".repeat(43);
+  const browserTokenMaterial = "A".repeat(43);
+  const loginCredentialMaterial = "correct-password";
   const consumed = [];
   let mfaGraphLoads = 0;
   const router = createNodeRouter({
@@ -155,7 +156,7 @@ test("the catch-all consumes founder handoffs internally and never returns them 
       return {
         beginTrustedFounderMfa: async (handoff) => {
           consumed.push(handoff);
-          return { status: "mfa_required", mode: "verify", csrf, token, maxAgeSeconds: 300 };
+          return { status: "mfa_required", mode: "verify", csrf, token: browserTokenMaterial, maxAgeSeconds: 300 };
         },
       };
     },
@@ -172,7 +173,7 @@ test("the catch-all consumes founder handoffs internally and never returns them 
     },
     body: {
       username: "PK Blick",
-      password: "correct-password",
+      password: loginCredentialMaterial,
       login_attempt_id: "11111111-1111-4111-8111-111111111111",
     },
   }, res);

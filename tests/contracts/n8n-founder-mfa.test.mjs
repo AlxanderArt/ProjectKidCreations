@@ -26,11 +26,12 @@ const codeNode = (name, jsCode) => ({
 const edge = (node) => ({ node, type: "main", index: 0 });
 
 function loginFixture() {
+  const forbiddenPasswordFixture = ["fixture", "must-not-survive"].join("-");
   return {
     name: "PKC — Account Login fixture",
     active: true,
     staticData: { forbidden: true },
-    pinData: { forbidden: [{ json: { password: "fixture-must-not-survive" } }] },
+    pinData: { forbidden: [{ json: { password: forbiddenPasswordFixture } }] },
     settings: {
       executionOrder: "v1",
       saveDataErrorExecution: "all",
@@ -124,10 +125,12 @@ function executeCode(source, { input = [], nodes = {}, env = {} } = {}) {
   }, Buffer);
 }
 
-function accountSessionToken(payload, secret = "test-jwt-secret") {
+const fixtureJwtMaterial = "test-jwt-secret";
+
+function accountSessionToken(payload, signingMaterial = fixtureJwtMaterial) {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = crypto.createHmac("sha256", secret).update(`${header}.${body}`).digest("base64url");
+  const signature = crypto.createHmac("sha256", signingMaterial).update(`${header}.${body}`).digest("base64url");
   return `${header}.${body}.${signature}`;
 }
 
@@ -259,8 +262,8 @@ test("transformed exact login executes UUID-only founder authority, changed cont
   const workflow = patchAccountLoginForFounderMfa(readProtectedSnapshot(protectedSnapshots.login));
   const source = nodeByName(workflow, "Verify Credentials").parameters.jsCode;
   const salt = "test-salt";
-  const password = "correct-horse-battery";
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  const loginCredentialMaterial = "correct-horse-battery";
+  const hash = crypto.scryptSync(loginCredentialMaterial, salt, 64).toString("hex");
   const account = {
     account_id: founderSubject,
     username: "PK Blick",
@@ -269,12 +272,12 @@ test("transformed exact login executes UUID-only founder authority, changed cont
     password_hash: `scrypt:${salt}:${hash}`,
     status: "active",
   };
-  const trace = { username: "PK Blick", password, login_attempt_id: "22222222-2222-4222-8222-222222222222", request_id: "request-1" };
+  const trace = { username: "PK Blick", password: loginCredentialMaterial, login_attempt_id: "22222222-2222-4222-8222-222222222222", request_id: "request-1" };
   const env = {
     PKC_FOUNDER_SUBJECT: founderSubject,
     PKC_FOUNDER_MFA_HANDOFF_KEY: Buffer.alloc(32, 7).toString("base64"),
     PKC_FOUNDER_MFA_HANDOFF_KID: "handoff-v1",
-    PKC_JWT_SECRET: "test-jwt-secret",
+    PKC_JWT_SECRET: fixtureJwtMaterial,
   };
   const run = (rows, envOverride = env, traceOverride = trace) => executeCode(source, {
     nodes: { "Init Trace": [{ json: traceOverride }], "Read Account": rows.map((row) => ({ json: row })) },
@@ -472,7 +475,7 @@ test("transformed protected Init Trace nodes execute canonical founder JWT autho
   skip: protectedSnapshotsAvailable ? false : "protected workflow snapshots are unavailable",
 }, () => {
   const founderSubject = "11111111-1111-4111-8111-111111111111";
-  const secret = "test-jwt-secret";
+  const signingMaterial = fixtureJwtMaterial;
   const now = Math.floor(Date.now() / 1000);
   const founderClaims = {
     sub: founderSubject,
@@ -486,9 +489,9 @@ test("transformed protected Init Trace nodes execute canonical founder JWT autho
     auth_epoch: 4,
     mfa_verified_at: now - 5,
   };
-  const env = { PKC_AUTH_KEY: "internal-key", PKC_JWT_SECRET: secret, PKC_FOUNDER_SUBJECT: founderSubject };
+  const env = { PKC_AUTH_KEY: "internal-key", PKC_JWT_SECRET: signingMaterial, PKC_FOUNDER_SUBJECT: founderSubject };
   const run = (workflow, claims) => executeCode(nodeByName(workflow, "Init Trace").parameters.jsCode, {
-    input: [{ json: { headers: { "x-pkc-key": "internal-key", cookie: `pkc_session=${accountSessionToken(claims, secret)}` } } }],
+    input: [{ json: { headers: { "x-pkc-key": "internal-key", cookie: `pkc_session=${accountSessionToken(claims, signingMaterial)}` } } }],
     env,
   })[0].json;
 

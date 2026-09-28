@@ -19,7 +19,7 @@ test("token journeys strip query parameters immediately after capture", () => {
     const captureNeedle = path === "account/bootstrap/app.js"
       ? "const parsed = parseURL();"
       : path === "account/reset/app.js"
-        ? "token = safeParseToken();"
+        ? "const parsedCredential = safeParseToken();"
         : "tokenString = safeParseToken();";
     const capture = source.indexOf(captureNeedle);
     const strip = source.indexOf("history.replaceState", capture);

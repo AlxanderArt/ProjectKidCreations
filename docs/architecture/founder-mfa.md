@@ -97,6 +97,21 @@ The deny-by-default sensitive inventory includes `accountAdminList`, `accountAdm
 
 n8n/Sheets writes are idempotent projections. They are never represented as transactionally atomic with PostgreSQL.
 
+## Gate 0 database operational contract
+
+The repository ships an ordered, checksum-pinned migration lane:
+
+- `db/roles/000_roles.sql` creates the dedicated `NOLOGIN` owner and confined migrator, runtime, verifier, and outbox-worker identities. It is an operator-run bootstrap and requires an explicit target database variable.
+- `db/migrations/manifest.json` is append-only migration authority. `db/migrate.mjs` validates every file checksum before connecting, verifies the exact database and migrator identity, takes a fixed transaction advisory lock, and records the file and digest in the same transaction as its migration. A second run must apply zero migrations.
+- `db/readiness.mjs` is the runtime/catalog gate. It attests database/user/TLS, PostgreSQL 16/17, ledger, role graph and attributes, schema/object ownership, table/function/default ACL posture, constraints, SECURITY DEFINER/search-path settings, and the closed object inventory. Production-only TLS and actual-login evidence remain deployment gates; local Docker verification intentionally passes `expectedTls:false` only for its loopback disposable database.
+- `npm run test:mfa:postgres` creates a loopback-only disposable PostgreSQL 16 container, applies roles/migration twice, runs native transaction/finalization/outbox hostile tests, runs readiness as the actual runtime login, and verifies scoped container removal. It never reads production configuration.
+
+Runtime URLs must name the expected database and user, require certificate-verified TLS, use an approved pool/proxy hostname, omit connection `options` overrides, and remain within the declared pool/connection budget. Transactions install local 5-second statement, 2-second lock, and 10-second idle-in-transaction limits. A missing commit acknowledgement or failed rollback poisons the client and returns `outcome_unknown` instead of a retryable success/failure guess.
+
+All four MFA purposes use closed versioned keyrings. New writes use the configured active version; reads select the stored/KID version, retain historical versions during rotation, fail closed on unknown versions, and reject byte reuse across every purpose/version. No key values belong in logs, tests, reports, or readiness output.
+
+The outbox worker has no table privilege. It can only claim, settle, mark unknown, reconcile, defer unresolved reconciliation, list unknown, and monitor through owner-owned SECURITY DEFINER functions with fixed `search_path`. Claims are bounded to 25, use `FOR UPDATE SKIP LOCKED`, require expired leases before reclaim, increment fences monotonically, use immutable `operation_key` idempotency, apply bounded exponential backoff, and terminate at the row-defined retry ceiling. Ambiguous deliveries are never blindly redispatched: readback reconciliation is separately scheduled, counted, and moved to terminal/DLQ state only when its bounded reconciliation ceiling is exhausted. An expired final claim is moved to unknown for reconciliation without incrementing past its delivery ceiling. The JavaScript dispatcher accepts injected transport/readback dependencies; tests use no production credentials or network.
+
 ## Options considered
 
 ### Keep MFA state in Google Sheets

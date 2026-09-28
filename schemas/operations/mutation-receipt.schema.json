@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectkidcreations.example/schemas/operations/mutation-receipt.schema.json",
+  "title": "Founder MFA successful production mutation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "x-runtimeLimits": { "maxDepth": 6, "maxNodes": 512, "maxArrayLength": 64, "maxStringLength": 1024, "maxAggregateBytes": 16384, "secretScan": "key-names-and-string-values" },
+  "required": ["schemaVersion", "planDigest", "candidateSha", "deployedSha", "actor", "occurredAt", "target", "priorState", "newState", "verification", "rollback"],
+  "$defs": {
+    "nonempty256": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": ".*\\S.*" },
+    "stateReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stateReceiptId", "stateDigest"],
+      "properties": {
+        "stateReceiptId": { "$ref": "#/$defs/nonempty256" },
+        "stateDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  },
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "planDigest": { "const": "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814e5454" },
+    "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "deployedSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "actor": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": ".*\\S.*" },
+    "occurredAt": { "type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$" },
+    "target": {
+      "type": "object", "additionalProperties": false, "required": ["system", "environment", "providerObjectIds"],
+      "properties": {
+        "system": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": ".*\\S.*" },
+        "environment": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": ".*\\S.*" },
+        "providerObjectIds": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/nonempty256" } }
+      }
+    },
+    "priorState": { "$ref": "#/$defs/stateReference" },
+    "newState": { "$ref": "#/$defs/stateReference" },
+    "verification": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["check", "result", "evidenceId"],
+        "properties": {
+          "check": { "$ref": "#/$defs/nonempty256" },
+          "result": { "const": "pass" },
+          "evidenceId": { "$ref": "#/$defs/nonempty256" }
+        }
+      }
+    },
+    "rollback": {
+      "type": "object", "additionalProperties": false, "required": ["handle", "procedure"],
+      "properties": {
+        "handle": { "$ref": "#/$defs/nonempty256" },
+        "procedure": { "type": "string", "minLength": 1, "maxLength": 1024, "pattern": ".*\\S.*" }
+      }
+    }
+  }
+}

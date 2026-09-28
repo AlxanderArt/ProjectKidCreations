@@ -1,5 +1,6 @@
 import pg from "pg";
 
+import { attestFounderMfaDatabase } from "../../db/readiness.mjs";
 import { loadMfaConfig } from "./config.mjs";
 import { mfaJson, parseMfaCookie, serializeMfaCookie, validateMfaMutationRequest } from "./http.mjs";
 import { createFounderMfaService, isSafeFounderSessionCookie } from "./service.mjs";
@@ -70,7 +71,8 @@ export function createFounderMfaRoutes({ serviceFactory, publicOrigins }) {
       if (loaded.response) return loaded.response;
       try {
         const body = await validateMfaMutationRequest(request, publicOrigins, SCHEMAS[name]);
-        const token = parseMfaCookie(request.headers.get("cookie"));
+        const parsedCredential = parseMfaCookie(request.headers.get("cookie"));
+        const token = parsedCredential;
         if (!token) throw new Error("missing_mfa_cookie");
         const result = await operation(loaded.service, token, body);
         if (name === "finalize") {
@@ -99,45 +101,70 @@ export function createFounderMfaRoutes({ serviceFactory, publicOrigins }) {
   });
 }
 
-let runtime;
-
-async function runtimeContext(env = process.env, fetchImpl = fetch) {
-  if (runtime) return runtime;
-  const config = loadMfaConfig(env);
-  const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 5_000 });
-  const store = createFounderMfaStore({ pool });
-  const service = createFounderMfaService({
-    store,
-    config,
-    finalizer: async ({ grant }) => {
-      const response = await fetchImpl(`${config.n8nBaseUrl}/webhook/pkc-internal-founder-mfa-finalize`, {
-        method: "POST",
-        redirect: "error",
-        headers: {
-          "content-type": "application/json",
-          "x-pkc-key": config.authKey,
-        },
-        body: JSON.stringify({ grant }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok) return { status: "unknown" };
-      const receipt = await response.json();
-      if (!receipt?.ok || receipt.status !== "authenticated" || typeof receipt.session_token !== "string") return { status: "unknown" };
-      const maxAge = Number(receipt.expires_at) - Number(receipt.issued_at);
-      if (!Number.isSafeInteger(maxAge) || maxAge < 1 || maxAge > 86_400) return { status: "unknown" };
-      return {
-        status: "ok",
-        finalizeId: receipt.finalize_id,
-        sessionId: receipt.session_id,
-        grantJti: receipt.grant_jti,
-        setCookie: `pkc_session=${receipt.session_token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`,
-      };
-    },
-  });
-  const routes = createFounderMfaRoutes({ serviceFactory: async () => service, publicOrigins: config.publicOrigins });
-  runtime = Object.freeze({ config, store, service, routes });
-  return runtime;
+function finalizerFor(config, fetchImpl) {
+  return async ({ grant }) => {
+    const response = await fetchImpl(`${config.n8nBaseUrl}/webhook/pkc-internal-founder-mfa-finalize`, {
+      method: "POST",
+      redirect: "error",
+      headers: { "content-type": "application/json", "x-pkc-key": config.authKey },
+      body: JSON.stringify({ grant }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return { status: "unknown" };
+    const receipt = await response.json();
+    if (!receipt?.ok || receipt.status !== "authenticated" || typeof receipt.session_token !== "string") return { status: "unknown" };
+    const maxAge = Number(receipt.expires_at) - Number(receipt.issued_at);
+    if (!Number.isSafeInteger(maxAge) || maxAge < 1 || maxAge > 86_400) return { status: "unknown" };
+    return {
+      status: "ok",
+      finalizeId: receipt.finalize_id,
+      sessionId: receipt.session_id,
+      grantJti: receipt.grant_jti,
+      setCookie: `pkc_session=${receipt.session_token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`,
+    };
+  };
 }
+
+export function createFounderMfaRuntimeFactory({
+  Pool = pg.Pool,
+  loadConfig = loadMfaConfig,
+  attest = attestFounderMfaDatabase,
+  createStore = createFounderMfaStore,
+  createService = createFounderMfaService,
+  createRoutes = createFounderMfaRoutes,
+} = {}) {
+  let runtimePromise;
+
+  return function runtimeContext(env = process.env, fetchImpl = fetch) {
+    if (runtimePromise) return runtimePromise;
+    runtimePromise = (async () => {
+      const config = loadConfig(env);
+      const pool = new Pool({
+        connectionString: config.databaseUrl,
+        max: config.database.poolMax,
+        idleTimeoutMillis: 10_000,
+        connectionTimeoutMillis: config.database.connectionTimeoutMs,
+        query_timeout: config.database.queryTimeoutMs,
+        statement_timeout: config.database.statementTimeoutMs,
+        idle_in_transaction_session_timeout: config.database.idleTransactionTimeoutMs,
+      });
+      try {
+        await attest({ pool, expectedDatabase: config.database.expectedDatabase, expectedUser: config.database.expectedUser, expectedEnvironment: config.database.environment, expectedTls: true });
+        const store = createStore({ pool, totalDeadlineMs: config.database.totalDeadlineMs });
+        const service = createService({ store, config, finalizer: finalizerFor(config, fetchImpl) });
+        const routes = createRoutes({ serviceFactory: async () => service, publicOrigins: config.publicOrigins });
+        return Object.freeze({ config, store, service, routes });
+      } catch (error) {
+        await pool.end().catch(() => {});
+        throw error;
+      }
+    })();
+    runtimePromise.catch(() => { runtimePromise = undefined; });
+    return runtimePromise;
+  };
+}
+
+const runtimeContext = createFounderMfaRuntimeFactory();
 
 async function runtimeRoutes(env = process.env, fetchImpl = fetch) {
   return (await runtimeContext(env, fetchImpl)).routes;

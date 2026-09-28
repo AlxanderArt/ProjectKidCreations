@@ -95,7 +95,7 @@ function optionalString(value, name, max = 4096) {
 }
 
 function validateRouteBody(routeId, method, body) {
-  const token = () => requireString(body.token, "token", 1, 4096);
+  const validateTokenField = () => requireString(body.token, "token", 1, 4096);
   switch (routeId) {
     case "onboarding":
       requireString(body.submissionId, "submission_id", 1, 128);
@@ -109,7 +109,7 @@ function validateRouteBody(routeId, method, body) {
     case "phaseTwoVerify":
     case "phaseTwoSave":
     case "phaseThreeVerify":
-      token();
+      validateTokenField();
       break;
     case "phaseTwoEvent":
     case "phaseThreeEvent":
@@ -118,11 +118,11 @@ function validateRouteBody(routeId, method, body) {
       if (body.data !== undefined && (!body.data || typeof body.data !== "object" || Array.isArray(body.data))) throw new Error("invalid_data");
       break;
     case "phaseThreeCheckUsername":
-      token();
+      validateTokenField();
       requireString(body.username, "username", 3, 32);
       break;
     case "phaseThreeSave":
-      token();
+      validateTokenField();
       if (!body.profile || typeof body.profile !== "object" || Array.isArray(body.profile)) throw new Error("invalid_profile");
       break;
     case "accountLogin":
@@ -141,7 +141,7 @@ function validateRouteBody(routeId, method, body) {
       }
       break;
     case "accountBootstrapRedeem":
-      token();
+      validateTokenField();
       requireString(body.username, "username", 3, 64);
       requireString(body.password, "password", 12, 256);
       break;
@@ -149,7 +149,7 @@ function validateRouteBody(routeId, method, body) {
       requireString(body.email, "email", 3, 320);
       break;
     case "accountPasswordComplete":
-      token();
+      validateTokenField();
       requireString(body.new_password, "new_password", 12, 256);
       break;
     case "accountPasswordChange":

@@ -16,21 +16,82 @@ function uuid(value, name) {
   return value;
 }
 
-export function createFounderMfaStore({ pool }) {
+export class TransactionOutcomeUnknownError extends Error {
+  constructor(stage, options = {}) {
+    super("transaction_outcome_unknown", options);
+    this.name = "TransactionOutcomeUnknownError";
+    this.code = "outcome_unknown";
+    this.stage = stage;
+  }
+}
+
+function bounded(promise, milliseconds, stage) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new TransactionOutcomeUnknownError(stage)), milliseconds); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settlementDeadlineMs = 2_000 }) {
   assertPool(pool);
+  if (!Number.isSafeInteger(totalDeadlineMs) || totalDeadlineMs < 100 || totalDeadlineMs > 60_000
+      || !Number.isSafeInteger(settlementDeadlineMs) || settlementDeadlineMs < 100 || settlementDeadlineMs > 5_000) {
+    throw new TypeError("invalid_transaction_deadline");
+  }
 
   async function transaction(work) {
-    const client = await pool.connect();
+    let acquisitionExpired = false;
+    let client;
+    let poison = null;
+    const acquisition = Promise.resolve().then(() => pool.connect()).then((connected) => {
+      if (acquisitionExpired) {
+        connected.release(new TransactionOutcomeUnknownError("acquire"));
+        throw new TransactionOutcomeUnknownError("acquire");
+      }
+      return connected;
+    });
     try {
-      await client.query("BEGIN");
-      const result = await work(client);
-      await client.query("COMMIT");
+      client = await bounded(acquisition, totalDeadlineMs, "acquire");
+    } catch (error) {
+      if (error instanceof TransactionOutcomeUnknownError && error.stage === "acquire") {
+        acquisitionExpired = true;
+        acquisition.catch(() => {});
+      }
+      throw error;
+    }
+    try {
+      try {
+        for (const sql of [
+          "BEGIN",
+          "SET LOCAL statement_timeout = '5s'",
+          "SET LOCAL lock_timeout = '2s'",
+          "SET LOCAL idle_in_transaction_session_timeout = '10s'",
+        ]) await bounded(Promise.resolve().then(() => client.query(sql)), settlementDeadlineMs, "setup");
+      } catch (error) {
+        poison = error instanceof Error ? error : new Error("setup_unknown");
+        throw new TransactionOutcomeUnknownError("setup", { cause: poison });
+      }
+      const result = await bounded(Promise.resolve().then(() => work(client)), totalDeadlineMs, "work");
+      try {
+        await bounded(client.query("COMMIT"), settlementDeadlineMs, "commit");
+      } catch (error) {
+        poison = error instanceof Error ? error : new Error("commit_unknown");
+        throw new TransactionOutcomeUnknownError("commit", { cause: poison });
+      }
       return result;
     } catch (error) {
-      await client.query("ROLLBACK").catch(() => {});
+      if (error instanceof TransactionOutcomeUnknownError && (error.stage === "commit" || error.stage === "setup")) throw error;
+      if (error instanceof TransactionOutcomeUnknownError && error.stage === "work") poison = error;
+      try {
+        await bounded(client.query("ROLLBACK"), settlementDeadlineMs, "rollback");
+      } catch (rollbackError) {
+        poison = rollbackError instanceof Error ? rollbackError : new Error("rollback_unknown");
+        throw new TransactionOutcomeUnknownError("rollback", { cause: poison });
+      }
       throw error;
     } finally {
-      client.release();
+      client.release(poison || undefined);
     }
   }
 

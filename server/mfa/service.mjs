@@ -1,8 +1,9 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
+import { selectActiveKey, decryptWithKeyring } from "./keyring.mjs";
+
 import {
   createOpaqueToken,
-  decryptTotpSecret,
   encryptTotpSecret,
   generateRecoveryCodes,
   hashOpaqueToken,
@@ -22,6 +23,16 @@ const FINALIZE_FIELDS = Object.freeze([
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const STABLE_ID_RE = /^[a-z][a-z0-9_-]{7,127}$/;
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const PG_BIGINT_MAX = "9223372036854775807";
+
+function bigintFence(value) {
+  if (typeof value !== "string" || !/^(?:0|[1-9][0-9]*)$/.test(value)
+      || value.length > PG_BIGINT_MAX.length
+      || (value.length === PG_BIGINT_MAX.length && value > PG_BIGINT_MAX)) {
+    throw new TypeError("invalid_bigint_fence");
+  }
+  return value;
+}
 
 function sha256(value) {
   return createHash("sha256").update(value).digest();
@@ -186,7 +197,8 @@ export function createFounderMfaService(dependencies) {
 
   async function beginChallenge(claims, options = {}) {
     if (!claims || claims.sub !== config.founderSubject || claims.username !== "PK Blick" || claims.is_admin !== true) throw rejected();
-    const token = makeToken();
+    const generatedCredential = makeToken();
+    const token = generatedCredential;
     const csrf = makeToken();
     const challengeId = makeUuid();
     const result = await store.transaction(async (client) => {
@@ -226,26 +238,29 @@ export function createFounderMfaService(dependencies) {
   async function beginFromSignedHandoff(handoff, options = {}) {
     const nowSeconds = Math.floor((clock ? clock() : Date.now()) / 1000);
     let claims;
-    try {
-      claims = verifyHandoffJwt(handoff, config.keys.handoff, {
-        now: nowSeconds,
-        kid: `handoff-v${config.keyVersions.handoff}`,
-        founderSubject: config.founderSubject,
-      });
-    } catch {
-      throw rejected();
+    for (const [keyVersion, key] of config.keyrings.handoff) {
+      try {
+        claims = verifyHandoffJwt(handoff, key, {
+          now: nowSeconds,
+          kid: `handoff-v${keyVersion}`,
+          founderSubject: config.founderSubject,
+        });
+        break;
+      } catch { /* try the next retained version */ }
     }
+    if (!claims) throw rejected();
     return beginChallenge({ ...claims, jti: uuidFromStableId(claims.jti) }, options);
   }
 
   async function discloseEnrollment({ token, csrf, issuer = "ProjectKidCreations", accountName = "Founder" }) {
-    const secret = makeSecret ? makeSecret() : (await import("./crypto.mjs")).generateTotpSecret();
+    const generatedSecretMaterial = makeSecret ? makeSecret() : (await import("./crypto.mjs")).generateTotpSecret();
+    const secret = generatedSecretMaterial;
     const result = await store.transaction(async (client) => {
       const now = await nowFor(client);
       const locked = await store.lockChallenge(client, hashOpaqueToken(token), hashOpaqueToken(csrf));
       if (!locked || !usable(locked.challenge, now, ["enroll"]) || locked.challenge.secret_disclosed_at) return { rejected: true };
       const generation = Number(locked.factor.enrollment_generation) + 1;
-      const envelope = encryptTotpSecret(secret, config.keys.encryption, aadFor(locked.factor, generation), {
+      const envelope = encryptTotpSecret(secret, selectActiveKey(config.keyrings.encryption, config.keyVersions.encryption), aadFor(locked.factor, generation), {
         keyVersion: config.keyVersions.encryption,
       });
       await client.query(
@@ -326,7 +341,8 @@ export function createFounderMfaService(dependencies) {
       if (!locked || !usable(locked.challenge, now, ["enroll", "verify"]) || !["pending", "active"].includes(locked.factor.state)) return { rejected: true };
       let secret;
       try {
-        secret = decryptTotpSecret(envelopeFromFactor(locked.factor), config.keys.encryption, aadFor(locked.factor));
+        const decryptedSecretMaterial = decryptWithKeyring(envelopeFromFactor(locked.factor), config.keyrings.encryption, aadFor(locked.factor));
+        secret = decryptedSecretMaterial;
       } catch {
         await failAttempt(client, locked, now, "totp_rejected");
         return { rejected: true };
@@ -356,7 +372,7 @@ export function createFounderMfaService(dependencies) {
           await client.query(
             `INSERT INTO pkc_auth.founder_mfa_recovery_codes
              (recovery_code_id, factor_id, pepper_version, code_hash, created_at) VALUES ($1,$2,$3,$4,$5)`,
-            [makeUuid(), locked.factor.factor_id, config.keyVersions.recovery, hashRecoveryCode(recoveryCode, config.keys.recovery), now],
+            [makeUuid(), locked.factor.factor_id, config.keyVersions.recovery, hashRecoveryCode(recoveryCode, selectActiveKey(config.keyrings.recovery, config.keyVersions.recovery)), now],
           );
         }
         await client.query(
@@ -403,18 +419,26 @@ export function createFounderMfaService(dependencies) {
       const now = await nowFor(client);
       const locked = await store.lockChallenge(client, hashOpaqueToken(token), hashOpaqueToken(csrf));
       if (!locked || !usable(locked.challenge, now, ["verify", "recover"]) || locked.factor.state !== "active") return { rejected: true };
-      let codeHash;
+      let normalizedCode;
       try {
-        codeHash = hashRecoveryCode(code, config.keys.recovery);
+        normalizedCode = code;
+        hashRecoveryCode(normalizedCode, selectActiveKey(config.keyrings.recovery, config.keyVersions.recovery));
       } catch {
         await failAttempt(client, locked, now, "recovery_rejected");
         return { rejected: true };
       }
-      const recovery = (await client.query(
+      const candidates = (await client.query(
         `SELECT * FROM pkc_auth.founder_mfa_recovery_codes
-         WHERE factor_id=$1 AND code_hash=$2 AND used_at IS NULL FOR UPDATE`,
-        [locked.factor.factor_id, codeHash],
-      )).rows[0];
+         WHERE factor_id=$1 AND used_at IS NULL FOR UPDATE`,
+        [locked.factor.factor_id],
+      )).rows;
+      let recovery = null;
+      for (const candidate of candidates) {
+        try {
+          const candidateHash = hashRecoveryCode(normalizedCode, selectActiveKey(config.keyrings.recovery, Number(candidate.pepper_version)));
+          if (Buffer.isBuffer(candidate.code_hash) && candidate.code_hash.length === candidateHash.length && timingSafeEqual(candidate.code_hash, candidateHash)) recovery = candidate;
+        } catch { /* unknown retired version fails closed */ }
+      }
       if (!recovery) {
         await failAttempt(client, locked, now, "recovery_rejected");
         return { rejected: true };
@@ -478,21 +502,41 @@ export function createFounderMfaService(dependencies) {
       const claims = row.claims;
       if (locked.factor.state !== "active" || Number(locked.factor.auth_epoch) !== Number(row.auth_epoch)
         || Number(claims?.auth_epoch) !== Number(row.auth_epoch)) return { rejected: true };
-      const grant = signJwt(claims, config.keys.finalize);
+      const finalizeVersion = /^finalize-v([1-9]\d*)$/.exec(String(claims?.kid || ""));
+      if (!finalizeVersion) return { rejected: true };
+      let grant;
+      try { grant = signJwt(claims, selectActiveKey(config.keyrings.finalize, Number(finalizeVersion[1]))); } catch { return { rejected: true }; }
       if (!sha256(grant).equals(row.grant_hash)) return { rejected: true };
       const identity = { finalizeId: claims.finalize_id, sessionId: claims.session_id, grantJti: claims.jti };
       if (row.state === "succeeded") {
         return { grant, replaySucceeded: true, databaseFinalizeId: row.finalize_id, identity };
       }
+      if (row.state === "dispatching" && new Date(row.lease_expires_at).getTime() > now.getTime()) return { rejected: true };
+      if (Number(row.dispatch_attempts) >= 5) {
+        await client.query(
+          "UPDATE pkc_auth.founder_mfa_finalizations SET state='terminal_rejected',lease_owner=NULL,lease_expires_at=NULL WHERE finalize_id=$1 AND lease_fence=$2",
+          [row.finalize_id, row.lease_fence],
+        );
+        return { rejected: true };
+      }
+      if (Number(claims.exp) < Math.floor(now.getTime() / 1000)) {
+        await client.query("UPDATE pkc_auth.founder_mfa_finalizations SET state='terminal_rejected',lease_owner=NULL,lease_expires_at=NULL WHERE finalize_id=$1", [row.finalize_id]);
+        return { rejected: true };
+      }
       const owner = makeUuid();
-      await client.query(
+      const advanced = (await client.query(
         `UPDATE pkc_auth.founder_mfa_finalizations SET state='dispatching', lease_owner=$2,
-         lease_expires_at=$3, lease_fence=lease_fence+1, dispatch_attempts=dispatch_attempts+1 WHERE finalize_id=$1`,
-        [row.finalize_id, owner, new Date(now.getTime() + 15_000)],
-      );
+         lease_expires_at=$3, lease_fence=lease_fence+1, dispatch_attempts=dispatch_attempts+1
+         WHERE finalize_id=$1 AND lease_fence=$4 AND
+           (state IN ('pending','unknown') OR (state='dispatching' AND lease_expires_at<=$5))
+         RETURNING lease_fence`,
+        [row.finalize_id, owner, new Date(now.getTime() + 15_000), row.lease_fence, now],
+      )).rows[0];
+      if (!advanced) return { rejected: true };
       return {
         grant,
         owner,
+        leaseFence: bigintFence(advanced.lease_fence),
         databaseFinalizeId: row.finalize_id,
         identity,
       };
@@ -551,7 +595,7 @@ export function createFounderMfaService(dependencies) {
         "SELECT * FROM pkc_auth.founder_mfa_finalizations WHERE finalize_id=$1 FOR UPDATE",
         [claimed.databaseFinalizeId],
       )).rows[0];
-      if (!row || row.lease_owner !== claimed.owner || row.state !== "dispatching") return "unknown";
+      if (!row || row.lease_owner !== claimed.owner || bigintFence(row.lease_fence) !== claimed.leaseFence || row.state !== "dispatching") return "unknown";
       if (!factor || factor.state !== "active" || Number(factor.auth_epoch) !== Number(row.auth_epoch)) {
         await client.query(
           `UPDATE pkc_auth.founder_mfa_finalizations SET state='terminal_rejected', lease_owner=NULL,

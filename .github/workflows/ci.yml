@@ -15,27 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "24"
 
 jobs:
   build-contracts-security:
     name: Build, contracts, and security
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: pkc_mfa_test
-          POSTGRES_USER: postgres
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d pkc_mfa_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,18 +41,22 @@ jobs:
       - name: Run contract and security tests
         run: npm run test:contracts
 
-      - name: Apply founder MFA migration
-        env:
-          PGHOST: 127.0.0.1
-          PGPORT: "5432"
-          PGUSER: postgres
-          PGDATABASE: pkc_mfa_test
-        run: psql --set ON_ERROR_STOP=1 --file db/migrations/001_founder_mfa.sql
+      - name: Run mandatory n8n gate engine with permission-isolated synthetic authority (not production snapshot evidence)
+        run: npm run test:contracts:protected:synthetic
 
-      - name: Run native founder MFA transaction suite
-        env:
-          PKC_MFA_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/pkc_mfa_test
-        run: node --test tests/contracts/founder-mfa-store.test.mjs
+      - name: Generate unit-only synthetic workflow fixtures (not production evidence)
+        run: |
+          set -euo pipefail
+          artifact_dir="$(mktemp -d)"
+          trap 'rm -rf "$artifact_dir"' EXIT
+          node scripts/n8n-ci-rehearsal-fixtures.mjs "$artifact_dir"
+          test "$(find "$artifact_dir" -maxdepth 1 -type f -name '*.json' | wc -l)" -eq 10
+
+      - name: Pull exact founder MFA PostgreSQL test image
+        run: docker pull postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+
+      - name: Run pinned native founder MFA PostgreSQL gate
+        run: npm run test:mfa:postgres
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high

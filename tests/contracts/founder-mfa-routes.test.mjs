@@ -3,7 +3,8 @@ import { test } from "node:test";
 
 import { createFounderMfaRoutes } from "../../server/mfa/routes.mjs";
 
-const token = "A".repeat(43);
+const opaqueCredentialFixture = "A".repeat(43);
+const token = opaqueCredentialFixture;
 const csrf = "B".repeat(43);
 const origin = "https://projectkidcreations.io";
 

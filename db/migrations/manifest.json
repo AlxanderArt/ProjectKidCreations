@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "migrations": [
+    {
+      "version": 1,
+      "file": "001_founder_mfa.sql",
+      "sha256": "3f50589a00e46dfcf87fd6240532c83a604537f820bfb44c89e9c53a19dfbf22"
+    }
+  ]
+}

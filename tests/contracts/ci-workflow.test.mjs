@@ -4,6 +4,7 @@ import test from "node:test";
 
 const workflowUrl = new URL("../../.github/workflows/ci.yml", import.meta.url);
 const workflow = await readFile(workflowUrl, "utf8");
+const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
 
 const APPROVED_ACTIONS = new Map([
   ["actions/checkout", "3d3c42e5aac5ba805825da76410c181273ba90b1"],
@@ -29,12 +30,23 @@ test("CI selects the current responsive landing composition contract", () => {
   assert.doesNotMatch(workflow, /landing stays centered/);
 });
 
-test("CI applies the founder MFA migration and runs the native PostgreSQL suite", () => {
-  assert.match(workflow, /^\s*services:\s*\n\s*postgres:/m);
-  assert.match(workflow, /postgres:16(?:\b|-alpine\b)/);
-  assert.match(workflow, /psql[^\n]*db\/migrations\/001_founder_mfa\.sql/);
-  assert.match(workflow, /PKC_MFA_TEST_DATABASE_URL:/);
-  assert.match(workflow, /node --test tests\/contracts\/founder-mfa-store\.test\.mjs/);
+test("CI runs the exact pinned native PostgreSQL harness", () => {
+  assert.doesNotMatch(workflow, /^\s*services:\s*\n\s*postgres:/m);
+  assert.match(workflow, /docker pull postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea/);
+  assert.match(workflow, /npm run test:mfa:postgres/);
+});
+
+test("CI runs mandatory permission-isolated synthetic gate coverage without claiming production snapshot evidence", () => {
+  assert.match(workflow, /unit-only synthetic workflow fixtures \(not production evidence\)/i);
+  assert.match(workflow, /mandatory n8n gate engine with permission-isolated synthetic authority \(not production snapshot evidence\)/i);
+  assert.match(workflow, /NODE_VERSION:\s*"24"/);
+  assert.match(workflow, /n8n-ci-rehearsal-fixtures\.mjs/);
+  assert.doesNotMatch(workflow, /n8n-disposable\/rehearse\.mjs/);
+  assert.match(workflow, /permissions:\s*\n\s*contents: read/);
+  assert.equal(packageJson.scripts["test:contracts"], "node scripts/run-contract-tests.mjs");
+  assert.equal(packageJson.scripts["test:contracts:protected"], "node --test tests/contracts/n8n-workflow-as-code.test.mjs tests/contracts/n8n-gate0-authority.test.mjs tests/contracts/n8n-gate-engine.test.mjs");
+  assert.equal(packageJson.scripts["test:contracts:protected:synthetic"], "bash scripts/run-synthetic-n8n-gate.sh");
+  assert.match(workflow, /permission-isolated synthetic authority[\s\S]*npm run test:contracts:protected:synthetic/i);
 });
 
 test("CI runs the complete founder MFA browser suite in Chromium and mobile WebKit", () => {

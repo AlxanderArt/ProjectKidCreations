@@ -1,15 +1,20 @@
+import { createReadOnlyKeyring } from "./keyring.mjs";
+
 function required(env, name) {
   const value = env?.[name];
   if (typeof value !== "string" || value.trim() === "") throw new Error(`missing ${name}`);
   return value.trim();
 }
 
-function base64Key(env, name) {
-  const raw = required(env, name);
+function base64KeyValue(raw, name) {
   if (!/^[A-Za-z0-9+/]{43}=$/.test(raw)) throw new Error(`invalid ${name}`);
   const value = Buffer.from(raw, "base64");
   if (value.byteLength !== 32 || value.toString("base64") !== raw) throw new Error(`invalid ${name}`);
   return value;
+}
+
+function base64Key(env, name) {
+  return base64KeyValue(required(env, name), name);
 }
 
 function origins(raw, name) {
@@ -18,9 +23,7 @@ function origins(raw, name) {
     const value = entry.trim();
     if (!value) throw new Error(`invalid ${name}`);
     const parsed = new URL(value);
-    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.origin !== value) {
-      throw new Error(`invalid ${name}`);
-    }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.origin !== value) throw new Error(`invalid ${name}`);
     result.add(value);
   }
   return result;
@@ -34,48 +37,85 @@ function positiveVersion(env, name, fallback = 1) {
   return value;
 }
 
-function uuid(env, name) {
-  const value = env?.[name];
-  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
-    throw new Error(`invalid ${name}`);
+function keyring(env, ringName, legacyName, activeVersion) {
+  const raw = env?.[ringName];
+  if (raw === undefined || raw === "") return createReadOnlyKeyring([[activeVersion, base64Key(env, legacyName)]]);
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { throw new Error(`invalid ${ringName}`); }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.getPrototypeOf(parsed) !== Object.prototype) throw new Error(`invalid ${ringName}`);
+  const entries = Object.entries(parsed);
+  if (entries.length < 1 || entries.length > 8) throw new Error(`invalid ${ringName}`);
+  const result = new Map();
+  for (const [rawVersion, value] of entries) {
+    const numeric = Number(rawVersion);
+    if (!/^[1-9]\d*$/.test(rawVersion) || !Number.isSafeInteger(numeric) || numeric > 1_000_000 || typeof value !== "string") throw new Error(`invalid ${ringName}`);
+    result.set(numeric, base64KeyValue(value, ringName));
   }
+  if (!result.has(activeVersion)) throw new Error(`unknown active version ${ringName}`);
+  return createReadOnlyKeyring([...result.entries()].sort((a, b) => a[0] - b[0]));
+}
+
+function boundedInteger(env, name, fallback, min, max) {
+  const value = Number(env?.[name] ?? fallback);
+  if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error(`invalid ${name}`);
   return value;
 }
 
-export function loadMfaConfig(env = process.env) {
-  const databaseUrl = required(env, "PKC_DATABASE_URL");
-  const database = new URL(databaseUrl);
-  if (!["postgres:", "postgresql:"].includes(database.protocol) || !database.hostname || !database.pathname || database.hash) {
-    throw new Error("invalid PKC_DATABASE_URL");
-  }
-
-  const keys = Object.freeze({
-    encryption: base64Key(env, "PKC_TOTP_ENCRYPTION_KEY"),
-    handoff: base64Key(env, "PKC_MFA_HANDOFF_KEY"),
-    finalize: base64Key(env, "PKC_MFA_FINALIZE_KEY"),
-    recovery: base64Key(env, "PKC_MFA_RECOVERY_PEPPER"),
+function databaseConfig(env, databaseUrl) {
+  let url;
+  try { url = new URL(databaseUrl); } catch { throw new Error("invalid PKC_DATABASE_URL"); }
+  if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || !url.pathname || url.pathname === "/" || url.hash) throw new Error("invalid PKC_DATABASE_URL");
+  const parameterNames = [...url.searchParams.keys()];
+  const allowedParameters = new Set(["sslmode", "application_name"]);
+  const sslmode = url.searchParams.get("sslmode");
+  if (new Set(parameterNames).size !== parameterNames.length || parameterNames.some((name) => !allowedParameters.has(name)) || sslmode !== "verify-full") throw new Error("invalid PKC_DATABASE_URL tls");
+  const expectedDatabase = required(env, "PKC_DATABASE_NAME");
+  const expectedUser = required(env, "PKC_DATABASE_USER");
+  const environment = required(env, "PKC_DATABASE_ENVIRONMENT");
+  if (!["development", "test", "preview", "production"].includes(environment)) throw new TypeError("invalid PKC_DATABASE_ENVIRONMENT");
+  if (decodeURIComponent(url.pathname.slice(1)) !== expectedDatabase) throw new Error("database_name_mismatch");
+  if (decodeURIComponent(url.username) !== expectedUser) throw new Error("database_user_mismatch");
+  if (!/(?:pool|proxy|pgbouncer)/i.test(url.hostname)) throw new Error("database_pooler_required");
+  const poolMax = boundedInteger(env, "PKC_DATABASE_POOL_MAX", 5, 1, 10);
+  const connectionBudget = boundedInteger(env, "PKC_DATABASE_CONNECTION_BUDGET", 20, 2, 1000);
+  if (poolMax * 2 > connectionBudget) throw new Error("connection_budget_exceeded");
+  return Object.freeze({
+    expectedDatabase, expectedUser, environment, poolMax, connectionBudget, sslmode,
+    connectionTimeoutMs: 5_000, queryTimeoutMs: 6_000, statementTimeoutMs: 5_000,
+    idleTransactionTimeoutMs: 10_000, totalDeadlineMs: 20_000,
   });
-  const fingerprints = Object.values(keys).map((key) => key.toString("hex"));
-  if (new Set(fingerprints).size !== fingerprints.length) throw new Error("key_reuse");
+}
 
+export function loadMfaConfig(env = process.env) {
+  const runtimeDatabaseValue = required(env, "PKC_DATABASE_URL");
+  const databaseUrl = runtimeDatabaseValue;
+  const database = databaseConfig(env, databaseUrl);
+  const keyVersions = Object.freeze({
+    encryption: positiveVersion(env, "PKC_TOTP_ENCRYPTION_KEY_VERSION"),
+    handoff: positiveVersion(env, "PKC_MFA_HANDOFF_KEY_VERSION"),
+    finalize: positiveVersion(env, "PKC_MFA_FINALIZE_KEY_VERSION"),
+    recovery: positiveVersion(env, "PKC_MFA_RECOVERY_PEPPER_VERSION"),
+  });
+  const keyrings = Object.freeze({
+    encryption: keyring(env, "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY", keyVersions.encryption),
+    handoff: keyring(env, "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY", keyVersions.handoff),
+    finalize: keyring(env, "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY", keyVersions.finalize),
+    recovery: keyring(env, "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER", keyVersions.recovery),
+  });
+  const fingerprints = Object.values(keyrings).flatMap((ring) => [...ring.values()].map((key) => key.toString("hex")));
+  if (new Set(fingerprints).size !== fingerprints.length) throw new Error("key_reuse");
+  const keys = {};
+  for (const [name, ring] of Object.entries(keyrings)) {
+    Object.defineProperty(keys, name, { enumerable: true, get: () => ring.get(keyVersions[name]) });
+  }
+  Object.freeze(keys);
   const n8nBase = new URL(required(env, "PKC_N8N_BASE_URL"));
   const n8nOrigins = origins(required(env, "PKC_N8N_ALLOWED_ORIGINS"), "PKC_N8N_ALLOWED_ORIGINS");
-  if (n8nBase.protocol !== "https:" || n8nBase.username || n8nBase.password || n8nBase.pathname !== "/" || n8nBase.search || n8nBase.hash || !n8nOrigins.has(n8nBase.origin)) {
-    throw new Error("invalid PKC_N8N_BASE_URL");
-  }
-
-  return Object.freeze({
-    databaseUrl,
-    founderSubject: uuid(env, "PKC_FOUNDER_SUBJECT"),
-    keys,
-    keyVersions: Object.freeze({
-      encryption: positiveVersion(env, "PKC_TOTP_ENCRYPTION_KEY_VERSION"),
-      handoff: positiveVersion(env, "PKC_MFA_HANDOFF_KEY_VERSION"),
-      finalize: positiveVersion(env, "PKC_MFA_FINALIZE_KEY_VERSION"),
-      recovery: positiveVersion(env, "PKC_MFA_RECOVERY_PEPPER_VERSION"),
-    }),
+  if (n8nBase.protocol !== "https:" || n8nBase.username || n8nBase.password || n8nBase.pathname !== "/" || n8nBase.search || n8nBase.hash || !n8nOrigins.has(n8nBase.origin)) throw new Error("invalid PKC_N8N_BASE_URL");
+  const founderSubject = env?.PKC_FOUNDER_SUBJECT;
+  if (typeof founderSubject !== "string" || founderSubject === "") throw new Error("missing PKC_FOUNDER_SUBJECT");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error("invalid PKC_FOUNDER_SUBJECT");
+  return Object.freeze({ databaseUrl, database, founderSubject, keys, keyrings, keyVersions,
     publicOrigins: origins(required(env, "PKC_PUBLIC_ALLOWED_ORIGINS"), "PKC_PUBLIC_ALLOWED_ORIGINS"),
-    n8nBaseUrl: n8nBase.origin,
-    authKey: required(env, "PKC_AUTH_KEY"),
-  });
+    n8nBaseUrl: n8nBase.origin, authKey: required(env, "PKC_AUTH_KEY") });
 }

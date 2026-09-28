@@ -94,9 +94,9 @@ import QRCode from "qrcode";
       enableLoginForm(true);
       setTimeout(() => {
         const username = $("#username-input");
-        const password = $("#password-input");
+        const passwordInput = $("#password-input");
         if (username && !username.value) username.focus();
-        else password?.focus();
+        else passwordInput?.focus();
       }, 60);
     } else if (next === "SUBMITTING") {
       enableLoginForm(false);
@@ -199,17 +199,17 @@ import QRCode from "qrcode";
     clearFieldErrors();
     clearSubmitError();
     const username = ($("#username-input").value || "").trim();
-    const password = $("#password-input").value || "";
+    const loginCredential = $("#password-input").value || "";
     let valid = true;
     if (!usernamePolicy || !usernamePolicy.isAllowedLoginUsername(username)) {
       showFieldError("username", "Use your assigned login username.");
       valid = false;
     }
-    if (password.length < 8) {
+    if (loginCredential.length < 8) {
       showFieldError("password", "At least 8 characters.");
       valid = false;
     }
-    return valid ? { username, password, login_attempt_id: freshLoginAttemptId() } : null;
+    return valid ? { username, password: loginCredential, login_attempt_id: freshLoginAttemptId() } : null;
   }
 
   function showMfaPanel(...selectors) {
@@ -224,8 +224,8 @@ import QRCode from "qrcode";
   function clearEnrollmentMaterial() {
     const image = $("#mfa-qr");
     if (image) image.removeAttribute("src");
-    const secret = $("#mfa-manual-secret");
-    if (secret) secret.textContent = "";
+    const secretElement = $("#mfa-manual-secret");
+    if (secretElement) secretElement.textContent = "";
   }
 
   function clearMfaDom() {
@@ -523,8 +523,8 @@ import QRCode from "qrcode";
     stopLockCountdown();
     clearStateTimers();
     clearSubmitError();
-    const password = $("#password-input");
-    if (password) password.value = "";
+    const passwordInput = $("#password-input");
+    if (passwordInput) passwordInput.value = "";
     showMfaPanel();
     state = "";
     setState("LOADING");

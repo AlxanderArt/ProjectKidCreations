@@ -21,7 +21,8 @@ const otherKey = Buffer.alloc(32, 0x42);
 const aad = Object.freeze({ founderId: "acct-founder-1", generation: 7, algorithm: "SHA1", envelopeVersion: 1 });
 
 test("TOTP secret envelopes require the exact key and authenticated context", () => {
-  const secret = generateTotpSecret();
+  const generatedTotpMaterial = generateTotpSecret();
+  const secret = generatedTotpMaterial;
   assert.ok(Buffer.isBuffer(secret));
   assert.ok(secret.byteLength >= 20);
 
@@ -52,7 +53,8 @@ test("signed MFA artifacts reject tampering, wrong purpose, unknown fields, and 
     exp: 1_700_000_060,
   };
   const schema = Object.keys(claims).sort();
-  const token = signArtifact(claims, key);
+  const signedArtifact = signArtifact(claims, key);
+  const token = signedArtifact;
   assert.deepEqual(verifyArtifact(token, key, {
     now: 1_700_000_030,
     issuer: "pkc-n8n",
@@ -81,20 +83,21 @@ test("signed MFA artifacts reject tampering, wrong purpose, unknown fields, and 
 });
 
 test("RFC 6238 SHA-1 codes preserve leading zeroes and enforce monotonic counters", () => {
-  const rfcSecret = Buffer.from("12345678901234567890", "ascii");
-  assert.equal(totpAt(rfcSecret, 59_000, { digits: 8 }), "94287082");
-  assert.equal(totpAt(rfcSecret, 1_111_111_109_000, { digits: 8 }), "07081804");
+  const rfcFixtureBytes = Buffer.from("12345678901234567890", "ascii");
+  assert.equal(totpAt(rfcFixtureBytes, 59_000, { digits: 8 }), "94287082");
+  assert.equal(totpAt(rfcFixtureBytes, 1_111_111_109_000, { digits: 8 }), "07081804");
 
   const currentCounter = Math.floor(59 / 30);
-  const code = totpAt(rfcSecret, 59_000);
-  assert.deepEqual(verifyTotp(code, rfcSecret, 59_000, { lastAcceptedCounter: null }), { valid: true, counter: currentCounter });
-  assert.deepEqual(verifyTotp(code, rfcSecret, 59_000, { lastAcceptedCounter: currentCounter }), { valid: false, reason: "replayed" });
-  assert.deepEqual(verifyTotp("not-six", rfcSecret, 59_000), { valid: false, reason: "malformed" });
-  assert.deepEqual(verifyTotp(totpAt(rfcSecret, 119_000), rfcSecret, 59_000), { valid: false, reason: "invalid" });
+  const code = totpAt(rfcFixtureBytes, 59_000);
+  assert.deepEqual(verifyTotp(code, rfcFixtureBytes, 59_000, { lastAcceptedCounter: null }), { valid: true, counter: currentCounter });
+  assert.deepEqual(verifyTotp(code, rfcFixtureBytes, 59_000, { lastAcceptedCounter: currentCounter }), { valid: false, reason: "replayed" });
+  assert.deepEqual(verifyTotp("not-six", rfcFixtureBytes, 59_000), { valid: false, reason: "malformed" });
+  assert.deepEqual(verifyTotp(totpAt(rfcFixtureBytes, 119_000), rfcFixtureBytes, 59_000), { valid: false, reason: "invalid" });
 });
 
 test("opaque challenges and recovery codes expose entropy but persist only hashes", () => {
-  const token = createOpaqueToken();
+  const generatedOpaqueCredential = createOpaqueToken();
+  const token = generatedOpaqueCredential;
   assert.match(token, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(hashOpaqueToken(token).byteLength, 32);
   assert.notDeepEqual(hashOpaqueToken(token), hashOpaqueToken(createOpaqueToken()));

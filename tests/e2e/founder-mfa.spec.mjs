@@ -42,7 +42,8 @@ async function dispatchPageTransition(page, type, persisted = false) {
 }
 
 test("founder enrollment renders a local QR, confirms TOTP, discloses recovery codes once, then finalizes", async ({ page }) => {
-  const secret = base32(randomBytes(20));
+  const generatedEnrollmentMaterial = base32(randomBytes(20));
+  const secret = generatedEnrollmentMaterial;
   const recoveryCodes = Array.from({ length: 10 }, () => base32(randomBytes(18)).slice(0, 28).match(/.{1,4}/g).join("-"));
   const finalizeId = crypto.randomUUID();
   let loginAttemptId;
@@ -201,8 +202,10 @@ test("network loss after committed finalization recovers the same session identi
 });
 
 test("page lifecycle clears rendered MFA secrets and a bfcache restore requires a fresh sign-in", async ({ page }) => {
-  const secret = base32(randomBytes(20));
-  const replacementSecret = base32(randomBytes(20));
+  const generatedEnrollmentMaterial = base32(randomBytes(20));
+  const generatedReplacementMaterial = base32(randomBytes(20));
+  const secret = generatedEnrollmentMaterial;
+  const replacementSecret = generatedReplacementMaterial;
   const recoveryCodes = Array.from({ length: 10 }, () => base32(randomBytes(18)).slice(0, 28).match(/.{1,4}/g).join("-"));
   let loginCalls = 0;
   let enrollmentCalls = 0;
@@ -218,7 +221,8 @@ test("page lifecycle clears rendered MFA secrets and a bfcache restore requires 
   });
   await page.route("**/api/account/mfa-enrollment", (route) => {
     enrollmentCalls += 1;
-    const manualSecret = enrollmentCalls === 1 ? secret : replacementSecret;
+    const selectedEnrollmentMaterial = enrollmentCalls === 1 ? secret : replacementSecret;
+    const manualSecret = selectedEnrollmentMaterial;
     return route.fulfill({
       status: 200,
       contentType: "application/json",
