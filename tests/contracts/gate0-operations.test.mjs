@@ -135,17 +135,25 @@ test("restore evidence refuses unsafe targets and reports non-authoritative pari
 });
 
 test("Vercel verifier binds exact source, scopes, KIDs, inventory, environment, alias, and rollback", () => {
-  const base = { environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", expectedAliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10, candidate: candidateEvidence(), variables: [
+  const base = { phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40), state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10, candidate: candidateEvidence(), variables: [
     { name: "PKC_DATABASE_URL", scopes: ["Preview"] }, { name: "PKC_DATABASE_NAME", scopes: ["Preview"] },
     { name: "PKC_DATABASE_USER", scopes: ["Preview"] }, { name: "PKC_DATABASE_ENVIRONMENT", scopes: ["Preview"] },
     { name: "PKC_FOUNDER_SUBJECT", scopes: ["Preview"] },
     { name: "PKC_MFA_HANDOFF_KEYRING", scopes: ["Preview"] }, { name: "PKC_MFA_HANDOFF_KEY_VERSION", scopes: ["Preview"] },
     { name: "PKC_MFA_FINALIZE_KEYRING", scopes: ["Preview"] }, { name: "PKC_MFA_FINALIZE_KEY_VERSION", scopes: ["Preview"] },
   ], vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
-  for (const name of ["PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE"]) base.variables.push({ name, scopes: ["Preview"] });
+  for (const name of ["PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE", "PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"]) base.variables.push({ name, scopes: ["Preview"] });
   assert.equal(verifyVercelDeployment(base).ok, true);
+  for (const founderMfaMode of ["disabled", "armed", "enforced"]) assert.equal(verifyVercelDeployment({ ...base, founderMfaMode, expectedFounderMfaMode: founderMfaMode }).founderMfaMode, founderMfaMode);
+  assert.equal(verifyVercelDeployment({ ...base, phase: "isolated", founderMfaMode: "disabled", expectedFounderMfaMode: "disabled", aliasTarget: base.rollbackDeploymentId }).phase, "isolated");
+  assert.throws(() => verifyVercelDeployment({ ...base, phase: "isolated" }), /alias/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, sourceTreeSha: "c".repeat(40) }), /tree/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, candidate: { ...base.candidate, manifestDirty: true } }), /candidate.*digest|dirty|clean/i);
   assert.throws(() => verifyVercelDeployment({ ...base, environment: "Production" }), /environment/i);
   assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((item) => item.name === "PKC_DATABASE_URL" ? { ...item, scopes: ["Preview", "Production"] } : item) }), /scope/i);
+  for (const name of ["PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"]) {
+    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.filter((item) => item.name !== name) }), /required variable.*scope/i);
+  }
   assert.throws(() => verifyVercelDeployment({ ...base, n8nKids: { ...base.n8nKids, finalize: "finalize-v2" } }), /KID/i);
 });
 

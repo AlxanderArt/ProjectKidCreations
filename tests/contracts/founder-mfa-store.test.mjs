@@ -21,7 +21,7 @@ const config = Object.freeze({
   keyVersions: Object.freeze({ encryption: 1, handoff: 1, finalize: 1, recovery: 1 }),
   founderSubject: "11111111-1111-4111-8111-111111111111",
   mode: "enforced",
-  deployment: Object.freeze({ sourceCommit: "a".repeat(40), deploymentId: "deployment-test-0001", workflowDigest: "b".repeat(64), enrollmentApprovalId: "approval-test-0001" }),
+  deployment: Object.freeze({ sourceCommit: "a".repeat(40), deploymentId: "deployment-test-0001", workflowDigest: "b".repeat(64) }),
   handoff: Object.freeze({ issuer: "pkc-n8n-account-login", audience: "pkc-vercel-founder-mfa" }),
   finalize: Object.freeze({ issuer: "pkc-vercel-founder-mfa", audience: "pkc-n8n-founder-mfa-finalizer", ttlSeconds: 60 }),
 });
@@ -62,7 +62,7 @@ async function fixture(t, finalizer = async () => ({ status: "unknown" })) {
          (founder_subject,source_commit,deployment_id,workflow_digest,approval_id,issued_at,expires_at,expected_factor_state,expected_auth_epoch)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (founder_subject) WHERE consumed_at IS NULL DO NOTHING`,
         [founder, config.deployment.sourceCommit, config.deployment.deploymentId, config.deployment.workflowDigest,
-          config.deployment.enrollmentApprovalId, new Date(nowMs - 1_000), new Date(nowMs + 600_000), factor.state, factor.auth_epoch],
+          "approval-test-0001", new Date(nowMs - 1_000), new Date(nowMs + 600_000), factor.state, factor.auth_epoch],
       );
     }
     return result;

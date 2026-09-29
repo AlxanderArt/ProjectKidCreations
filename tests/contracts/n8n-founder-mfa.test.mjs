@@ -666,3 +666,11 @@ test("claim key constants are closed and stable", () => {
   assert.deepEqual(HANDOFF_CLAIM_KEYS, ["aud", "exp", "iat", "is_admin", "iss", "jti", "kid", "login_attempt_id", "nbf", "password_authenticated_at", "purpose", "sub", "typ", "username", "version"]);
   assert.deepEqual(FINALIZE_CLAIM_KEYS, ["amr", "aud", "auth_epoch", "exp", "finalize_id", "iat", "is_admin", "iss", "jti", "kid", "login_attempt_id", "mfa_verified_at", "nbf", "password_authenticated_at", "purpose", "session_expires_at", "session_id", "session_issued_at", "sub", "typ", "username", "version"]);
 });
+
+test("generated profile and session assurance gates require raw canonical PostgreSQL bigint strings", () => {
+  const source = fs.readFileSync(new URL("../../scripts/n8n-founder-mfa.mjs", import.meta.url), "utf8");
+  assert.match(source, /const sessionEpoch = session\?\.auth_epoch;\nif \(typeof sessionEpoch !== 'string'/);
+  assert.match(source, /const authEpoch = session\.auth_epoch;\nconst amr/);
+  assert.match(source, /if \(typeof authEpoch !== 'string'/);
+  assert.doesNotMatch(source, /String\(session\?\.auth_epoch \?\? ''\)|String\(session\.auth_epoch \?\? ''\)/);
+});

@@ -27,9 +27,11 @@ export function runAbortableChild(command, args, {
   terminationWaitMs = 5_000,
   active = null,
   onSpawn = null,
+  input = null,
   spawnChild = spawn,
   signalGroup = defaultSignalGroup,
   probeGroup = defaultProbeGroup,
+  passFds = [],
 } = {}) {
   if (signal?.aborted) return Promise.reject(new Error(`${command} aborted before spawn`));
 
@@ -149,12 +151,19 @@ export function runAbortableChild(command, args, {
     // run the abort callback between this check and the synchronous spawn call.
     if (signal?.aborted) { finish(new Error(`${command} aborted before spawn`)); return; }
     try {
-      child = spawnChild(command, args, { env, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+      const stdio = [input === null ? "ignore" : "pipe", "pipe", "pipe"];
+      for (const fd of passFds) {
+        if (!Number.isSafeInteger(fd) || fd < 3) throw new Error(`${command} invalid pass fd`);
+        while (stdio.length <= fd) stdio.push("ignore");
+        stdio[fd] = fd;
+      }
+      child = spawnChild(command, args, { env, detached: true, stdio });
     } catch (error) {
       finish(error);
       return;
     }
     active?.add(child);
+    if (input !== null) child.stdin.end(input);
     child.stdout?.on("data", (chunk) => {
       if (terminalError) return;
       try { stdout = append(stdout, chunk); } catch (error) { requestTermination(error); }

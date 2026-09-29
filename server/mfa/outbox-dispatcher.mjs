@@ -1,3 +1,5 @@
+import { pgBigint } from "./pg-bigint.mjs";
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BATCH_MAX = 25;
 
@@ -77,7 +79,8 @@ export function createOutboxDispatcher(dependencies) {
 
   async function readiness() {
     const monitor = await repository.monitor();
-    return Object.freeze({ ready: Number(monitor.terminal || 0) === 0, ...monitor });
+    const terminal = pgBigint(monitor?.terminal, "outbox_terminal_count");
+    return Object.freeze({ ...monitor, ready: terminal === "0" });
   }
 
   return Object.freeze({ dispatchOnce, reconcileOnce, readiness });

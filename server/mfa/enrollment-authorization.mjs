@@ -18,13 +18,16 @@ export function enrollmentAuthorizationMatches(row, expected, now = new Date()) 
     && !Number.isNaN(expiry.getTime()) && expiry.getTime() >= now.getTime();
 }
 
-export function enrollmentAuthorityFromConfig(config, factor) {
+export function enrollmentAuthorityFromConfig(config, factor, authorization) {
+  if (!authorization || typeof authorization.approval_id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/.test(authorization.approval_id)) {
+    throw new TypeError("invalid_enrollment_approval_authority");
+  }
   return Object.freeze({
     founderSubject: config.founderSubject,
     sourceCommit: config.deployment.sourceCommit,
     deploymentId: config.deployment.deploymentId,
     workflowDigest: config.deployment.workflowDigest,
-    approvalId: config.deployment.enrollmentApprovalId,
+    approvalId: authorization.approval_id,
     factorState: factor.state,
     authEpoch: pgBigint(factor.auth_epoch, "auth_epoch"),
   });

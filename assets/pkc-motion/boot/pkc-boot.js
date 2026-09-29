@@ -4,7 +4,7 @@ const root = document.documentElement;
 root.classList.add('pkc-boot-pending', 'pkc-motion-prep');
 
 const BOOT = Object.freeze({
-  normal: Object.freeze({ exitMs: 6380, removeMs: 7000, cadenceMs: 625, operationalHoldMs: 2000, failVisibleExitMs: 7500 }),
+  normal: Object.freeze({ exitMs: 6380, removeMs: 7000, cadenceMs: 625, operationalHoldMs: 2000, failVisibleExitMs: 7500, failVisibleRemoveMs: 8200 }),
   reduced: Object.freeze({ exitMs: 950, removeMs: 1570, cadenceMs: 135 }),
   frameReadyMs: 220,
   frameFallbackMs: 1200,
@@ -396,6 +396,9 @@ const beginBoot = () => {
   } else {
     schedule(BOOT.normal.failVisibleExitMs, () => {
       if (!operationalHoldScheduled) signalReady('fail-visible');
+    });
+    schedule(BOOT.normal.failVisibleRemoveMs, () => {
+      if (!finished) complete('fail-visible-timeout');
     });
   }
 

@@ -270,7 +270,7 @@ export function createFounderMfaService(dependencies) {
       const locked = await store.lockChallenge(client, hashOpaqueToken(token), hashOpaqueToken(csrf));
       if (!locked || !usable(locked.challenge, now, ["enroll"]) || locked.challenge.secret_disclosed_at) return { rejected: true };
       const enrollmentGrant = await store.lockEnrollmentAuthorization(client, locked.factor.founder_subject);
-      const expected = enrollmentAuthorityFromConfig(config, locked.factor);
+      const expected = enrollmentAuthorityFromConfig(config, locked.factor, enrollmentGrant);
       if (!enrollmentAuthorizationMatches(enrollmentGrant, expected, now)) return { rejected: true };
       enrollmentMaterial = makeSecret ? makeSecret() : (await import("./crypto.mjs")).generateTotpSecret();
       const generation = Number(locked.factor.enrollment_generation) + 1;
@@ -359,7 +359,7 @@ export function createFounderMfaService(dependencies) {
       if (locked.factor.state === "pending") {
         if (!locked.challenge.enrollment_authorization_id) return { rejected: true };
         enrollmentGrant = await store.lockEnrollmentAuthorization(client, locked.factor.founder_subject, locked.challenge.enrollment_authorization_id);
-        const expected = enrollmentAuthorityFromConfig(config, { ...locked.factor, state: enrollmentGrant?.expected_factor_state });
+        const expected = enrollmentAuthorityFromConfig(config, { ...locked.factor, state: enrollmentGrant?.expected_factor_state }, enrollmentGrant);
         if (!enrollmentAuthorizationMatches(enrollmentGrant, expected, now)) return { rejected: true };
       }
       let secret;

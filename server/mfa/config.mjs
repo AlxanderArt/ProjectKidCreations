@@ -87,7 +87,7 @@ function databaseConfig(env, databaseUrl) {
   });
 }
 
-export function loadMfaConfig(env = process.env) {
+export function loadMfaConfig(env = process.env, { nonVercelDeploymentId } = {}) {
   const runtimeDatabaseValue = required(env, "PKC_DATABASE_URL");
   const databaseUrl = runtimeDatabaseValue;
   const database = databaseConfig(env, databaseUrl);
@@ -119,14 +119,16 @@ export function loadMfaConfig(env = process.env) {
   const mode = parseFounderMfaMode({ ...env, NODE_ENV: env?.NODE_ENV || (database.environment === "production" ? "production" : undefined) });
   let deployment = null;
   if (mode === "enforced") {
+    if (env.PKC_DEPLOYMENT_ID !== undefined) throw new Error("PKC_DEPLOYMENT_ID is forbidden; deployment identity is provider authority");
+    if (env.PKC_MFA_ENROLLMENT_APPROVAL_ID !== undefined) throw new Error("PKC_MFA_ENROLLMENT_APPROVAL_ID is forbidden; enrollment approval is database authority");
     const sourceCommit = required(env, "PKC_SOURCE_COMMIT");
-    const deploymentId = required(env, "PKC_DEPLOYMENT_ID");
+    const production = database.environment === "production" || env.NODE_ENV === "production";
+    if (production && nonVercelDeploymentId !== undefined) throw new Error("non-Vercel deployment identity injection is forbidden in Production");
+    const deploymentId = production ? required(env, "VERCEL_DEPLOYMENT_ID") : (env.VERCEL_DEPLOYMENT_ID || nonVercelDeploymentId);
     const workflowDigest = required(env, "PKC_MFA_WORKFLOW_DIGEST");
-    const enrollmentApprovalId = required(env, "PKC_MFA_ENROLLMENT_APPROVAL_ID");
     if (!/^[0-9a-f]{40}$/.test(sourceCommit) || !/^[0-9a-f]{64}$/.test(workflowDigest)
-        || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,255}$/.test(deploymentId)
-        || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/.test(enrollmentApprovalId)) throw new Error("invalid PKC deployment authority");
-    deployment = Object.freeze({ sourceCommit, deploymentId, workflowDigest, enrollmentApprovalId });
+        || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,255}$/.test(deploymentId || "")) throw new Error("invalid PKC deployment authority");
+    deployment = Object.freeze({ sourceCommit, deploymentId, workflowDigest });
   }
   return Object.freeze({ databaseUrl, database, founderSubject, mode, deployment, keys, keyrings, keyVersions,
     publicOrigins: origins(required(env, "PKC_PUBLIC_ALLOWED_ORIGINS"), "PKC_PUBLIC_ALLOWED_ORIGINS"),

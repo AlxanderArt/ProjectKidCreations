@@ -71,6 +71,30 @@ test("semantic readback permits native metadata only", () => {
   assert.equal(compareSemanticReadback(expected,readback).equal,true); readback.connections.Webhook.main[0][0].node="Respond OK"; assert.equal(compareSemanticReadback(expected,readback).equal,false);
 });
 
+test("generated session authority rejects numeric PostgreSQL bigint epochs before canonical validation", () => {
+  const moduleSource = fs.readFileSync(new URL("../../scripts/n8n-workflow-as-code.mjs", import.meta.url), "utf8");
+  assert.match(moduleSource, /const epoch=row\.auth_epoch;if\(founder&&\(typeof epoch!=='string'/);
+  assert.doesNotMatch(moduleSource, /const epoch=String\(row\.auth_epoch\?\?''\)/);
+  const workflow = serialize().artifacts.find((item) => item.role === "sessions").workflow;
+  const gate = workflow.nodes.find((node) => node.name === "Enforce Founder Session Assurance");
+  assert.ok(gate, "sessions authority gate must exist");
+  const founderSubject = "22222222-2222-4222-8222-222222222222";
+  const execute = (auth_epoch) => {
+    const row = { session_id: "session-1", account_id: founderSubject, username: "PK Blick", auth_epoch, amr: "pwd otp", mfa_verified_at: new Date(Math.floor(Date.now() / 1000) * 1000).toISOString() };
+    const nodes = { "Init Trace": [{ json: { session_id: "session-1" } }], "Read Current Session": [{ json: row }] };
+    const $ = (name) => ({ first: () => nodes[name][0], all: () => nodes[name] });
+    return Function("$input", "$env", "$", gate.parameters.jsCode)(
+      { first: () => ({ json: {} }), all: () => [{ json: {} }] },
+      { PKC_FOUNDER_SUBJECT: founderSubject, PKC_FOUNDER_MFA_MODE: "enforced" },
+      $,
+    );
+  };
+  assert.equal(execute("9007199254740993").length, 1);
+  for (const hostile of [9007199254740993, 0, "01", "9223372036854775808"]) {
+    assert.throws(() => execute(hostile), /founder_session_assurance_invalid/);
+  }
+});
+
 test("privacy scanner covers values, code literals, URL query material, canaries, accessors, and prototype tricks", () => {
   for (const hostile of [{name:"x",notes:"password=hunter2",nodes:[],settings:{}},{name:"x",url:"https://x.test/?token=value",nodes:[],settings:{}},{name:"x",nodes:[{parameters:{jsCode:"const x='otpauth://fixed';"}}],settings:{}}]) assert.equal(artifactPrivacyScan([hostile]).ok,false);
   assert.equal(artifactPrivacyScan([{name:"x",notes:"SAFE-CANARY",nodes:[],settings:{}}],{canaries:["SAFE-CANARY"]}).ok,false);

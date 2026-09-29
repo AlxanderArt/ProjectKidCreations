@@ -19,7 +19,7 @@ const SHA = "a".repeat(40);
 const HEX = (character) => character.repeat(64);
 const PLAN_DIGEST = "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814e5454";
 const PROTECTED = ["wfDsutVsW15DHGr3", "nvgxxBPinPmsEmZq", "uuNgivASLQZ08gX7", "GVVnbelFG97UjJDw", "W63ETZfmKVI7UDFW", "jb0I4CqlJuuG6fXs"];
-const VARIABLES = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE"];
+const VARIABLES = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE", "PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"];
 
 function candidateEvidence(functionInventory = ["api/[...route].js"]) {
   const manifestBody = { schemaVersion: 1, serialization: "test-canonical-manifest", snapshot: { headCommit: SHA, headTree: "b".repeat(40), dirty: false, statusDigest: HEX("0") }, files: functionInventory.map((path) => ({ path, bytes: 1, mode: 0o644, sha256: HEX("d") })) };
@@ -28,8 +28,8 @@ function candidateEvidence(functionInventory = ["api/[...route].js"]) {
 
 function vercelInput() {
   return {
-    environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA,
-    state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", expectedAliasTarget: "dpl_immutable",
+    phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40),
+    state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable",
     rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10,
     candidate: candidateEvidence(),
     variables: VARIABLES.map((name) => ({ name, scopes: ["Preview"] })),
@@ -104,7 +104,7 @@ test("Vercel candidate evidence is generated from a disposable accepted catch-al
   spawnSync("git", ["commit", "-qm", "accepted catch-all router"], { cwd: repo });
   const manifest = await buildCandidateManifest(repo);
   const candidate = buildVercelCandidateEvidence(manifest);
-  const input = { ...vercelInput(), sourceSha: manifest.snapshot.headCommit, expectedSourceSha: manifest.snapshot.headCommit, candidate };
+  const input = { ...vercelInput(), sourceSha: manifest.snapshot.headCommit, expectedSourceSha: manifest.snapshot.headCommit, sourceTreeSha: manifest.snapshot.headTree, candidate };
   assert.equal(verifyVercelDeployment(input).candidateFingerprint, manifest.fingerprint);
 });
 

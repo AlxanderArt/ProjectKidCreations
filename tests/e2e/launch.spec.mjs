@@ -26,6 +26,7 @@ async function waitForBootHandoff(page) {
 
 test("public root exposes explicit launch choices under strict CSP", async ({ page }) => {
   const failures = browserFailures(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await mockEntry(page, { ok: true, state: "public" });
   const response = await page.goto("/");
   await expect(page.getByRole("heading", { name: "WHAT ARE YOU HERE TO DO?" })).toBeVisible();
@@ -383,6 +384,9 @@ test("PC section navigation and skip link clear the fixed two-row header", async
 });
 
 test("landing controls expose focus and the mobile menu dismisses with Escape", async ({ page }) => {
+  // This is an accessibility/focus contract. Normal-motion ownership is
+  // verified independently by boot-motion and interaction-motion suites.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/landing.html?entry=browse");
   await waitForBootHandoff(page);

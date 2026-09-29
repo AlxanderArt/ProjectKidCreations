@@ -1,6 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { expect, test } from "./fixtures.mjs";
 
+test.beforeEach(async ({ page }) => {
+  // MFA tests own authentication state, not animation timing; the dedicated
+  // boot/interaction suites retain normal-motion coverage.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+});
+
 function base32(bytes) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let value = 0;
@@ -171,7 +177,15 @@ test("network loss after committed finalization recovers the same session identi
   let verifyCalls = 0;
   let committed = false;
   const finalizeBodies = [];
-  await mockProfile(page);
+  await page.route("**/api/account/profile", (route) => route.fulfill(committed ? {
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ profile: { username: "PK Blick", display_name: "PK Blick", is_admin: true } }),
+  } : {
+    status: 401,
+    contentType: "application/json",
+    body: JSON.stringify({ error: "unauthorized" }),
+  }));
   await page.route("**/api/account/login", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, status: "mfa_required", mode: "verify", csrf }) }));
   await page.route("**/api/account/mfa-verify", async (route) => {
     verifyCalls += 1;

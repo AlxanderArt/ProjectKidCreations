@@ -157,3 +157,19 @@ test("repository rejects noncanonical or out-of-range PostgreSQL bigint fences b
   }
   assert.equal(sqlCalls, 0);
 });
+
+test("readiness requires a raw canonical PostgreSQL bigint terminal count", async () => {
+  const base = {
+    claim: async () => [], complete: async () => {}, markUnknown: async () => {}, reconcile: async () => [],
+  };
+  const dispatcher = (terminal) => createOutboxDispatcher({
+    repository: { ...base, monitor: async () => ({ pending: "0", unknown: "0", terminal, oldest_pending_seconds: "0" }) },
+    transport: async () => null,
+    workerId: "33333333-3333-4333-8333-333333333333",
+  });
+  assert.equal((await dispatcher("0").readiness()).ready, true);
+  assert.equal((await dispatcher("9223372036854775807").readiness()).ready, false);
+  for (const hostile of [0, 9007199254740993, "", "00", "+0", "9223372036854775808", null]) {
+    await assert.rejects(() => dispatcher(hostile).readiness(), /invalid_outbox_terminal_count/);
+  }
+});

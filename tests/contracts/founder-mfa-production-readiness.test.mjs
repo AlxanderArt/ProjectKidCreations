@@ -56,8 +56,9 @@ test("enrollment authorization binds exact immutable authority and current facto
   );
   assert.throws(
     () => enrollmentAuthorityFromConfig(
-      { founderSubject: expected.founderSubject, deployment: { sourceCommit: expected.sourceCommit, deploymentId: expected.deploymentId, workflowDigest: expected.workflowDigest, enrollmentApprovalId: expected.approvalId } },
+      { founderSubject: expected.founderSubject, deployment: { sourceCommit: expected.sourceCommit, deploymentId: expected.deploymentId, workflowDigest: expected.workflowDigest } },
       { state: "unenrolled", auth_epoch: 9007199254740993 },
+      { approval_id: expected.approvalId },
     ),
     /invalid_auth_epoch/,
   );

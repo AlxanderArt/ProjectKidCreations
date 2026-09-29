@@ -93,6 +93,13 @@ test('boot assets preserve native timing and PKC identity without Rayco red', ()
   assert.doesNotMatch(renderer, /ctx\.fillText\('KIDCREATIONS'/);
   assert.match(renderer, /const OPERATIONAL_FPS = 30;/);
   assert.match(renderer, /OPERATIONAL_FRAME_INTERVAL_MS/);
+  assert.match(renderer, /paintBackgroundStrips\(ctx, width, height, paint, complete\)/, 'full-frame background raster work must be cooperatively chunked');
+  assert.ok((renderer.match(/paintBackgroundStrips\(/g) ?? []).length >= 5, 'background gradients and masks must use bounded strip work');
+  assert.match(renderer, /const initializeBootRenderer = \(\) => \{/);
+  assert.match(renderer, /window\.setTimeout\(initializeBootRenderer, 0\);/);
+  assert.match(renderer, /this\.ready = this\.start\(\);/);
+  assert.ok((renderer.match(/await this\.yieldInitialization\(\);/g) ?? []).length >= 3, 'boot graph, graticule, and animation startup must be split across task boundaries');
+  assert.match(renderer, /Promise\.all\(\[globe\.ready, fontsReady\]\)\.then\(announceReady, announceReady\);/);
   assert.match(renderer, /type:\s*'pkc:boot-globe-assembled'/);
   assert.match(renderer, /this\.canvas\.width = 1;/);
   assert.match(renderer, /this\.canvas\.height = 1;/);
@@ -100,6 +107,9 @@ test('boot assets preserve native timing and PKC identity without Rayco red', ()
   const bootRuntime = read('assets/pkc-motion/boot/pkc-boot.js');
   assert.match(bootRuntime, /pkc:boot-globe-assembled/);
   assert.match(bootRuntime, /schedule\(BOOT\.normal\.operationalHoldMs, \(\) => signalReady\('assembled-hold'\)\)/);
+  assert.match(bootRuntime, /failVisibleRemoveMs:\s*8200/);
+  assert.match(bootRuntime, /schedule\(BOOT\.normal\.failVisibleRemoveMs, \(\) => \{/);
+  assert.match(bootRuntime, /complete\('fail-visible-timeout'\)/);
 
   const visualAssets = [
     'assets/pkc-motion/tokens.css',
@@ -159,6 +169,23 @@ test('GSAP is bundled locally and constrained to orchestration-safe targets', ()
   assert.match(hero, /cancelIdleCallback/);
   assert.doesNotMatch(source, /gsap\.(?:set|to|from|fromTo)\([^\n]*(?:style|cssText)/);
   assert.doesNotMatch(source, /setAttribute\(\s*['"]style|\.style\./);
+});
+
+test('boot performance audit measures the canonical Browse Projects landing route', () => {
+  const audit = read('scripts/audit-boot-performance.mjs');
+  assert.match(audit, /const auditPath = '\/landing\.html\?entry=browse';/);
+  assert.match(audit, /finalUrl\.pathname !== '\/landing\.html'/);
+  assert.match(audit, /finalUrl\.search !== ''/);
+  assert.match(audit, /requestedPaths\.has\('\/dist\/landing\.js'\)/);
+  assert.match(audit, /requestedPaths\.has\('\/root-router\.js'\)/);
+});
+
+test('boot performance audit retains a deterministic long-task failure probe', () => {
+  const audit = read('scripts/audit-boot-performance.mjs');
+  assert.match(audit, /PKC_BOOT_AUDIT_INJECT_LONG_TASK_MS/);
+  assert.match(audit, /page\.addInitScript\(installObservers, injectedLongTaskMs\)/);
+  assert.match(audit, /performance\.mark\('pkc-audit-injected-long-task-start'\)/);
+  assert.match(audit, /performance\.mark\('pkc-audit-injected-long-task-end'\)/);
 });
 
 test('boot performance evidence has a reproducible repository-owned command', () => {

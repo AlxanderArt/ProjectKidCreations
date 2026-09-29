@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const reportPath = path.join(projectRoot, 'reports/boot-motion-performance.json');
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4173';
+const baseOrigin = new URL(baseURL).origin;
+const auditPath = '/landing.html?entry=browse';
+const injectedLongTaskMs = process.env.PKC_BOOT_AUDIT_INJECT_LONG_TASK_MS === undefined
+  ? 0
+  : Number(process.env.PKC_BOOT_AUDIT_INJECT_LONG_TASK_MS);
+if (!Number.isInteger(injectedLongTaskMs) || injectedLongTaskMs < 0 || injectedLongTaskMs > 1_000) {
+  throw new Error('PKC_BOOT_AUDIT_INJECT_LONG_TASK_MS must be an integer from 0 through 1000');
+}
 const thresholds = Object.freeze({
   maxLongTaskMsExclusive: 50,
   maxCumulativeLayoutShift: 0.1,
@@ -15,7 +23,7 @@ const viewports = Object.freeze([
   { name: 'mobile', width: 390, height: 844 },
 ]);
 
-const installObservers = () => {
+const installObservers = (injectedLongTaskMs) => {
   window.__pkcPerformanceAudit = {
     longTasks: [],
     layoutShifts: [],
@@ -64,6 +72,17 @@ const installObservers = () => {
     }).observe({ type: 'layout-shift', buffered: true });
     window.__pkcPerformanceAudit.layoutShiftSupported = true;
   } catch {}
+
+  if (injectedLongTaskMs > 0) {
+    document.addEventListener('DOMContentLoaded', () => {
+      window.setTimeout(() => {
+        performance.mark('pkc-audit-injected-long-task-start');
+        const startedAt = performance.now();
+        while (performance.now() - startedAt < injectedLongTaskMs) { /* deterministic test-only busy task */ }
+        performance.mark('pkc-audit-injected-long-task-end');
+      }, 0);
+    }, { once: true });
+  }
 };
 
 const readMetrics = () => {
@@ -83,14 +102,26 @@ try {
   for (const viewport of viewports) {
     const context = await browser.newContext({ viewport });
     const page = await context.newPage();
-    await page.addInitScript(installObservers);
-    await page.goto(`${baseURL}/landing.html`, { waitUntil: 'domcontentloaded' });
+    const requestedPaths = new Set();
+    page.on('request', (request) => {
+      const requestUrl = new URL(request.url());
+      if (requestUrl.origin === baseOrigin) requestedPaths.add(requestUrl.pathname);
+    });
+    await page.addInitScript(installObservers, injectedLongTaskMs);
+    await page.goto(`${baseURL}${auditPath}`, { waitUntil: 'domcontentloaded' });
 
     const frameElement = page.locator('.pkc-boot__globe');
     await frameElement.waitFor({ state: 'visible', timeout: 2_000 });
     await page.waitForFunction(() => document.documentElement.classList.contains('pkc-motion-ready'), null, { timeout: 9_000 });
     await page.waitForTimeout(100);
     const parentMetrics = await page.evaluate(readMetrics);
+    const finalUrl = new URL(page.url());
+    if (finalUrl.pathname !== '/landing.html' || finalUrl.search !== '') {
+      throw new Error(`${viewport.name}: audit route drifted to ${finalUrl.pathname}${finalUrl.search}`);
+    }
+    if (!requestedPaths.has('/dist/landing.js') || requestedPaths.has('/root-router.js')) {
+      throw new Error(`${viewport.name}: audit did not measure the canonical landing resource graph`);
+    }
     if (parentMetrics.motionReadyAt === null) throw new Error(`${viewport.name}: motion-ready timestamp unavailable`);
     const longTasks = parentMetrics.longTasks.filter(({ startTime }) => startTime <= parentMetrics.motionReadyAt);
     const layoutShifts = parentMetrics.layoutShifts.filter(({ startTime }) => startTime <= parentMetrics.motionReadyAt);
@@ -107,6 +138,8 @@ try {
       maxLongTaskMs: Math.max(0, ...longTasks.map(({ duration }) => duration)),
       longTaskCount: longTasks.length,
       cumulativeLayoutShift: layoutShifts.reduce((sum, { value }) => sum + value, 0),
+      route: { pathname: finalUrl.pathname, search: finalUrl.search },
+      resourceContract: { landingBundle: true, rootRouter: false },
       contextsMeasured: ['top-level including descendant-frame tasks'],
       longTaskBreakdown: { topLevel: longTasks },
     });

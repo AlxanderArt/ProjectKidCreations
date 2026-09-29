@@ -161,9 +161,10 @@ export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settleme
       )
       : await client.query(
         `SELECT * FROM pkc_auth.founder_mfa_enrollment_authorizations
-         WHERE founder_subject=$1 AND consumed_at IS NULL ORDER BY issued_at DESC LIMIT 1 FOR UPDATE`,
+         WHERE founder_subject=$1 AND consumed_at IS NULL ORDER BY issued_at DESC LIMIT 2 FOR UPDATE`,
         [founderSubject],
       );
+    if (result.rows.length > 1) throw new Error("ambiguous_enrollment_authorization");
     return result.rows[0] || null;
   }
 

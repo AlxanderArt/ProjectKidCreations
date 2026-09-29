@@ -2,6 +2,10 @@
 
 These repository tools prepare and verify metadata/evidence only. They do not authorize or perform live provider, PostgreSQL, n8n, Vercel, key, deployment, activation, enrollment, or cleanup operations. The approved plan digest is `7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814e5454`.
 
+## Manual Production rollout
+
+Use [`manual-founder-mfa-rollout.md`](manual-founder-mfa-rollout.md) for the human-controlled provider-native sequence. Every external mutation has its own approval and native readback; repository monitoring remains a diagnostic, non-sending evaluator and is not a scheduler or release authority.
+
 ## Commands
 
 ```sh
@@ -31,7 +35,8 @@ The restore CLI is only a non-authoritative sanitized syntax/parity evaluator. A
 - `scripts/ops/`: CLI surfaces.
 - `schemas/operations/` and `evidence/templates/`: closed mutation/approval receipts.
 - `monitoring/founder-mfa-alert-policy.json`: alert contract; evaluator never sends externally.
-- `docs/operations/`: stage-specific approvals, procedures, readback, rollback, and stop rules.
+- `docs/operations/manual-founder-mfa-rollout.md`: authoritative manual rollout sequence, approvals, native readback, rollback, and stop rules.
+- `docs/operations/`: supporting stage-specific procedures and diagnostic contracts.
 
 ## Deferred live gates
 

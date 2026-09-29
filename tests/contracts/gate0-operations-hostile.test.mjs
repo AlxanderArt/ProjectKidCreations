@@ -14,13 +14,13 @@ const PLAN_DIGEST = "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814
 const SHA = "a".repeat(40);
 const PROTECTED = ["wfDsutVsW15DHGr3", "nvgxxBPinPmsEmZq", "uuNgivASLQZ08gX7", "GVVnbelFG97UjJDw", "W63ETZfmKVI7UDFW", "jb0I4CqlJuuG6fXs"];
 
-const VARIABLES = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE"];
+const VARIABLES = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE", "PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"];
 
 function vercelInput() {
   const functionInventory = ["api/[...route].js"];
   const manifestBody = { schemaVersion: 1, serialization: "test-canonical-manifest", snapshot: { headCommit: SHA, headTree: "b".repeat(40), dirty: false, statusDigest: "0".repeat(64) }, files: functionInventory.map((path) => ({ path, bytes: 1, mode: 0o644, sha256: "d".repeat(64) })) };
   const candidate = buildVercelCandidateEvidence({ ...manifestBody, fingerprint: sha256(canonicalJson(manifestBody)) });
-  return { environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", expectedAliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: functionInventory, maxFunctions: 10, candidate, variables: VARIABLES.map((name) => ({ name, scopes: ["Preview"] })), vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
+  return { phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40), state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: functionInventory, maxFunctions: 10, candidate, variables: VARIABLES.map((name) => ({ name, scopes: ["Preview"] })), vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
 }
 
 function restoreInput() {
@@ -161,11 +161,14 @@ test("purge planning requires strict ordered UTC interval and exact safe counts"
   assert.throws(() => buildPurgePlan({ ...base, interval: { from: "2026-02-28T00:00:00.000Z", to: "2026-02-30T00:00:00.000Z" }, at: "2026-03-03T00:00:00.000Z" }), /interval|UTC|timestamp/i);
 });
 
-test("preflight documents the exact no-tree-write candidate contract", async () => {
+test("preflight documents native temporary-tree review authority and clean commit deployment authority", async () => {
   const text = await readFile(new URL("../../docs/operations/preflight.md", import.meta.url), "utf8");
-  assert.match(text, /HEAD commit, HEAD tree, dirty state\/status digest, complete tracked-plus-nonignored-untracked inventory, and fingerprint/i);
-  assert.doesNotMatch(text, /index tree/i);
-  assert.match(text, /no tree-writing Git operation/i);
+  assert.match(text, /disposable `GIT_INDEX_FILE`/i);
+  assert.match(text, /git add -A/i);
+  assert.match(text, /git write-tree/i);
+  assert.match(text, /never point these commands at the real index/i);
+  assert.match(text, /clean committed Git commit and tree/i);
+  assert.match(text, /local tree is review evidence only; it is not deployment authority/i);
 });
 
 test("receipt schemas encode the strict runtime bounds", async () => {

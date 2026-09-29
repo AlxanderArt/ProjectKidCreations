@@ -92,7 +92,7 @@ if node db/migrate.mjs >/dev/null 2>&1; then
 fi
 psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "DELETE FROM pkc_auth.migration_ledger WHERE version=3" >/dev/null
 psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/010_seal_migrator.sql >/dev/null
-psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/010_seal_migrator.sql >/dev/null
+PGOPTIONS='-c client_min_messages=error' psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/010_seal_migrator.sql >/dev/null
 
 if psql -h 127.0.0.1 -p "$port" -U pkc_mfa_migrator -d pkc_founder_mfa -c 'SELECT 1' >/dev/null 2>&1; then
   echo "sealed_migrator_login_guard_failed" >&2

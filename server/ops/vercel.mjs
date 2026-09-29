@@ -6,6 +6,7 @@ const REQUIRED = [
   "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL",
   "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE",
 ];
+const ENFORCED_REQUIRED = ["PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"];
 const HEX40 = /^[0-9a-f]{40}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const FUNCTION_PATH = /^api\/(?:[A-Za-z0-9._[\]-]+\/)*[A-Za-z0-9._[\]-]+\.js$/;
@@ -82,14 +83,18 @@ export function buildVercelCandidateEvidence(rawManifest) {
 
 export function verifyVercelDeployment(raw) {
   const input = snapshotJsonData(raw, { label: "Vercel deployment evidence", maxDepth: 6, maxNodes: 20_000, maxArrayLength: 10_000, maxStringLength: 1024, maxAggregateBytes: 4 * 1024 * 1024 });
-  closed(input, ["environment", "expectedEnvironment", "founderMfaMode", "sourceSha", "expectedSourceSha", "state", "deploymentId", "aliasTarget", "expectedAliasTarget", "rollbackDeploymentId", "functions", "maxFunctions", "candidate", "variables", "vercelKids", "n8nKids"], "Vercel deployment evidence");
+  closed(input, ["phase", "environment", "expectedEnvironment", "founderMfaMode", "expectedFounderMfaMode", "sourceSha", "expectedSourceSha", "sourceTreeSha", "state", "deploymentId", "aliasTarget", "rollbackDeploymentId", "functions", "maxFunctions", "candidate", "variables", "vercelKids", "n8nKids"], "Vercel deployment evidence");
   const inventory = verifyCandidate(input.candidate);
+  if (input.candidate.manifestDirty) throw new Error("deployment verification requires a clean committed candidate manifest");
   if (!HEX40.test(input.sourceSha ?? "") || input.sourceSha !== input.expectedSourceSha || input.sourceSha !== input.candidate.commitSha) throw new Error("exact candidate source SHA mismatch");
+  if (!HEX40.test(input.sourceTreeSha ?? "") || input.sourceTreeSha !== input.candidate.treeSha) throw new Error("exact candidate source tree mismatch");
   if (!input.environment || input.environment !== input.expectedEnvironment) throw new Error("deployment environment mismatch");
   if (input.state !== "READY") throw new Error("deployment is not Ready");
-  if (input.founderMfaMode !== "enforced") throw new Error("founder MFA mode is not exactly enforced");
-  if (!input.deploymentId || input.aliasTarget !== input.expectedAliasTarget || input.aliasTarget !== input.deploymentId) throw new Error("alias pointer mismatch");
+  if (!["disabled", "armed", "enforced"].includes(input.expectedFounderMfaMode) || input.founderMfaMode !== input.expectedFounderMfaMode) throw new Error("founder MFA mode does not match the exact expected rollout mode");
+  if (!input.deploymentId || !["isolated", "promoted"].includes(input.phase)) throw new Error("deployment phase is invalid");
   if (!input.rollbackDeploymentId || input.rollbackDeploymentId === input.deploymentId) throw new Error("rollback pointer missing or invalid");
+  const expectedAliasTarget = input.phase === "isolated" ? input.rollbackDeploymentId : input.deploymentId;
+  if (input.aliasTarget !== expectedAliasTarget) throw new Error("alias pointer mismatch for deployment phase");
   if (input.maxFunctions !== VERCEL_RELEASE_FUNCTION_CEILING) throw new Error("function ceiling must be the exact configured release contract value 10");
   const deployed = canonicalInventory(input.functions, "deployed function inventory");
   if (canonicalJson(input.functions) !== canonicalJson(deployed) || canonicalJson(deployed) !== canonicalJson(inventory)) throw new Error("deployed function inventory does not exactly match frozen candidate inventory and manifest");
@@ -101,7 +106,8 @@ export function verifyVercelDeployment(raw) {
     if (typeof row.name !== "string" || names.has(row.name)) throw new Error("duplicate or invalid variable name rejected");
     names.set(row.name, row.scopes);
   }
-  for (const name of REQUIRED) {
+  const requiredVariables = input.expectedFounderMfaMode === "enforced" ? [...REQUIRED, ...ENFORCED_REQUIRED] : REQUIRED;
+  for (const name of requiredVariables) {
     const scopes = names.get(name);
     if (!Array.isArray(scopes) || scopes.length !== 1 || scopes[0] !== input.environment) throw new Error(`required variable name/scope mismatch: ${name}`);
   }
@@ -109,5 +115,5 @@ export function verifyVercelDeployment(raw) {
     const kid = input.vercelKids?.[purpose];
     if (!new RegExp(`^${purpose}-v[1-9][0-9]*$`).test(kid ?? "") || kid !== input.n8nKids?.[purpose]) throw new Error(`${purpose} KID agreement failed`);
   }
-  return { ok: true, mode: "read-only", founderMfaMode: input.founderMfaMode, deploymentId: input.deploymentId, sourceSha: input.sourceSha, candidateTree: input.candidate.treeSha, candidateFingerprint: input.candidate.manifestFingerprint, candidateEvidenceDigest: input.candidate.evidenceDigest, environment: input.environment, functionCount: input.functions.length, functionInventoryDigest: input.candidate.functionInventoryDigest, variableNames: [...names.keys()].sort(), rollbackDeploymentId: input.rollbackDeploymentId };
+  return { ok: true, mode: "read-only", phase: input.phase, founderMfaMode: input.founderMfaMode, deploymentId: input.deploymentId, sourceSha: input.sourceSha, candidateTree: input.candidate.treeSha, candidateFingerprint: input.candidate.manifestFingerprint, candidateEvidenceDigest: input.candidate.evidenceDigest, environment: input.environment, functionCount: input.functions.length, functionInventoryDigest: input.candidate.functionInventoryDigest, variableNames: [...names.keys()].sort(), rollbackDeploymentId: input.rollbackDeploymentId };
 }

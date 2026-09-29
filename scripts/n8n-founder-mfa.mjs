@@ -607,8 +607,8 @@ const sessionMatches = $('Read Sessions').all().map(entry => entry.json)
   .filter(row => row && String(row.session_id) === String(trace.session_id));
 if (sessionMatches.length !== 1) throw new Error('403: session_authority_ambiguous');
 const session = sessionMatches[0];
-const sessionEpoch = String(session?.auth_epoch ?? '');
-if (!/^(?:0|[1-9][0-9]*)$/.test(sessionEpoch) || sessionEpoch.length>19 || (sessionEpoch.length===19&&sessionEpoch>'9223372036854775807')) throw new Error('403: founder_session_assurance_invalid');
+const sessionEpoch = session?.auth_epoch;
+if (typeof sessionEpoch !== 'string' || !/^(?:0|[1-9][0-9]*)$/.test(sessionEpoch) || sessionEpoch.length>19 || (sessionEpoch.length===19&&sessionEpoch>'9223372036854775807')) throw new Error('403: founder_session_assurance_invalid');
 const amr = String(session?.amr || '').trim().split(/\\s+/).filter(Boolean);
 const mfaVerifiedMs = new Date(session?.mfa_verified_at || '').getTime();
 const mfaVerifiedAt = mfaVerifiedMs / 1000;
@@ -632,11 +632,11 @@ const usernameMatch = session?.username === 'PK Blick';
 const founderSession = subjectMatch && usernameMatch;
 if (subjectMatch !== usernameMatch) throw new Error('403: founder_session_assurance_invalid');
 if (!founderSession) return [{ json: item }];
-const authEpoch = String(session.auth_epoch ?? '');
+const authEpoch = session.auth_epoch;
 const amr = String(session.amr || '').trim().split(/\\s+/).filter(Boolean);
 const mfaVerifiedMs = new Date(session.mfa_verified_at || '').getTime();
 const mfaVerifiedAt = mfaVerifiedMs / 1000;
-if (!/^(?:0|[1-9][0-9]*)$/.test(authEpoch) || authEpoch.length>19 || (authEpoch.length===19&&authEpoch>'9223372036854775807')
+if (typeof authEpoch !== 'string' || !/^(?:0|[1-9][0-9]*)$/.test(authEpoch) || authEpoch.length>19 || (authEpoch.length===19&&authEpoch>'9223372036854775807')
   || JSON.stringify(amr) !== '["pwd","otp"]' || !Number.isSafeInteger(mfaVerifiedAt)) {
   throw new Error('403: founder_session_assurance_invalid');
 }
