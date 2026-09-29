@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { chmod, lstat, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { mkdtemp } from "node:fs/promises";
+
 
 import { canonicalJson, sha256 } from "../../server/ops/canonical.mjs";
 import { buildCandidateManifest, verifyCandidateManifest } from "../../server/ops/candidate.mjs";
@@ -20,6 +20,17 @@ const PLAN_DIGEST = "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814
 const SHA = "a".repeat(40);
 const AT = "2026-09-28T00:00:00.000Z";
 const PROTECTED = ["wfDsutVsW15DHGr3", "nvgxxBPinPmsEmZq", "uuNgivASLQZ08gX7", "GVVnbelFG97UjJDw", "W63ETZfmKVI7UDFW", "jb0I4CqlJuuG6fXs"];
+const temporaryRoots = new Set();
+
+async function temporaryRoot(prefix) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.add(root);
+  return root;
+}
+
+test.after(async () => {
+  for (const root of temporaryRoots) await rm(root, { recursive: true, force: true });
+});
 
 const localKeyApproval = { executeLocal: true, targetKind: "disposable-local", typedApproval: "APPROVE LOCAL KEY GENERATION" };
 function candidateEvidence(functionInventory = ["api/[...route].js"]) {
@@ -46,7 +57,7 @@ test("canonical JSON recursively sorts keys and terminates with one LF", () => {
 });
 
 test("candidate manifest includes tracked and nonignored untracked files deterministically", async () => {
-  const repo = await mkdtemp(join(tmpdir(), "pkc-candidate-"));
+  const repo = await temporaryRoot("pkc-candidate-");
   spawnSync("git", ["init", "-q"], { cwd: repo });
   spawnSync("git", ["config", "user.email", "test@example.invalid"], { cwd: repo });
   spawnSync("git", ["config", "user.name", "Test"], { cwd: repo });
@@ -70,7 +81,7 @@ test("candidate manifest includes tracked and nonignored untracked files determi
 });
 
 test("candidate rejects symlinks, path escapes, and secret policy matches", async () => {
-  const repo = await mkdtemp(join(tmpdir(), "pkc-candidate-hostile-"));
+  const repo = await temporaryRoot("pkc-candidate-hostile-");
   spawnSync("git", ["init", "-q"], { cwd: repo });
   await writeFile(join(repo, "safe.txt"), "safe\n");
   await symlink("safe.txt", join(repo, "link.txt"));
@@ -82,7 +93,7 @@ test("candidate rejects symlinks, path escapes, and secret policy matches", asyn
 });
 
 test("key operation writes four distinct mode-0600 files and emits metadata only", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "pkc-keys-"));
+  const dir = await temporaryRoot("pkc-keys-");
   const canaries = {
     handoff: Buffer.from("H".repeat(32)), encryption: Buffer.from("E".repeat(32)),
     finalize: Buffer.from("F".repeat(32)), recovery: Buffer.from("R".repeat(32)),
@@ -97,7 +108,7 @@ test("key operation writes four distinct mode-0600 files and emits metadata only
 });
 
 test("key operation rejects a symlink ceremony directory", async () => {
-  const root = await mkdtemp(join(tmpdir(), "pkc-key-symlink-"));
+  const root = await temporaryRoot("pkc-key-symlink-");
   const target = join(root, "target");
   const link = join(root, "link");
   await mkdir(target);
@@ -106,7 +117,7 @@ test("key operation rejects a symlink ceremony directory", async () => {
 });
 
 test("interrupted key cleanup requires its exact ownership marker", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pkc-key-cleanup-"));
+  const directory = await temporaryRoot("pkc-key-cleanup-");
   const protectedPath = join(directory, "handoff-v8.key");
   await writeFile(protectedPath, "do-not-delete", { mode: 0o600 });
   await assert.rejects(cleanupInterruptedKeyRun({ directory, version: 8, executeLocal: true, targetKind: "disposable-local", typedApproval: "APPROVE LOCAL KEY CLEANUP" }), /marker/i);
@@ -114,7 +125,7 @@ test("interrupted key cleanup requires its exact ownership marker", async () => 
 });
 
 test("key CLI never prints injected key canaries", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "pkc-key-cli-"));
+  const dir = await temporaryRoot("pkc-key-cli-");
   const canary = "CANARY_SECRET_MUST_NEVER_PRINT_123456";
   const result = runCli("keys", ["generate", "--directory", dir, "--version", "1", "--at", AT, "--stdin-material"], `${canary}\n${"B".repeat(32)}\n${"C".repeat(32)}\n${"D".repeat(32)}\n`);
   assert.notEqual(result.status, 0);

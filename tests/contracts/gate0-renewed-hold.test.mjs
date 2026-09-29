@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -20,6 +20,17 @@ const HEX = (character) => character.repeat(64);
 const PLAN_DIGEST = "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814e5454";
 const PROTECTED = ["wfDsutVsW15DHGr3", "nvgxxBPinPmsEmZq", "uuNgivASLQZ08gX7", "GVVnbelFG97UjJDw", "W63ETZfmKVI7UDFW", "jb0I4CqlJuuG6fXs"];
 const VARIABLES = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE", "PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"];
+const temporaryRoots = new Set();
+
+async function temporaryRoot(prefix) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.add(root);
+  return root;
+}
+
+test.after(async () => {
+  for (const root of temporaryRoots) await rm(root, { recursive: true, force: true });
+});
 
 function candidateEvidence(functionInventory = ["api/[...route].js"]) {
   const manifestBody = { schemaVersion: 1, serialization: "test-canonical-manifest", snapshot: { headCommit: SHA, headTree: "b".repeat(40), dirty: false, statusDigest: HEX("0") }, files: functionInventory.map((path) => ({ path, bytes: 1, mode: 0o644, sha256: HEX("d") })) };
@@ -75,7 +86,7 @@ function runCli(name, args = []) {
 }
 
 async function disposableRepo(files) {
-  const repo = await mkdtemp(join(tmpdir(), "pkc-renewed-hold-"));
+  const repo = await temporaryRoot("pkc-renewed-hold-");
   spawnSync("git", ["init", "-q"], { cwd: repo });
   spawnSync("git", ["config", "user.email", "test@example.invalid"], { cwd: repo });
   spawnSync("git", ["config", "user.name", "Test"], { cwd: repo });
@@ -95,7 +106,7 @@ test("Vercel verification consumes exact frozen candidate evidence and exact rel
 });
 
 test("Vercel candidate evidence is generated from a disposable accepted catch-all candidate", async () => {
-  const repo = await mkdtemp(join(tmpdir(), "pkc-vercel-candidate-"));
+  const repo = await temporaryRoot("pkc-vercel-candidate-");
   spawnSync("git", ["init", "-q"], { cwd: repo });
   spawnSync("git", ["config", "user.email", "test@example.invalid"], { cwd: repo });
   spawnSync("git", ["config", "user.name", "Test"], { cwd: repo });
@@ -240,7 +251,7 @@ test("complete invented restore evidence can never produce an authoritative succ
 });
 
 test("restore CLI emits only the non-authoritative syntax/parity contract", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pkc-restore-syntax-parity-"));
+  const directory = await temporaryRoot("pkc-restore-syntax-parity-");
   const input = join(directory, "invented-complete-evidence.json");
   await writeFile(input, JSON.stringify(restoreEvidence()));
   const result = runCli("restore", ["verify", "--input", input]);
@@ -269,7 +280,7 @@ test("candidate rejects secret assignments in JavaScript source", async () => {
 });
 
 test("restore, Vercel, and monitor CLIs enforce their exact evidence grammar", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pkc-evidence-cli-grammar-"));
+  const directory = await temporaryRoot("pkc-evidence-cli-grammar-");
   const cases = [
     { name: "restore", command: "verify", value: restoreEvidence() },
     { name: "vercel", command: "verify", value: vercelInput() },
@@ -307,7 +318,7 @@ test("all operations command enums are closed and candidate writes require typed
     assert.notEqual(result.status, 0, name);
     assert.match(result.stderr, /unknown|command|requires|required/i, name);
   }
-  const directory = await mkdtemp(join(tmpdir(), "pkc-candidate-output-"));
+  const directory = await temporaryRoot("pkc-candidate-output-");
   const output = join(directory, "candidate.json");
   const result = runCli("candidate", ["manifest", "--root", ROOT, "--output", output]);
   assert.notEqual(result.status, 0);
@@ -316,7 +327,7 @@ test("all operations command enums are closed and candidate writes require typed
 });
 
 test("key writes and deletion require explicit local approval and reject production-like targets", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pkc-production-keys-"));
+  const directory = await temporaryRoot("pkc-production-keys-");
   const material = { handoff: Buffer.alloc(32, 1), encryption: Buffer.alloc(32, 2), finalize: Buffer.alloc(32, 3), recovery: Buffer.alloc(32, 4) };
   await assert.rejects(createKeyFiles({ directory, version: 1, at: AT, material }), /approval|execute|target/i);
   await assert.rejects(createKeyFiles({ directory, version: 1, at: AT, material, executeLocal: true, targetKind: "disposable-local", typedApproval: "APPROVE LOCAL KEY GENERATION" }), /production/i);

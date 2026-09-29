@@ -27,11 +27,16 @@ export class TransactionOutcomeUnknownError extends Error {
   }
 }
 
-function bounded(promise, milliseconds, stage) {
+function bounded(promise, milliseconds, stage, onTimeout = () => {}) {
   let timer;
   return Promise.race([
     promise,
-    new Promise((_, reject) => { timer = setTimeout(() => reject(new TransactionOutcomeUnknownError(stage)), milliseconds); }),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        onTimeout();
+        reject(new TransactionOutcomeUnknownError(stage));
+      }, milliseconds);
+    }),
   ]).finally(() => clearTimeout(timer));
 }
 
@@ -74,7 +79,31 @@ export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settleme
         poison = error instanceof Error ? error : new Error("setup_unknown");
         throw new TransactionOutcomeUnknownError("setup", { cause: poison });
       }
-      const result = await bounded(Promise.resolve().then(() => work(client)), totalDeadlineMs, "work");
+      let acceptingWorkQueries = true;
+      const activeWorkQueries = new Set();
+      const transactionClient = Object.freeze({
+        query(...args) {
+          if (!acceptingWorkQueries) return Promise.reject(new TransactionOutcomeUnknownError("work"));
+          const query = Promise.resolve().then(() => client.query(...args));
+          activeWorkQueries.add(query);
+          query.then(
+            () => activeWorkQueries.delete(query),
+            () => activeWorkQueries.delete(query),
+          );
+          return query;
+        },
+      });
+      const workPromise = Promise.resolve().then(() => work(transactionClient));
+      let result;
+      try {
+        result = await bounded(workPromise, totalDeadlineMs, "work", () => { acceptingWorkQueries = false; });
+        acceptingWorkQueries = false;
+        if (activeWorkQueries.size !== 0) throw new TransactionOutcomeUnknownError("work");
+      } catch (error) {
+        acceptingWorkQueries = false;
+        workPromise.catch(() => {});
+        throw error;
+      }
       try {
         await bounded(client.query("COMMIT"), settlementDeadlineMs, "commit");
       } catch (error) {

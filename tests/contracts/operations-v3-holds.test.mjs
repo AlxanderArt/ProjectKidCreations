@@ -8,6 +8,17 @@ import test from "node:test";
 import { buildCandidateManifest } from "../../server/ops/candidate.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
+const temporaryRoots = new Set();
+
+async function temporaryRoot(prefix) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.add(root);
+  return root;
+}
+
+test.after(async () => {
+  for (const root of temporaryRoots) await rm(root, { recursive: true, force: true });
+});
 
 function git(cwd, args) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -15,7 +26,7 @@ function git(cwd, args) {
 }
 
 async function disposableRepo(files) {
-  const repo = await mkdtemp(join(tmpdir(), "pkc-v3-holds-"));
+  const repo = await temporaryRoot("pkc-v3-holds-");
   git(repo, ["init", "-q"]);
   git(repo, ["config", "user.email", "test@example.invalid"]);
   git(repo, ["config", "user.name", "Test"]);
@@ -42,7 +53,7 @@ function sourceAssignment(key, rhs) {
 
 test("candidate rejects a tracked file reached through a symlinked ancestor", async () => {
   const repo = await disposableRepo({ "nested/inside.txt": "tracked bytes\n" });
-  const outside = await mkdtemp(join(tmpdir(), "pkc-v3-outside-"));
+  const outside = await temporaryRoot("pkc-v3-outside-");
   await writeFile(join(outside, "inside.txt"), "outside bytes must not be trusted\n");
   await rm(join(repo, "nested"), { recursive: true });
   await symlink(outside, join(repo, "nested"), "dir");

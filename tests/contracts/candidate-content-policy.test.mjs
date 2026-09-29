@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -8,8 +8,20 @@ import test from "node:test";
 
 import { buildCandidateManifest } from "../../server/ops/candidate.mjs";
 
+const temporaryRoots = new Set();
+
+async function temporaryRoot(prefix) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.add(root);
+  return root;
+}
+
+test.after(async () => {
+  for (const root of temporaryRoots) await rm(root, { recursive: true, force: true });
+});
+
 async function disposableRepo(files) {
-  const repo = await mkdtemp(join(tmpdir(), "pkc-candidate-content-"));
+  const repo = await temporaryRoot("pkc-candidate-content-");
   spawnSync("git", ["init", "-q"], { cwd: repo });
   spawnSync("git", ["config", "user.email", "test@example.invalid"], { cwd: repo });
   spawnSync("git", ["config", "user.name", "Test"], { cwd: repo });

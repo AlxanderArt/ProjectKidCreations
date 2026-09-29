@@ -49,6 +49,8 @@ test("timed-out work poisons the client before late work can escape its transact
   assert.ok(releasedWith instanceof Error);
   allowLateQuery();
   await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(queries.slice(-1), ["ROLLBACK"]);
+  assert.equal(queries.includes("SELECT 'late'"), false);
 });
 
 test("transactions install local deadlines before work and commit", async () => {
