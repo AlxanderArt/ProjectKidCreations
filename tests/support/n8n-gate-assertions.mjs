@@ -87,7 +87,7 @@ function assertFinalizer(finalizer) {
   const validatorSource = codeSource(validator);
   assert.match(validatorSource, /unexpected_finalizer_response_shape/, "finalizer response validator must fail closed");
   const receipt = Object.fromEntries(FINALIZER_PUBLIC_RESPONSE_KEYS.map((key) => [key, key]));
-  Object.assign(receipt, { ok: true, status: "authenticated", receipt_version: 1, auth_epoch: 1, mfa_verified_at: 2, issued_at: 3, expires_at: 4 });
+  Object.assign(receipt, { ok: true, status: "authenticated", receipt_version: 1, auth_epoch: "1", mfa_verified_at: 2, issued_at: 3, expires_at: 4 });
   const execute = (value) => Function("$", validatorSource)((name) => {
     assert.equal(name, "Verify Finalize Grant");
     return { first: () => ({ json: { receipt: value } }) };

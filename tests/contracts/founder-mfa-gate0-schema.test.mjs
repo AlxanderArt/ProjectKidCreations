@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 const roles = readFileSync(new URL("../../db/roles/000_roles.sql", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../../db/migrations/001_founder_mfa.sql", import.meta.url), "utf8");
+const correctiveMigration = readFileSync(new URL("../../db/migrations/002_founder_mfa_production_authority.sql", import.meta.url), "utf8");
 const manifest = JSON.parse(readFileSync(new URL("../../db/migrations/manifest.json", import.meta.url), "utf8"));
 const runner = readFileSync(new URL("../../db/migrate.mjs", import.meta.url), "utf8");
 const readiness = readFileSync(new URL("../../db/readiness.mjs", import.meta.url), "utf8");
@@ -11,9 +12,10 @@ const nativeHarness = readFileSync(new URL("../../scripts/test-founder-mfa-postg
 
 test("ordered migration authority is checksum-ledgered, target-guarded, locked, and replay safe", () => {
   assert.deepEqual(manifest.schemaVersion, 1);
-  assert.equal(manifest.migrations.length, 1);
+  assert.equal(manifest.migrations.length, 2);
   assert.equal(manifest.migrations[0].file, "001_founder_mfa.sql");
-  assert.match(manifest.migrations[0].sha256, /^[a-f0-9]{64}$/);
+  assert.equal(manifest.migrations[1].file, "002_founder_mfa_production_authority.sql");
+  for (const entry of manifest.migrations) assert.match(entry.sha256, /^[a-f0-9]{64}$/);
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /migration_ledger/);
   assert.match(runner, /checksum_mismatch/);
@@ -22,8 +24,11 @@ test("ordered migration authority is checksum-ledgered, target-guarded, locked, 
   assert.match(runner, /row\.environment !== expectedEnvironment/);
   assert.match(runner, /pg_db_role_setting/);
   assert.match(runner, /\.setrole\s*=\s*0/);
-  assert.match(runner, /unknown_migration_ledger_entry/);
+  assert.match(runner, /migration_ledger_not_contiguous_prefix/);
+  assert.match(runner, /TextDecoder\("utf-8", \{ fatal: true \}\)/);
   assert.match(migration, /environment text NOT NULL/);
+  assert.match(correctiveMigration, /founder_mfa_enrollment_authorizations/);
+  assert.match(correctiveMigration, /founder_mfa_recovery_operations/);
   assert.match(runner, /BEGIN/);
   assert.match(runner, /COMMIT/);
 });

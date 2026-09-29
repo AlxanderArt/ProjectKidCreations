@@ -116,6 +116,8 @@ const adminMatch = String(account.is_admin || '').toUpperCase() === 'TRUE';
 const founderTuple = subjectMatch && usernameMatch && adminMatch;
 if ((subjectMatch || usernameMatch || adminMatch) && !founderTuple) throw new Error('403: founder_identity_mismatch');
 if (founderTuple) {
+  const founderMode=String($env.PKC_FOUNDER_MFA_MODE||'');
+  if (founderMode!=='enforced') throw new Error('403: founder_mfa_mode_denied');
   const login_attempt_id = String(trace.login_attempt_id || '');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(login_attempt_id)) {
     throw new Error('400: invalid_login_attempt_id');
@@ -328,7 +330,8 @@ export function verifyFounderFinalizeGrant(token, { key, expectedKid, now = Math
     || !STABLE_ID_RE.test(payload.jti)
     || !STABLE_ID_RE.test(payload.finalize_id)
     || !STABLE_ID_RE.test(payload.session_id)
-    || !Number.isSafeInteger(payload.auth_epoch) || payload.auth_epoch < 0
+    || typeof payload.auth_epoch !== "string" || !/^(?:0|[1-9][0-9]*)$/.test(payload.auth_epoch)
+    || payload.auth_epoch.length > 19 || (payload.auth_epoch.length === 19 && payload.auth_epoch > "9223372036854775807")
     || JSON.stringify(payload.amr) !== JSON.stringify(["pwd", "otp"])) throw new Error("invalid_finalize_claims");
   for (const name of ["password_authenticated_at", "mfa_verified_at", "session_issued_at", "session_expires_at", "iat", "nbf", "exp"]) {
     if (!Number.isSafeInteger(payload[name]) || payload[name] < 0) throw new Error("invalid_finalize_claims");
@@ -349,6 +352,7 @@ const expectedInternalKey = $env.PKC_AUTH_KEY;
 if (!expectedInternalKey) throw new Error('503: finalizer_not_configured');
 const digest = value => crypto.createHash('sha256').update(String(value || ''), 'utf8').digest();
 if (!crypto.timingSafeEqual(digest(headers['x-pkc-key']), digest(expectedInternalKey))) throw new Error('401: unauthorized');
+if ($env.PKC_FOUNDER_MFA_MODE !== 'enforced') throw new Error('403: founder_mfa_mode_denied');
 const body = input.body || input || {};
 if (Object.keys(body).length !== 1 || typeof body.grant !== 'string' || body.grant.length > 8192) throw new Error('400: invalid_finalize_request');
 const grant = body.grant;
@@ -394,6 +398,7 @@ if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, exp
 const claimKeys = ['amr','aud','auth_epoch','exp','finalize_id','iat','is_admin','iss','jti','kid','login_attempt_id','mfa_verified_at','nbf','password_authenticated_at','purpose','session_expires_at','session_id','session_issued_at','sub','typ','username','version'];
 if (!exactKeys(claims, claimKeys)) throw new Error('401: invalid_finalize_claims');
 const integer = value => Number.isSafeInteger(value) && value >= 0;
+const pgBigint = value => typeof value === 'string' && /^(?:0|[1-9][0-9]*)$/.test(value) && (value.length < 19 || (value.length === 19 && value <= '9223372036854775807'));
 const stableId = value => /^[a-z][a-z0-9_-]{7,127}$/.test(value);
 if (claims.iss !== 'pkc-vercel-founder-mfa'
   || claims.aud !== 'pkc-n8n-founder-mfa-finalizer'
@@ -403,7 +408,7 @@ if (claims.iss !== 'pkc-vercel-founder-mfa'
   || claims.username !== 'PK Blick' || claims.is_admin !== true
   || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claims.login_attempt_id)
   || !stableId(claims.jti) || !stableId(claims.finalize_id) || !stableId(claims.session_id)
-  || !integer(claims.auth_epoch) || JSON.stringify(claims.amr) !== '["pwd","otp"]') throw new Error('401: invalid_finalize_claims');
+  || !pgBigint(claims.auth_epoch) || JSON.stringify(claims.amr) !== '["pwd","otp"]') throw new Error('401: invalid_finalize_claims');
 for (const field of ['password_authenticated_at','mfa_verified_at','session_issued_at','session_expires_at','iat','nbf','exp']) if (!integer(claims[field])) throw new Error('401: invalid_finalize_claims');
 const now = Math.floor(Date.now() / 1000);
 if (claims.nbf > now + 5 || claims.iat > now + 5 || claims.exp <= now || claims.exp - claims.iat > 120) throw new Error('401: expired_or_future_finalize_grant');
@@ -602,8 +607,8 @@ const sessionMatches = $('Read Sessions').all().map(entry => entry.json)
   .filter(row => row && String(row.session_id) === String(trace.session_id));
 if (sessionMatches.length !== 1) throw new Error('403: session_authority_ambiguous');
 const session = sessionMatches[0];
-const sessionEpoch = Number(session?.auth_epoch);
-if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) throw new Error('403: founder_session_assurance_invalid');
+const sessionEpoch = String(session?.auth_epoch ?? '');
+if (!/^(?:0|[1-9][0-9]*)$/.test(sessionEpoch) || sessionEpoch.length>19 || (sessionEpoch.length===19&&sessionEpoch>'9223372036854775807')) throw new Error('403: founder_session_assurance_invalid');
 const amr = String(session?.amr || '').trim().split(/\\s+/).filter(Boolean);
 const mfaVerifiedMs = new Date(session?.mfa_verified_at || '').getTime();
 const mfaVerifiedAt = mfaVerifiedMs / 1000;
@@ -627,11 +632,11 @@ const usernameMatch = session?.username === 'PK Blick';
 const founderSession = subjectMatch && usernameMatch;
 if (subjectMatch !== usernameMatch) throw new Error('403: founder_session_assurance_invalid');
 if (!founderSession) return [{ json: item }];
-const authEpoch = Number(session.auth_epoch);
+const authEpoch = String(session.auth_epoch ?? '');
 const amr = String(session.amr || '').trim().split(/\\s+/).filter(Boolean);
 const mfaVerifiedMs = new Date(session.mfa_verified_at || '').getTime();
 const mfaVerifiedAt = mfaVerifiedMs / 1000;
-if (!Number.isSafeInteger(authEpoch) || authEpoch < 0
+if (!/^(?:0|[1-9][0-9]*)$/.test(authEpoch) || authEpoch.length>19 || (authEpoch.length===19&&authEpoch>'9223372036854775807')
   || JSON.stringify(amr) !== '["pwd","otp"]' || !Number.isSafeInteger(mfaVerifiedAt)) {
   throw new Error('403: founder_session_assurance_invalid');
 }

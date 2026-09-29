@@ -6,6 +6,7 @@ import {
   randomInt,
   timingSafeEqual,
 } from "node:crypto";
+import { pgBigint } from "./pg-bigint.mjs";
 
 const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_TOTP = Object.freeze({ algorithm: "sha1", digits: 6, period: 30, window: 1 });
@@ -157,11 +158,13 @@ export function verifyTotp(code, secret, timestampMs, options = {}) {
     const candidate = totpAt(secret, counter * period * 1000, { ...options, digits, period });
     const matched = timingSafeEqual(Buffer.from(code, "ascii"), Buffer.from(candidate, "ascii"));
     if (!matched) continue;
-    if (options.lastAcceptedCounter !== null && options.lastAcceptedCounter !== undefined && counter <= options.lastAcceptedCounter) {
+    const counterString = String(counter);
+    if (options.lastAcceptedCounter !== null && options.lastAcceptedCounter !== undefined
+        && BigInt(counterString) <= BigInt(pgBigint(options.lastAcceptedCounter, "last_accepted_counter"))) {
       replayed = true;
       continue;
     }
-    return { valid: true, counter };
+    return { valid: true, counter: counterString };
   }
   return { valid: false, reason: replayed ? "replayed" : "invalid" };
 }

@@ -14,13 +14,13 @@ const PLAN_DIGEST = "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814
 const SHA = "a".repeat(40);
 const PROTECTED = ["wfDsutVsW15DHGr3", "nvgxxBPinPmsEmZq", "uuNgivASLQZ08gX7", "GVVnbelFG97UjJDw", "W63ETZfmKVI7UDFW", "jb0I4CqlJuuG6fXs"];
 
-const VARIABLES = ["PKC_DATABASE_URL", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE"];
+const VARIABLES = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE"];
 
 function vercelInput() {
   const functionInventory = ["api/[...route].js"];
   const manifestBody = { schemaVersion: 1, serialization: "test-canonical-manifest", snapshot: { headCommit: SHA, headTree: "b".repeat(40), dirty: false, statusDigest: "0".repeat(64) }, files: functionInventory.map((path) => ({ path, bytes: 1, mode: 0o644, sha256: "d".repeat(64) })) };
   const candidate = buildVercelCandidateEvidence({ ...manifestBody, fingerprint: sha256(canonicalJson(manifestBody)) });
-  return { environment: "Preview", expectedEnvironment: "Preview", sourceSha: SHA, expectedSourceSha: SHA, state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", expectedAliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: functionInventory, maxFunctions: 10, candidate, variables: VARIABLES.map((name) => ({ name, scopes: ["Preview"] })), vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
+  return { environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", expectedAliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: functionInventory, maxFunctions: 10, candidate, variables: VARIABLES.map((name) => ({ name, scopes: ["Preview"] })), vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
 }
 
 function restoreInput() {
@@ -119,6 +119,17 @@ test("Vercel verification binds to the frozen candidate function inventory", () 
   assert.equal(verifyVercelDeployment(base).functionCount, 1);
   for (const functions of [[], ["api/extra.js"], [base.functions[0], base.functions[0]], ["api/drift.js"]]) {
     assert.throws(() => verifyVercelDeployment({ ...base, functions }), /function inventory|candidate|manifest/i);
+  }
+});
+
+test("Vercel verification requires exact enforced mode and database identity variable scopes", () => {
+  const base = vercelInput();
+  assert.equal(verifyVercelDeployment(base).founderMfaMode, "enforced");
+  for (const founderMfaMode of ["disabled", "armed", "ENFORCED", undefined])
+    assert.throws(() => verifyVercelDeployment({ ...base, founderMfaMode }), /mode|enforced/i);
+  for (const name of ["PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT"]) {
+    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.filter((row) => row.name !== name) }), /variable.*scope/i);
+    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((row) => row.name === name ? { ...row, scopes: ["Production"] } : row) }), /variable.*scope/i);
   }
 });
 

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { TextDecoder } from "node:util";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 
@@ -8,10 +9,54 @@ const migrationsRoot = new URL("./migrations/", import.meta.url);
 
 function sha256(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
 
-function validateLedger(ledger, plan, expectedEnvironment) {
-  for (const row of ledger) {
-    const migration = plan.find((entry) => entry.version === Number(row.version));
-    if (!migration) throw new Error(`unknown_migration_ledger_entry:${row.version}`);
+export function scanMigrationTransactionControl(sql) {
+  if (typeof sql !== "string") throw new TypeError("invalid_migration_sql");
+  let clean = "";
+  for (let index = 0; index < sql.length;) {
+    if (sql.startsWith("--", index)) {
+      const end = sql.indexOf("\n", index + 2); index = end < 0 ? sql.length : end; clean += "\n"; continue;
+    }
+    if (sql.startsWith("/*", index)) {
+      let depth = 1; index += 2;
+      while (index < sql.length && depth) {
+        if (sql.startsWith("/*", index)) { depth += 1; index += 2; }
+        else if (sql.startsWith("*/", index)) { depth -= 1; index += 2; }
+        else index += 1;
+      }
+      if (depth) throw new Error("unterminated_migration_comment");
+      clean += " "; continue;
+    }
+    if (sql[index] === "'") {
+      index += 1;
+      let closed = false;
+      while (index < sql.length) { if (sql[index] === "'" && sql[index + 1] === "'") index += 2; else if (sql[index++] === "'") { closed = true; break; } }
+      if (!closed) throw new Error("unterminated_migration_single_quote");
+      clean += "''"; continue;
+    }
+    const dollar = sql.slice(index).match(/^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/)?.[0];
+    if (dollar) {
+      const end = sql.indexOf(dollar, index + dollar.length);
+      if (end < 0) throw new Error("unterminated_migration_dollar_quote");
+      index = end + dollar.length; clean += " "; continue;
+    }
+    if (sql[index] === '"') {
+      index += 1; let closed = false; while (index < sql.length) { if (sql[index] === '"' && sql[index + 1] === '"') index += 2; else if (sql[index++] === '"') { closed = true; break; } }
+      if (!closed) throw new Error("unterminated_migration_double_quote");
+      clean += '""'; continue;
+    }
+    clean += sql[index++];
+  }
+  const statement = /(?:^|;)\s*(?:BEGIN(?:\s+(?:WORK|TRANSACTION))?|START\s+TRANSACTION|COMMIT(?:\s+PREPARED)?|END(?:\s+WORK)?|ROLLBACK(?:\s+(?:WORK|TRANSACTION))?|ABORT(?:\s+WORK)?|SAVEPOINT|RELEASE(?:\s+SAVEPOINT)?|SET\s+TRANSACTION|SET\s+SESSION\s+CHARACTERISTICS\s+AS\s+TRANSACTION|PREPARE\s+TRANSACTION)\b/i;
+  if (statement.test(clean)) throw new Error("top_level_transaction_control");
+  return true;
+}
+
+export function validateMigrationLedger(ledger, plan, expectedEnvironment) {
+  if (!Array.isArray(ledger) || ledger.length > plan.length) throw new Error("migration_ledger_not_contiguous_prefix");
+  for (let index = 0; index < ledger.length; index += 1) {
+    const row = ledger[index];
+    const migration = plan[index];
+    if (!migration || Number(row.version) !== migration.version) throw new Error("migration_ledger_not_contiguous_prefix");
     if (row.filename !== migration.file || row.sha256 !== migration.sha256) throw new Error(`checksum_mismatch:${migration.file}`);
     if (row.environment !== expectedEnvironment) throw new Error("migration_environment_mismatch");
   }
@@ -24,8 +69,11 @@ export async function loadMigrationPlan() {
   let previous = 0;
   for (const entry of manifest.migrations) {
     if (!Number.isSafeInteger(entry.version) || entry.version !== previous + 1 || !/^[0-9]{3}_[a-z0-9_]+[.]sql$/.test(entry.file) || !/^[a-f0-9]{64}$/.test(entry.sha256)) throw new Error("invalid_migration_manifest");
-    const sql = await readFile(new URL(entry.file, migrationsRoot), "utf8");
-    if (sha256(sql) !== entry.sha256) throw new Error(`checksum_mismatch:${entry.file}`);
+    const bytes = await readFile(new URL(entry.file, migrationsRoot));
+    if (sha256(bytes) !== entry.sha256) throw new Error(`checksum_mismatch:${entry.file}`);
+    let sql;
+    try { sql = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { throw new Error(`invalid_utf8:${entry.file}`); }
+    scanMigrationTransactionControl(sql);
     plan.push(Object.freeze({ ...entry, sql }));
     previous = entry.version;
   }
@@ -55,7 +103,7 @@ export async function migrate({ pool, expectedDatabase, expectedEnvironment }) {
         const ledger = ledgerExists
           ? (await client.query("SELECT version,filename,sha256,environment FROM pkc_auth.migration_ledger ORDER BY version")).rows
           : [];
-        validateLedger(ledger, plan, expectedEnvironment);
+        validateMigrationLedger(ledger, plan, expectedEnvironment);
         const existing = ledgerExists
           ? await client.query("SELECT filename,sha256,environment FROM pkc_auth.migration_ledger WHERE version=$1", [migration.version])
           : { rows: [] };

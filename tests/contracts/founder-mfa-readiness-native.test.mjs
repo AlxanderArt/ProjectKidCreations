@@ -14,7 +14,10 @@ async function mutatedReadiness(t, mutation) {
   try {
     await client.query("BEGIN");
     await client.query("SET LOCAL ROLE pkc_mfa_verifier");
-    const rolePool = { connect: async () => ({ query: client.query.bind(client), release() {} }) };
+    const rolePool = { connect: async () => ({
+      query: (text, values) => /^(?:BEGIN|ROLLBACK)\b/.test(text) ? Promise.resolve({ rows: [] }) : client.query(text, values),
+      release() {},
+    }) };
     assert.equal((await attestFounderMfaDatabase({ pool: rolePool, expectedDatabase: "pkc_founder_mfa", expectedUser: "pkc_mfa_verifier", expectedEnvironment: "test", expectedTls: false })).ready, true);
     await client.query("RESET ROLE");
     await client.query(mutation);
@@ -56,4 +59,16 @@ native("readiness rejects a dropped standalone partial-unique challenge index", 
 native("readiness rejects a same-name weakened outbox dispatch index", async (t) => {
   await mutatedReadiness(t, `DROP INDEX pkc_auth.founder_mfa_outbox_dispatch;
     CREATE INDEX founder_mfa_outbox_dispatch ON pkc_auth.founder_mfa_outbox(state)`);
+});
+
+native("readiness rejects an unexpected non-table relation", async (t) => {
+  await mutatedReadiness(t, "CREATE VIEW pkc_auth.hostile_readiness_view AS SELECT 1 AS value");
+});
+
+native("readiness rejects an unexpected standalone composite type", async (t) => {
+  await mutatedReadiness(t, "CREATE TYPE pkc_auth.hostile_readiness_composite AS (value integer)");
+});
+
+native("readiness rejects cluster-wide objects owned by the sealed migrator", async (t) => {
+  await mutatedReadiness(t, "CREATE TABLE public.hostile_migrator_owned(value integer); ALTER TABLE public.hostile_migrator_owned OWNER TO pkc_mfa_migrator");
 });

@@ -21,6 +21,10 @@ Use transactional PostgreSQL for founder MFA state while preserving n8n/Vercel a
 - **PostgreSQL:** owns encrypted founder TOTP state, last accepted counter, hashed pre-auth challenges, single-use recovery-code hashes, finalize state, and MFA audit events.
 - **Browser:** holds only an HttpOnly pre-auth cookie and the one-time rendered enrollment/recovery material in page memory. It never receives database credentials or authorization authority.
 
+### Runtime mode authority
+
+`PKC_FOUNDER_MFA_MODE` is the closed runtime authority. Production rejects a missing or unknown value. `disabled` preserves customer traffic while denying founder challenge, disclosure, verification, finalization, recovery, and sensitive operations. `armed` adds only synthetic founder-denial probes; it still cannot disclose a seed or issue a founder session. `enforced` permits those operations only after their independent identity, database, enrollment, and receipt checks pass. Evidence reports only the mode label.
+
 ### Authentication sequence
 
 1. Browser submits username/password to `/api/account/login`.
@@ -28,7 +32,7 @@ Use transactional PostgreSQL for founder MFA state while preserving n8n/Vercel a
 3. Customer success follows the current session path unchanged.
 4. Founder success branches immediately after password and canonical-tuple verification, **before any session ID, JWT, session lookup, or session write**. n8n returns a typed, signed, short-lived handoff to the Vercel login orchestrator with no session cookie.
 5. Vercel consumes and verifies the handoff server-side, hashes a random pre-auth token, creates or deduplicates a five-minute Postgres challenge, and returns only `{status:"mfa_required"}` plus an HttpOnly `__Host-pkc_mfa` cookie. The handoff and finalize grant are never returned to browser JavaScript.
-6. If unenrolled, a same-origin no-store endpoint discloses the QR/manual secret once. A valid current TOTP activates MFA and generates recovery codes.
+6. If unenrolled, a same-origin no-store endpoint may disclose the QR/manual secret once only after locking and matching an unconsumed database enrollment authorization. The authorization binds founder UUID, exact source commit/deployment, reviewed workflow digest, approval ID, issue/expiry, factor state, and auth epoch. A valid current TOTP consumes that authorization atomically while activating MFA and generating recovery codes.
 7. If enrolled, a valid TOTP atomically advances `last_accepted_counter` and consumes the challenge.
 8. The successful MFA transaction preallocates one immutable finalize ID, session ID, issued-at time, expiry, auth epoch, MFA claims, request digest, and grant JTI. Vercel signs a short-lived finalize grant over those exact values. n8n rechecks the canonical founder tuple and deterministically issues the same PKC JWT/session identity on every bounded replay.
 9. Enrollment atomically increments the Postgres founder `auth_epoch` and sets `revoked_before`, immediately invalidating every older or epoch-less founder session. Sheet-backed revocation is a keyed, retryable projection/outbox operation and is not treated as part of the Postgres security transaction.
@@ -39,8 +43,9 @@ Use transactional PostgreSQL for founder MFA state while preserving n8n/Vercel a
 - Generate high-entropy, single-use recovery codes.
 - Return them once for offline storage.
 - Store only HMAC-SHA-256 hashes under a dedicated recovery pepper.
-- Recovery requires a valid password challenge, atomically consumes one code, revokes founder sessions/challenges, and forces immediate TOTP re-enrollment.
+- Ordinary recovery uses either the enrolled TOTP or one stored single-use recovery code. A recovery code is consumed atomically, revokes founder sessions/challenges, disables the old seed, and mandates TOTP re-enrollment before a general founder session can be issued.
 - Password reset never clears or bypasses MFA.
+- No-code administrative recovery is structurally disabled and absent from the service API. Caller labels are never authority. It may be exposed only after a closed trusted API can inject two independently authenticated, founder/operation-bound, expiring, one-use approvals that are consumed atomically under the factor lock. Until then, recovery requires a stored recovery code and forces re-enrollment.
 
 ### Cryptography and storage
 
@@ -78,9 +83,10 @@ All entry points use the lock order `factor → challenge → finalize`. Databas
 1. **Challenge creation:** verify the signed handoff, lock the factor, deduplicate by login-attempt/handoff JTI, rotate the challenge token hash, supersede competing active challenges where required, and append a safe audit event in one transaction.
 2. **OTP/recovery attempt:** lock factor then challenge, enforce expiry/state/rolling limits, and commit failed-attempt counters and safe audit data on rejection.
 3. **TOTP success:** atomically advance `last_accepted_counter`, consume the challenge, create one stable finalize row/grant identity, and audit.
-4. **Enrollment success:** atomically activate the encrypted seed, store the accepted enrollment counter, insert recovery hashes, increment auth epoch/set revocation cutoff, consume competing challenges, create finalization and projection-outbox rows, and audit.
+4. **Enrollment success:** atomically consume the exact locked enrollment authorization, activate the encrypted seed, store the accepted enrollment counter, insert recovery hashes, increment auth epoch/set revocation cutoff, consume competing challenges, create finalization and projection-outbox rows, and audit.
 5. **Recovery:** atomically consume one code, increment auth epoch, invalidate challenges/finalizations, disable the old seed, enter `recovery_required`, enqueue Sheet revocation, and require new TOTP enrollment before any general founder session.
 6. **Finalize dispatch:** outside the security transaction, claim a leased/fenced finalization, send the stable grant to n8n, and mark `succeeded` only from a matching receipt. Any ambiguous result becomes `unknown` and is reconciled with the same identity.
+7. **Prospective no-code recovery (unimplemented):** the owner-only inert schema records the shape of a future dual-control transaction, but no trusted principal-injection API exists and no runtime role has `SELECT`, `INSERT`, `UPDATE`, `DELETE`, or `TRUNCATE` authority on it. A future implementation would require a separate reviewed migration and service API before any factor-lock transaction could exist.
 
 ### Sensitive founder routes
 
@@ -94,6 +100,8 @@ The deny-by-default sensitive inventory includes `accountAdminList`, `accountAdm
 - `founder_mfa_finalizations`: unique challenge, grant hash/JTI, stable session identity/times/claims, auth epoch, request digest, state, lease/fence, attempts, receipt/finalized timestamps.
 - `founder_mfa_outbox`: uniquely keyed Sheet session/audit/revocation projections with bounded retry and reconciliation state.
 - `founder_mfa_audit_events`: append-only non-secret event metadata.
+- `founder_mfa_enrollment_authorizations`: one-use source/deployment/workflow/approval/expiry/factor-state/epoch authority.
+- `founder_mfa_recovery_operations`: owner-only inert future schema for prospective dual-control recovery identities and prior/resulting epochs; it is not a runtime recovery path.
 
 n8n/Sheets writes are idempotent projections. They are never represented as transactionally atomic with PostgreSQL.
 
@@ -101,10 +109,16 @@ n8n/Sheets writes are idempotent projections. They are never represented as tran
 
 The repository ships an ordered, checksum-pinned migration lane:
 
-- `db/roles/000_roles.sql` creates the dedicated `NOLOGIN` owner and confined migrator, runtime, verifier, and outbox-worker identities. It is an operator-run bootstrap and requires an explicit target database variable.
+- `db/roles/000_roles.sql`, `db/roles/005_unseal_migrator.sql`, and `db/roles/010_seal_migrator.sql` are the only admitted role-authority scripts. They create the dedicated `NOLOGIN` owner and confined migrator/runtime/verifier/outbox-worker identities, open the approved migration window idempotently, and reseal it idempotently. They are operator-run and require an explicit target database variable.
 - `db/migrations/manifest.json` is append-only migration authority. `db/migrate.mjs` validates every file checksum before connecting, verifies the exact database and migrator identity, takes a fixed transaction advisory lock, and records the file and digest in the same transaction as its migration. A second run must apply zero migrations.
-- `db/readiness.mjs` is the runtime/catalog gate. It attests database/user/TLS, PostgreSQL 16/17, ledger, role graph and attributes, schema/object ownership, table/function/default ACL posture, constraints, SECURITY DEFINER/search-path settings, and the closed object inventory. Production-only TLS and actual-login evidence remain deployment gates; local Docker verification intentionally passes `expectedTls:false` only for its loopback disposable database.
-- `npm run test:mfa:postgres` creates a loopback-only disposable PostgreSQL 16 container, applies roles/migration twice, runs native transaction/finalization/outbox hostile tests, runs readiness as the actual runtime login, and verifies scoped container removal. It never reads production configuration.
+- `db/readiness.mjs` is the runtime/catalog gate and pins PostgreSQL major 16 only. It separately attests `migration-window` (migrator login plus SET-only owner membership) and `runtime-sealed` (migrator NOLOGIN with membership revoked), together with database/public/schema ownership and ACLs, column ACL absence, an explicit no-RLS/no-policy inventory, runtime ownership absence, ledger, exact catalog digests, and optional zero-real-row state. Production TLS and provider evidence remain deployment gates; local Docker verification passes `expectedTls:false` only for its loopback disposable database.
+- `npm run test:mfa:postgres` creates a loopback-only disposable pinned PostgreSQL 16 container, proves migration-window and sealed-runtime states, zero rows before activation, migrator sealing, runtime DDL/TRUNCATE/role/ledger denials, the explicitly accepted constrained direct-DML path, native enrollment/recovery/finalization/outbox behavior, and scoped container removal. It never reads production configuration.
+
+The runtime DML trust model is explicit: the application runtime role has direct DML only on its reviewed MFA tables because transactions coordinate several rows. Database constraints, immutable triggers, exact closed-world ACL/catalog readiness, and hostile actual-login probes are the enforcement backstop; the runtime owns no database object and cannot DDL, truncate, assume owner, or mutate the migration ledger.
+
+Critical alert payloads remain `externalSend:false` at evaluation time. `server/ops/alert-delivery.mjs` is a separately configured, disabled-by-default HTTPS delivery seam: it rejects secret-shaped payloads, local/root/docker endpoints, and unknown configuration, sends no credential value in its message, bounds timeout/attempts, collapses concurrent duplicate deliveries by a canonical digest, and accepts only an exact acknowledgement. After transmission starts, every timeout, transport error, malformed/truncated/mismatched/oversized/hostile acknowledgement is cached as `UNKNOWN_REQUIRES_RECONCILIATION`; the same request digest cannot send again. Local tests use an injected synthetic transport; no production transport or credential is provisioned by this worktree.
+
+n8n activation evidence is validated as an immutable receipt pinned to n8n `2.19.5` and an image digest, exact source commit/tree, nine artifact hashes and nine unique old/new workflow ID/version/path/state records, credential names/types only, approval and traffic class, backup/rollback handles, and dispatcher delivery/reconciliation adapter identity/version/contract readiness. Dispatcher activation fails before mutation when adapter readiness is false. Protected snapshot generation, live import, and production activation remain separate gates and are not claimed here.
 
 Runtime URLs must name the expected database and user, require certificate-verified TLS, use an approved pool/proxy hostname, omit connection `options` overrides, and remain within the declared pool/connection budget. Transactions install local 5-second statement, 2-second lock, and 10-second idle-in-transaction limits. A missing commit acknowledgement or failed rollback poisons the client and returns `outcome_unknown` instead of a retryable success/failure guess.
 

@@ -1,3 +1,5 @@
+import { pgBigint } from "./pg-bigint.mjs";
+
 const PURPOSES = new Set(["enroll", "verify", "recover"]);
 
 function assertPool(pool) {
@@ -108,8 +110,7 @@ export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settleme
     );
     if (result.rows.length !== 1) return null;
     const row = result.rows[0];
-    const authEpoch = Number(row.auth_epoch);
-    if (!Number.isSafeInteger(authEpoch) || authEpoch < 0) throw new Error("invalid_founder_authority");
+    const authEpoch = pgBigint(row.auth_epoch, "auth_epoch");
     return Object.freeze({
       founderSubject: row.founder_subject,
       state: row.state,
@@ -149,6 +150,23 @@ export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settleme
     if (!challenge) return null;
     return { factor, challenge };
   }
+
+  async function lockEnrollmentAuthorization(client, founderSubject, authorizationId = null) {
+    uuid(founderSubject, "founder_subject");
+    const result = authorizationId
+      ? await client.query(
+        `SELECT * FROM pkc_auth.founder_mfa_enrollment_authorizations
+         WHERE enrollment_authorization_id=$1 AND founder_subject=$2 FOR UPDATE`,
+        [uuid(authorizationId, "enrollment_authorization_id"), founderSubject],
+      )
+      : await client.query(
+        `SELECT * FROM pkc_auth.founder_mfa_enrollment_authorizations
+         WHERE founder_subject=$1 AND consumed_at IS NULL ORDER BY issued_at DESC LIMIT 1 FOR UPDATE`,
+        [founderSubject],
+      );
+    return result.rows[0] || null;
+  }
+
 
   async function appendAudit(client, { factorId, challengeId = null, finalizeId = null, correlationId, eventType, outcomeClass, metadata = {} }) {
     uuid(correlationId, "correlation_id");
@@ -212,6 +230,8 @@ export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settleme
     readFactorAuthority,
     lockFactor,
     lockChallenge,
+    lockEnrollmentAuthorization,
+
     appendAudit,
     upsertChallenge,
   });

@@ -1,7 +1,7 @@
 import { canonicalJson, sha256, snapshotJsonData } from "./canonical.mjs";
 
 const REQUIRED = [
-  "PKC_DATABASE_URL", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION",
+  "PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION",
   "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION",
   "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL",
   "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE",
@@ -82,11 +82,12 @@ export function buildVercelCandidateEvidence(rawManifest) {
 
 export function verifyVercelDeployment(raw) {
   const input = snapshotJsonData(raw, { label: "Vercel deployment evidence", maxDepth: 6, maxNodes: 20_000, maxArrayLength: 10_000, maxStringLength: 1024, maxAggregateBytes: 4 * 1024 * 1024 });
-  closed(input, ["environment", "expectedEnvironment", "sourceSha", "expectedSourceSha", "state", "deploymentId", "aliasTarget", "expectedAliasTarget", "rollbackDeploymentId", "functions", "maxFunctions", "candidate", "variables", "vercelKids", "n8nKids"], "Vercel deployment evidence");
+  closed(input, ["environment", "expectedEnvironment", "founderMfaMode", "sourceSha", "expectedSourceSha", "state", "deploymentId", "aliasTarget", "expectedAliasTarget", "rollbackDeploymentId", "functions", "maxFunctions", "candidate", "variables", "vercelKids", "n8nKids"], "Vercel deployment evidence");
   const inventory = verifyCandidate(input.candidate);
   if (!HEX40.test(input.sourceSha ?? "") || input.sourceSha !== input.expectedSourceSha || input.sourceSha !== input.candidate.commitSha) throw new Error("exact candidate source SHA mismatch");
   if (!input.environment || input.environment !== input.expectedEnvironment) throw new Error("deployment environment mismatch");
   if (input.state !== "READY") throw new Error("deployment is not Ready");
+  if (input.founderMfaMode !== "enforced") throw new Error("founder MFA mode is not exactly enforced");
   if (!input.deploymentId || input.aliasTarget !== input.expectedAliasTarget || input.aliasTarget !== input.deploymentId) throw new Error("alias pointer mismatch");
   if (!input.rollbackDeploymentId || input.rollbackDeploymentId === input.deploymentId) throw new Error("rollback pointer missing or invalid");
   if (input.maxFunctions !== VERCEL_RELEASE_FUNCTION_CEILING) throw new Error("function ceiling must be the exact configured release contract value 10");
@@ -108,5 +109,5 @@ export function verifyVercelDeployment(raw) {
     const kid = input.vercelKids?.[purpose];
     if (!new RegExp(`^${purpose}-v[1-9][0-9]*$`).test(kid ?? "") || kid !== input.n8nKids?.[purpose]) throw new Error(`${purpose} KID agreement failed`);
   }
-  return { ok: true, mode: "read-only", deploymentId: input.deploymentId, sourceSha: input.sourceSha, candidateTree: input.candidate.treeSha, candidateFingerprint: input.candidate.manifestFingerprint, candidateEvidenceDigest: input.candidate.evidenceDigest, environment: input.environment, functionCount: input.functions.length, functionInventoryDigest: input.candidate.functionInventoryDigest, variableNames: [...names.keys()].sort(), rollbackDeploymentId: input.rollbackDeploymentId };
+  return { ok: true, mode: "read-only", founderMfaMode: input.founderMfaMode, deploymentId: input.deploymentId, sourceSha: input.sourceSha, candidateTree: input.candidate.treeSha, candidateFingerprint: input.candidate.manifestFingerprint, candidateEvidenceDigest: input.candidate.evidenceDigest, environment: input.environment, functionCount: input.functions.length, functionInventoryDigest: input.candidate.functionInventoryDigest, variableNames: [...names.keys()].sort(), rollbackDeploymentId: input.rollbackDeploymentId };
 }

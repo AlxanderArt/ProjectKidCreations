@@ -14,6 +14,7 @@ const ARTIFACT_IMAGE = /\.(?:png|jpe?g|gif|webp|bmp|tiff?)$/i;
 const APPROVED_SOURCE_ASSET = /^(?:assets\/(?:badges|og)\/[^/]+\.(?:svg|png|jpe?g|webp)|assets\/fonts\/[^/]+\.woff2|assets\/models\/[^/]+\.glb)$/i;
 const APPROVED_BINARY_ASSET = /^(?:assets\/(?:badges|og)\/[^/]+\.(?:png|jpe?g|webp)|assets\/fonts\/[^/]+\.woff2|assets\/models\/[^/]+\.glb)$/i;
 const APPROVED_REPORT_FIXTURE = "reports/boot-motion-performance.json";
+const APPROVED_ROLE_SQL = new Set(["db/roles/000_roles.sql", "db/roles/005_unseal_migrator.sql", "db/roles/010_seal_migrator.sql"]);
 const FORBIDDEN_CREDENTIAL_MARKER = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk_live_|gh[opusr]_|github_pat_|xox[baprs]-)[A-Za-z0-9_-]{12,}/i;
 const SECRET_KEY_NAMES = ["password", "passwd", "secret", "token", "authorization", "clientsecret", "databaseurl", "apikey", "accesstoken", "authtoken", "privatekey", "secretkey"];
 const EXACT_PLACEHOLDERS = new Set(["<provided-by-secret-manager>", "<redacted>", "EXAMPLE_ONLY_CHANGE_ME", "REPLACE_WITH_SECRET"]);
@@ -39,7 +40,7 @@ function safeRelative(path) {
 }
 
 function enforcePathPolicy(path) {
-  if (path === "assets/screenshots/.gitkeep" || path === "db/roles/000_roles.sql" || /^db\/migrations\/[A-Za-z0-9._-]+\.sql$/.test(path)) return;
+  if (path === "assets/screenshots/.gitkeep" || APPROVED_ROLE_SQL.has(path) || /^db\/migrations\/[A-Za-z0-9._-]+\.sql$/.test(path)) return;
   if (FORBIDDEN_PATH.test(path)) throw new Error(`forbidden candidate artifact path: ${path}`);
   if (ARTIFACT_IMAGE.test(path) && !APPROVED_SOURCE_ASSET.test(path)) throw new Error(`forbidden candidate image artifact outside explicit source-asset policy: ${path}`);
   if ((path === "reports" || path.startsWith("reports/")) && path !== APPROVED_REPORT_FIXTURE) throw new Error(`forbidden candidate report artifact: ${path}`);

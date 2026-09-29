@@ -20,6 +20,8 @@ const config = Object.freeze({
   }),
   keyVersions: Object.freeze({ encryption: 1, handoff: 1, finalize: 1, recovery: 1 }),
   founderSubject: "11111111-1111-4111-8111-111111111111",
+  mode: "enforced",
+  deployment: Object.freeze({ sourceCommit: "a".repeat(40), deploymentId: "deployment-test-0001", workflowDigest: "b".repeat(64), enrollmentApprovalId: "approval-test-0001" }),
   handoff: Object.freeze({ issuer: "pkc-n8n-account-login", audience: "pkc-vercel-founder-mfa" }),
   finalize: Object.freeze({ issuer: "pkc-vercel-founder-mfa", audience: "pkc-n8n-founder-mfa-finalizer", ttlSeconds: 60 }),
 });
@@ -33,7 +35,7 @@ async function fixture(t, finalizer = async () => ({ status: "unknown" })) {
   t.after(async () => pool.end());
   await pool.query("ALTER TABLE pkc_auth.founder_mfa_audit_events DISABLE TRIGGER USER");
   try {
-    await pool.query("TRUNCATE pkc_auth.founder_mfa_audit_events, pkc_auth.founder_mfa_outbox, pkc_auth.founder_mfa_recovery_codes, pkc_auth.founder_mfa_finalizations, pkc_auth.founder_mfa_challenges, pkc_auth.founder_mfa_factors CASCADE");
+    await pool.query("TRUNCATE pkc_auth.founder_mfa_audit_events, pkc_auth.founder_mfa_outbox, pkc_auth.founder_mfa_recovery_operations, pkc_auth.founder_mfa_enrollment_authorizations, pkc_auth.founder_mfa_recovery_codes, pkc_auth.founder_mfa_finalizations, pkc_auth.founder_mfa_challenges, pkc_auth.founder_mfa_factors CASCADE");
   } finally {
     await pool.query("ALTER TABLE pkc_auth.founder_mfa_audit_events ENABLE TRIGGER USER");
   }
@@ -43,7 +45,7 @@ async function fixture(t, finalizer = async () => ({ status: "unknown" })) {
     return `00000000-0000-4000-8000-${String(uuidCounter).padStart(12, "0")}`;
   };
   const store = createFounderMfaStore({ pool });
-  const service = createFounderMfaService({
+  const serviceCore = createFounderMfaService({
     store,
     config,
     clock: () => nowMs,
@@ -51,6 +53,21 @@ async function fixture(t, finalizer = async () => ({ status: "unknown" })) {
     randomSecret: runtimeSecretFactory,
     finalizer,
   });
+  const beginChallenge = async (...args) => {
+    const result = await serviceCore.beginChallenge(...args);
+    const factor = (await pool.query("SELECT founder_subject,state,auth_epoch FROM pkc_auth.founder_mfa_factors WHERE founder_subject=$1", [founder])).rows[0];
+    if (factor && ["unenrolled", "recovery_required"].includes(factor.state)) {
+      await pool.query(
+        `INSERT INTO pkc_auth.founder_mfa_enrollment_authorizations
+         (founder_subject,source_commit,deployment_id,workflow_digest,approval_id,issued_at,expires_at,expected_factor_state,expected_auth_epoch)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (founder_subject) WHERE consumed_at IS NULL DO NOTHING`,
+        [founder, config.deployment.sourceCommit, config.deployment.deploymentId, config.deployment.workflowDigest,
+          config.deployment.enrollmentApprovalId, new Date(nowMs - 1_000), new Date(nowMs + 600_000), factor.state, factor.auth_epoch],
+      );
+    }
+    return result;
+  };
+  const service = Object.freeze({ ...serviceCore, beginChallenge });
   return { pool, store, service };
 }
 
@@ -161,7 +178,7 @@ native("enrollment secret is disclosed once and activation atomically advances e
 
   const factor = (await pool.query("SELECT state, auth_epoch, revoked_before, last_accepted_counter, secret_ciphertext FROM pkc_auth.founder_mfa_factors")).rows[0];
   assert.equal(factor.state, "active");
-  assert.equal(Number(factor.auth_epoch), 1);
+  assert.equal(factor.auth_epoch, "1");
   assert.ok(factor.revoked_before);
   assert.ok(factor.secret_ciphertext.length > 0);
   assert.equal(Number((await pool.query("SELECT count(*) FROM pkc_auth.founder_mfa_recovery_codes WHERE used_at IS NULL")).rows[0].count), 10);
@@ -173,9 +190,35 @@ native("enrollment secret is disclosed once and activation atomically advances e
   assert.deepEqual(await store.readFactorAuthority(founder), {
     founderSubject: founder,
     state: "active",
-    authEpoch: 1,
+    authEpoch: "1",
     revokedBefore: new Date(factor.revoked_before),
   });
+});
+
+native("invented caller approval labels cannot invoke no-code recovery through the service API", async (t) => {
+  const { pool, service } = await fixture(t);
+  const enrollment = await service.beginChallenge(handoff());
+  await service.discloseEnrollment({ token: enrollment.token, csrf: enrollment.csrf });
+  await service.verifyTotp({ token: enrollment.token, csrf: enrollment.csrf, code: totpAt(totpFixtureBytes, nowMs) });
+
+  const pending = await service.beginChallenge(handoff());
+  const inventedRequest = {
+    operationId: "recovery-op-native-0001",
+    founderSubject: founder,
+    operator: { principalId: "operator-native-01", approvalId: "approval-operator-native-01" },
+    verifier: { principalId: "verifier-native-02", approvalId: "approval-verifier-native-02" },
+    reasonCode: "FACTOR_LOST",
+  };
+  assert.equal(service.noCodeRecovery, undefined);
+  assert.equal(service.reconcileNoCodeRecovery, undefined);
+  assert.throws(() => service.noCodeRecovery(inventedRequest), TypeError);
+  const factor = (await pool.query("SELECT state,auth_epoch,secret_ciphertext FROM pkc_auth.founder_mfa_factors WHERE founder_subject=$1", [founder])).rows[0];
+  assert.equal(factor.state, "active");
+  assert.equal(String(factor.auth_epoch), "1");
+  assert.ok(factor.secret_ciphertext);
+  assert.equal((await pool.query("SELECT state FROM pkc_auth.founder_mfa_challenges WHERE challenge_id=$1", [pending.challengeId])).rows[0].state, "pending");
+  assert.equal(Number((await pool.query("SELECT count(*) FROM pkc_auth.founder_mfa_recovery_operations")).rows[0].count), 0);
+  assert.equal(Number((await pool.query("SELECT count(*) FROM pkc_auth.founder_mfa_audit_events WHERE event_type='no_code_recovery'")).rows[0].count), 0);
 });
 
 native("finalization fails closed when the Postgres epoch changes before dispatch", async (t) => {
@@ -330,7 +373,7 @@ native("a recovery code is consumed atomically, disables the seed, increments ep
 
   const factor = (await pool.query("SELECT state, auth_epoch, secret_ciphertext, last_accepted_counter FROM pkc_auth.founder_mfa_factors")).rows[0];
   assert.equal(factor.state, "recovery_required");
-  assert.equal(Number(factor.auth_epoch), 2);
+  assert.equal(factor.auth_epoch, "2");
   assert.equal(factor.secret_ciphertext, null);
   assert.equal(factor.last_accepted_counter, null);
   assert.equal(Number((await pool.query("SELECT count(*) FROM pkc_auth.founder_mfa_finalizations WHERE state NOT IN ('terminal_rejected','succeeded')")).rows[0].count), 0);
@@ -431,5 +474,5 @@ native("a succeeded replay rechecks factor epoch after dispatch and cannot retur
   );
   const factor = (await pool.query("SELECT state, auth_epoch FROM pkc_auth.founder_mfa_factors")).rows[0];
   assert.equal(factor.state, "recovery_required");
-  assert.equal(Number(factor.auth_epoch), 2);
+  assert.equal(factor.auth_epoch, "2");
 });

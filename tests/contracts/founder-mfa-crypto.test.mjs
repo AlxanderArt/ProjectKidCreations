@@ -89,8 +89,8 @@ test("RFC 6238 SHA-1 codes preserve leading zeroes and enforce monotonic counter
 
   const currentCounter = Math.floor(59 / 30);
   const code = totpAt(rfcFixtureBytes, 59_000);
-  assert.deepEqual(verifyTotp(code, rfcFixtureBytes, 59_000, { lastAcceptedCounter: null }), { valid: true, counter: currentCounter });
-  assert.deepEqual(verifyTotp(code, rfcFixtureBytes, 59_000, { lastAcceptedCounter: currentCounter }), { valid: false, reason: "replayed" });
+  assert.deepEqual(verifyTotp(code, rfcFixtureBytes, 59_000, { lastAcceptedCounter: null }), { valid: true, counter: String(currentCounter) });
+  assert.deepEqual(verifyTotp(code, rfcFixtureBytes, 59_000, { lastAcceptedCounter: String(currentCounter) }), { valid: false, reason: "replayed" });
   assert.deepEqual(verifyTotp("not-six", rfcFixtureBytes, 59_000), { valid: false, reason: "malformed" });
   assert.deepEqual(verifyTotp(totpAt(rfcFixtureBytes, 119_000), rfcFixtureBytes, 59_000), { valid: false, reason: "invalid" });
 });

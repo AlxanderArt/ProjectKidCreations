@@ -62,7 +62,7 @@ test("finalizer rejects unsigned token and exposes only a closed allowlisted rec
   assert.ok(responseValidator);
   assert.match(responseValidator.parameters.jsCode,/unexpected_finalizer_response_shape/);
   const validReceipt=Object.fromEntries(FINALIZER_PUBLIC_RESPONSE_KEYS.map((key)=>[key, key]));
-  Object.assign(validReceipt,{ok:true,status:"authenticated",receipt_version:1,auth_epoch:1,mfa_verified_at:2,issued_at:3,expires_at:4});
+  Object.assign(validReceipt,{ok:true,status:"authenticated",receipt_version:1,auth_epoch:"1",mfa_verified_at:2,issued_at:3,expires_at:4});
   const execute=(receipt)=>Function("$",responseValidator.parameters.jsCode)((name)=>({first:()=>({json:{receipt}})}));
   assert.deepEqual(Object.keys(execute(validReceipt)[0].json).sort(),FINALIZER_PUBLIC_RESPONSE_KEYS);
   assert.throws(()=>execute({...validReceipt,unexpected_private_field:"blocked"}),/unexpected_finalizer_response_shape/);

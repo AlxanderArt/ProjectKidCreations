@@ -1,4 +1,5 @@
 import { ROUTES } from "./manifest.mjs";
+import { parseFounderMfaMode } from "../mfa/mode.mjs";
 
 const JSON_TYPE = "application/json; charset=utf-8";
 const SECURITY_HEADERS = Object.freeze({
@@ -38,7 +39,7 @@ function exactOriginList(raw) {
 }
 
 function configuration(env) {
-  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_SUBJECT"];
+  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_SUBJECT", "PKC_FOUNDER_MFA_MODE"];
   for (const key of required) if (typeof env?.[key] !== "string" || env[key].trim() === "") throw new Error(`missing ${key}`);
   const upstreamOrigins = exactOriginList(env.PKC_N8N_ALLOWED_ORIGINS);
   const publicOrigins = exactOriginList(env.PKC_PUBLIC_ALLOWED_ORIGINS);
@@ -47,7 +48,8 @@ function configuration(env) {
   if (!upstreamOrigins.has(base.origin)) throw new Error("base origin denied");
   const founderSubject = env.PKC_FOUNDER_SUBJECT;
   if (!UUID_RE.test(founderSubject)) throw new Error("invalid PKC_FOUNDER_SUBJECT");
-  return { base: base.origin, authKey: env.PKC_AUTH_KEY.trim(), publicOrigins, founderSubject };
+  const founderMfaMode = parseFounderMfaMode(env);
+  return { base: base.origin, authKey: env.PKC_AUTH_KEY.trim(), publicOrigins, founderSubject, founderMfaMode };
 }
 
 async function readStreamLimited(stream, limit) {
@@ -378,6 +380,7 @@ async function assertFounderPolicy(config, cookie, dependencies, { adminOnly, re
   const isFounder = subjectMatch && usernameMatch && adminMatch;
   const hasFounderSignal = subjectMatch || usernameMatch || adminMatch;
   if (!isFounder) return (adminOnly || hasFounderSignal) ? jsonError("admin_required", 403) : true;
+  if (config.founderMfaMode !== "enforced") return jsonError("founder_mfa_mode_denied", 403);
 
   const assurance = profile?.founder_assurance;
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -394,9 +397,10 @@ async function assertFounderPolicy(config, cookie, dependencies, { adminOnly, re
   }
   const hasFreshFounderMfa = authority?.founderSubject === config.founderSubject
     && authority?.state === "active"
-    && Number.isSafeInteger(authority?.authEpoch)
-    && authority.authEpoch >= 1
-    && Number.isSafeInteger(assurance?.auth_epoch)
+    && typeof authority?.authEpoch === "string"
+    && /^(?:[1-9][0-9]*)$/.test(authority.authEpoch)
+    && (authority.authEpoch.length < 19 || (authority.authEpoch.length === 19 && authority.authEpoch <= "9223372036854775807"))
+    && typeof assurance?.auth_epoch === "string"
     && assurance.auth_epoch === authority.authEpoch
     && amr.length === 2
     && amr.includes("pwd")

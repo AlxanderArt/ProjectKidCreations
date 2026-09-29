@@ -1,4 +1,5 @@
 import { createReadOnlyKeyring } from "./keyring.mjs";
+import { parseFounderMfaMode } from "./mode.mjs";
 
 function required(env, name) {
   const value = env?.[name];
@@ -115,7 +116,19 @@ export function loadMfaConfig(env = process.env) {
   const founderSubject = env?.PKC_FOUNDER_SUBJECT;
   if (typeof founderSubject !== "string" || founderSubject === "") throw new Error("missing PKC_FOUNDER_SUBJECT");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error("invalid PKC_FOUNDER_SUBJECT");
-  return Object.freeze({ databaseUrl, database, founderSubject, keys, keyrings, keyVersions,
+  const mode = parseFounderMfaMode({ ...env, NODE_ENV: env?.NODE_ENV || (database.environment === "production" ? "production" : undefined) });
+  let deployment = null;
+  if (mode === "enforced") {
+    const sourceCommit = required(env, "PKC_SOURCE_COMMIT");
+    const deploymentId = required(env, "PKC_DEPLOYMENT_ID");
+    const workflowDigest = required(env, "PKC_MFA_WORKFLOW_DIGEST");
+    const enrollmentApprovalId = required(env, "PKC_MFA_ENROLLMENT_APPROVAL_ID");
+    if (!/^[0-9a-f]{40}$/.test(sourceCommit) || !/^[0-9a-f]{64}$/.test(workflowDigest)
+        || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,255}$/.test(deploymentId)
+        || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$/.test(enrollmentApprovalId)) throw new Error("invalid PKC deployment authority");
+    deployment = Object.freeze({ sourceCommit, deploymentId, workflowDigest, enrollmentApprovalId });
+  }
+  return Object.freeze({ databaseUrl, database, founderSubject, mode, deployment, keys, keyrings, keyVersions,
     publicOrigins: origins(required(env, "PKC_PUBLIC_ALLOWED_ORIGINS"), "PKC_PUBLIC_ALLOWED_ORIGINS"),
     n8nBaseUrl: n8nBase.origin, authKey: required(env, "PKC_AUTH_KEY") });
 }

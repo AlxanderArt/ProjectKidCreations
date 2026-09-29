@@ -70,17 +70,88 @@ absent="$(psql -h 127.0.0.1 -p "$port" -U postgres -d "$malformed_db" -Atc "SELE
 export PKC_DATABASE_NAME=pkc_founder_mfa PKC_DATABASE_ENVIRONMENT=test
 main_migrator_dsn="postgresql://pkc_mfa_migrator@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
 export PKC_MIGRATOR_DATABASE_URL="$main_migrator_dsn"
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/005_unseal_migrator.sql >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/005_unseal_migrator.sql >/dev/null
 first="$(PGOPTIONS='-c pkc.environment=production -c pkc.expected_environment=production' node db/migrate.mjs)"
 second="$(node db/migrate.mjs)"
-[[ "$first" == '{"applied":[1],"currentVersion":1}' ]]
-[[ "$second" == '{"applied":[],"currentVersion":1}' ]]
+[[ "$first" == '{"applied":[1,2],"currentVersion":2}' ]]
+[[ "$second" == '{"applied":[],"currentVersion":2}' ]]
 
-psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "INSERT INTO pkc_auth.migration_ledger(version,filename,sha256,environment) VALUES(2,'002_unknown.sql',repeat('0',64),'test')" >/dev/null
+admin_dsn="postgresql://postgres@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
+(
+  export PKC_DATABASE_URL="$admin_dsn"
+  export PKC_DATABASE_USER=postgres
+  node --input-type=module -e "import pg from 'pg'; import {attestFounderMfaDatabase} from './db/readiness.mjs'; const pool=new pg.Pool({connectionString:process.env.PKC_DATABASE_URL,max:1}); try { const result=await attestFounderMfaDatabase({pool,expectedDatabase:process.env.PKC_DATABASE_NAME,expectedUser:process.env.PKC_DATABASE_USER,expectedEnvironment:process.env.PKC_DATABASE_ENVIRONMENT,expectedTls:false,authorityState:'migration-window',requireZeroRows:true}); if(!result.ready) process.exitCode=1; else console.log('migration_window_readiness_pass'); } finally { await pool.end(); }"
+)
+psql -h 127.0.0.1 -p "$port" -U pkc_mfa_migrator -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c 'SET ROLE pkc_mfa_owner; SELECT 1' >/dev/null
+
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "INSERT INTO pkc_auth.migration_ledger(version,filename,sha256,environment) VALUES(3,'003_unknown.sql',repeat('0',64),'test')" >/dev/null
 if node db/migrate.mjs >/dev/null 2>&1; then
   echo "unknown_migration_ledger_guard_failed" >&2
   exit 1
 fi
-psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "DELETE FROM pkc_auth.migration_ledger WHERE version=2" >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "DELETE FROM pkc_auth.migration_ledger WHERE version=3" >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/010_seal_migrator.sql >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/010_seal_migrator.sql >/dev/null
+
+if psql -h 127.0.0.1 -p "$port" -U pkc_mfa_migrator -d pkc_founder_mfa -c 'SELECT 1' >/dev/null 2>&1; then
+  echo "sealed_migrator_login_guard_failed" >&2
+  exit 1
+fi
+
+runtime_psql=(psql -h 127.0.0.1 -p "$port" -U pkc_mfa_runtime -d pkc_founder_mfa -v ON_ERROR_STOP=1)
+for denied_sql in \
+  'CREATE TABLE pkc_auth.runtime_escape(id integer)' \
+  'CREATE TABLE public.runtime_escape(id integer)' \
+  'TRUNCATE pkc_auth.founder_mfa_factors' \
+  'SET ROLE pkc_mfa_owner' \
+  "INSERT INTO pkc_auth.migration_ledger(version,filename,sha256,environment) VALUES(99,'bad.sql',repeat('0',64),'test')" \
+  "UPDATE pkc_auth.migration_ledger SET filename='bad.sql' WHERE version=1" \
+  "INSERT INTO pkc_auth.founder_mfa_factors(founder_subject,state) VALUES('11111111-1111-4111-8111-111111111111','invalid')"; do
+  if "${runtime_psql[@]}" -c "$denied_sql" >/dev/null 2>&1; then
+    echo "runtime_denial_guard_failed" >&2
+    exit 1
+  fi
+done
+"${runtime_psql[@]}" -c "BEGIN; INSERT INTO pkc_auth.founder_mfa_factors(founder_subject) VALUES('11111111-1111-4111-8111-111111111111'); ROLLBACK" >/dev/null
+for denied_sql in \
+  'SELECT count(*) FROM pkc_auth.founder_mfa_recovery_operations' \
+  "INSERT INTO pkc_auth.founder_mfa_recovery_operations(operation_id,factor_id,operator_principal_id,operator_approval_id,verifier_principal_id,verifier_approval_id,reason_code,prior_auth_epoch,resulting_auth_epoch,completed_at) VALUES('recovery-test-01','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','operator-test-01','operator-approval-01','verifier-test-02','verifier-approval-02','FACTOR_LOST',0,1,clock_timestamp())" \
+  "UPDATE pkc_auth.founder_mfa_recovery_operations SET reason_code='OTHER' WHERE false" \
+  'DELETE FROM pkc_auth.founder_mfa_recovery_operations WHERE false' \
+  'TRUNCATE pkc_auth.founder_mfa_recovery_operations'; do
+  if "${runtime_psql[@]}" -c "$denied_sql" >/dev/null 2>&1; then
+    echo 'runtime_recovery_operations_authority_denial_failed' >&2
+    exit 1
+  fi
+done
+if "${runtime_psql[@]}" -c "INSERT INTO pkc_auth.founder_mfa_enrollment_authorizations(founder_subject,source_commit,deployment_id,workflow_digest,approval_id,issued_at,expires_at,expected_factor_state,expected_auth_epoch) VALUES('11111111-1111-4111-8111-111111111111',repeat('a',40),'deployment-test-01',repeat('b',64),'approval-test-01',clock_timestamp(),clock_timestamp()+interval '5 minutes','unenrolled',0)" >/dev/null 2>&1; then
+  echo 'runtime_enrollment_authorization_insert_denial_failed' >&2
+  exit 1
+fi
+
+verifier_psql=(psql -h 127.0.0.1 -p "$port" -U pkc_mfa_verifier -d pkc_founder_mfa -v ON_ERROR_STOP=1)
+"${verifier_psql[@]}" -c 'SELECT current_user,current_database(); SELECT count(*) FROM pkc_auth.migration_ledger' >/dev/null
+for denied_sql in \
+  'SELECT count(*) FROM pkc_auth.founder_mfa_enrollment_authorizations' \
+  'SELECT count(*) FROM pkc_auth.founder_mfa_recovery_operations' \
+  "INSERT INTO pkc_auth.founder_mfa_enrollment_authorizations(founder_subject) VALUES('11111111-1111-4111-8111-111111111111')" \
+  "INSERT INTO pkc_auth.founder_mfa_recovery_operations(operation_id) VALUES('recovery-denied')"; do
+  if "${verifier_psql[@]}" -c "$denied_sql" >/dev/null 2>&1; then
+    echo 'verifier_new_table_write_denial_failed' >&2
+    exit 1
+  fi
+done
+
+worker_psql=(psql -h 127.0.0.1 -p "$port" -U pkc_mfa_outbox_worker -d pkc_founder_mfa -v ON_ERROR_STOP=1)
+for denied_sql in \
+  'SELECT count(*) FROM pkc_auth.founder_mfa_enrollment_authorizations' \
+  'SELECT count(*) FROM pkc_auth.founder_mfa_recovery_operations'; do
+  if "${worker_psql[@]}" -c "$denied_sql" >/dev/null 2>&1; then
+    echo 'worker_new_table_read_denial_failed' >&2
+    exit 1
+  fi
+done
 
 native_test_dsn="postgresql://postgres@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
 worker_test_dsn="postgresql://pkc_mfa_outbox_worker@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"

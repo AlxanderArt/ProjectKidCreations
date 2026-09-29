@@ -19,7 +19,7 @@
     "test:e2e": "playwright test",
     "test:e2e:desktop": "playwright test --project=desktop-chromium",
     "test:e2e:mobile": "playwright test --project=mobile-webkit",
-    "test:e2e:live": "playwright test --config=playwright.config.mjs",
+
     "vercel-build": "npm run build"
   },
   "repository": {

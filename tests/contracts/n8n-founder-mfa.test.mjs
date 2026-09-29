@@ -151,7 +151,7 @@ function validFinalizeClaims(now = 2_000_000_000) {
     session_id: "session-631e3812-f74d-43c8-8ac0-5bc36eec85be",
     password_authenticated_at: now - 45,
     mfa_verified_at: now - 10,
-    auth_epoch: 4,
+    auth_epoch: "4",
     amr: ["pwd", "otp"],
     session_issued_at: now - 10,
     session_expires_at: now + 3600,
@@ -309,7 +309,7 @@ test("finalizer verifies a closed signed grant and rejects tampering, expiry, an
   assert.deepEqual(verified, claims);
 
   const [head, body, signature] = sign(claims, key).split(".");
-  const tampered = { ...decodePart(body), auth_epoch: 5 };
+  const tampered = { ...decodePart(body), auth_epoch: "5" };
   assert.throws(() => verifyFounderFinalizeGrant(`${head}.${Buffer.from(JSON.stringify(tampered)).toString("base64url")}.${signature}`, { key, expectedKid: "finalize-v1", now }), /invalid_finalize_signature/);
   assert.throws(() => verifyFounderFinalizeGrant(sign({ ...claims, exp: now - 1 }, key), { key, expectedKid: "finalize-v1", now }), /expired_finalize_grant/);
   assert.throws(() => verifyFounderFinalizeGrant(sign({ ...claims, unexpected: true }, key), { key, expectedKid: "finalize-v1", now }), /invalid_finalize_claims/);
@@ -336,6 +336,37 @@ test("inactive finalizer is deterministic and derives session identity only from
   assert.match(source, /session_id/);
   assert.doesNotMatch(source, /randomUUID|randomBytes/);
   for (const key of FINALIZE_CLAIM_KEYS) assert.match(source, new RegExp(`\\b${key}\\b`), key);
+});
+
+test("Authenticate Finalizer rejects every non-enforced mode before account reads or projections", () => {
+  const workflow = buildFounderMfaFinalizerWorkflow(loginFixture());
+  const source = nodeByName(workflow, "Authenticate Finalizer").parameters.jsCode;
+  const founderSubject = "11111111-1111-4111-8111-111111111111";
+  const payload = Buffer.from(JSON.stringify({ sub: founderSubject, username: "PK Blick", is_admin: true })).toString("base64url");
+  const request = [{ json: { headers: { "x-pkc-key": "internal-key" }, body: { grant: `header.${payload}.signature` } } }];
+  const baseEnv = { PKC_AUTH_KEY: "internal-key", PKC_FOUNDER_SUBJECT: founderSubject };
+  const executeWorkflowPrefix = (mode) => {
+    const effects = { accountReads: 0, projectionWrites: 0 };
+    const env = { ...baseEnv, ...(mode === undefined ? {} : { PKC_FOUNDER_MFA_MODE: mode }) };
+    const authenticated = executeCode(source, { input: request, env });
+    effects.accountReads += 1;
+    effects.projectionWrites += 2;
+    return { authenticated, effects };
+  };
+
+  assert.match(source, /PKC_FOUNDER_MFA_MODE/);
+  assert.ok(source.indexOf("PKC_FOUNDER_MFA_MODE") < source.indexOf("return [{ json:"));
+  for (const mode of [undefined, "disabled", "armed"]) {
+    const effects = { accountReads: 0, projectionWrites: 0 };
+    assert.throws(() => {
+      const result = executeWorkflowPrefix(mode);
+      Object.assign(effects, result.effects);
+    }, /founder_mfa_mode_denied/);
+    assert.deepEqual(effects, { accountReads: 0, projectionWrites: 0 });
+  }
+  const enforced = executeWorkflowPrefix("enforced");
+  assert.equal(enforced.authenticated[0].json.founder_lookup_subject, founderSubject);
+  assert.deepEqual(enforced.effects, { accountReads: 1, projectionWrites: 2 });
 });
 
 test("finalizer preserves founder tuple but never authorizes from Sheet auth_epoch", () => {
@@ -486,7 +517,7 @@ test("transformed protected Init Trace nodes execute canonical founder JWT autho
     exp: now + 300,
     aud: "pkc-account",
     amr: ["pwd", "otp"],
-    auth_epoch: 4,
+    auth_epoch: "4",
     mfa_verified_at: now - 5,
   };
   const env = { PKC_AUTH_KEY: "internal-key", PKC_JWT_SECRET: signingMaterial, PKC_FOUNDER_SUBJECT: founderSubject };

@@ -30,6 +30,7 @@ const GOOD_ENV = Object.freeze({
   PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test,https://standby.example.test",
   PKC_PUBLIC_ALLOWED_ORIGINS: "https://app.example.test,https://www.example.test",
   PKC_FOUNDER_SUBJECT: FOUNDER_SUBJECT,
+  PKC_FOUNDER_MFA_MODE: "enforced",
 });
 
 const okJson = (body = { ok: true }, init = {}) => new Response(JSON.stringify(body), {
@@ -538,13 +539,13 @@ test("all founder session routes except logout use Node authority and reject sta
   const staleMfa = Math.floor(Date.now() / 1000) - 3600;
   const profile = {
     account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "any-address@example.test", is_admin: true,
-    founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 3, mfa_verified_at: staleMfa },
+    founder_assurance: { amr: ["pwd", "otp"], auth_epoch: "3", mfa_verified_at: staleMfa },
   };
   let calls = 0;
   const denied = await call("accountProfile", request("/x", {
     method: "GET", body: undefined, origin: undefined, headers: { cookie: "pkc_session=old-founder" },
   }), async () => { calls += 1; return okJson({ profile }); }, {
-    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 4, revokedBefore: new Date() }; },
+    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "4", revokedBefore: new Date() }; },
   });
   assert.equal(denied.status, 403);
   assert.equal(calls, 1);
@@ -553,7 +554,7 @@ test("all founder session routes except logout use Node authority and reject sta
   const accepted = await call("accountProfile", request("/x", {
     method: "GET", body: undefined, origin: undefined, headers: { cookie: "pkc_session=current-founder" },
   }), async () => { calls += 1; return okJson({ profile }); }, {
-    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 3, revokedBefore: null }; },
+    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "3", revokedBefore: null }; },
   });
   assert.equal(accepted.status, 200);
   assert.equal(calls, 2, "non-sensitive founder profile permits older MFA only when the Postgres epoch is current");
@@ -571,7 +572,7 @@ test("founder-sensitive account mutations preserve customers and require current
     account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "irrelevant@example.test", is_admin: true,
     founder_assurance: assurance,
   });
-  const activeAuthority = { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 7, revokedBefore: null };
+  const activeAuthority = { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "7", revokedBefore: null };
 
   for (const [routeId, body] of routes) {
     let calls = 0;
@@ -586,11 +587,11 @@ test("founder-sensitive account mutations preserve customers and require current
 
     for (const [label, assurance, authority = activeAuthority] of [
       ["missing", undefined],
-      ["wrong-amr", { amr: ["pwd"], auth_epoch: 7, mfa_verified_at: freshMfa }],
-      ["stale", { amr: ["pwd", "otp"], auth_epoch: 7, mfa_verified_at: freshMfa - 901 }],
-      ["future", { amr: ["pwd", "otp"], auth_epoch: 7, mfa_verified_at: freshMfa + 120 }],
-      ["wrong-epoch", { amr: ["pwd", "otp"], auth_epoch: 6, mfa_verified_at: freshMfa }],
-      ["disabled-factor", { amr: ["pwd", "otp"], auth_epoch: 7, mfa_verified_at: freshMfa }, { ...activeAuthority, state: "recovery_required" }],
+      ["wrong-amr", { amr: ["pwd"], auth_epoch: "7", mfa_verified_at: freshMfa }],
+      ["stale", { amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa - 901 }],
+      ["future", { amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa + 120 }],
+      ["wrong-epoch", { amr: ["pwd", "otp"], auth_epoch: "6", mfa_verified_at: freshMfa }],
+      ["disabled-factor", { amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa }, { ...activeAuthority, state: "recovery_required" }],
     ]) {
       calls = 0;
       const denied = await call(routeId, request("/x", { body, headers: { cookie: "pkc_session=founder-token" } }), async () => {
@@ -605,7 +606,7 @@ test("founder-sensitive account mutations preserve customers and require current
     const accepted = await call(routeId, request("/x", { body, headers: { cookie: "pkc_session=founder-token" } }), async (url) => {
       calls += 1;
       return url.endsWith("/webhook/pkc-accounts/profile")
-        ? okJson({ profile: founder({ amr: ["pwd", "otp"], auth_epoch: 7, mfa_verified_at: freshMfa }) })
+        ? okJson({ profile: founder({ amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa }) })
         : okJson({ ok: true });
     }, { founderAuthority: async () => activeAuthority });
     assert.equal(accepted.status, 200, routeId);
@@ -615,14 +616,14 @@ test("founder-sensitive account mutations preserve customers and require current
 
 test("admin routes require a bounded profile assertion and never forward session to the admin operation", async () => {
   const freshMfa = Math.floor(Date.now() / 1000) - 30;
-  const activeAuthority = async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: 4, revokedBefore: null }; };
+  const activeAuthority = async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "4", revokedBefore: null }; };
   let calls = [];
   const fetchImpl = async (url, init) => {
     const headers = new Headers(init.headers);
     calls.push({ url, headers, signal: init.signal });
     if (url.endsWith("/webhook/pkc-accounts/profile")) return okJson({ profile: {
       account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "changed@example.test", is_admin: true,
-      auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa },
+      auth_epoch: "4", founder_assurance: { amr: ["pwd", "otp"], auth_epoch: "4", mfa_verified_at: freshMfa },
     } });
     return okJson({ rows: [] });
   };

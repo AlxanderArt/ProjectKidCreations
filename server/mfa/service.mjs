@@ -1,6 +1,10 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { selectActiveKey, decryptWithKeyring } from "./keyring.mjs";
+import { enrollmentAuthorizationMatches, enrollmentAuthorityFromConfig } from "./enrollment-authorization.mjs";
+import { requireFounderMfaAction } from "./mode.mjs";
+
+import { pgBigint } from "./pg-bigint.mjs";
 
 import {
   createOpaqueToken,
@@ -167,7 +171,11 @@ function usable(challenge, now, purposes) {
 export function createFounderMfaService(dependencies) {
   const { store, config } = dependencies || {};
   if (!store || typeof store.transaction !== "function") throw new TypeError("invalid_mfa_store");
-  if (!config?.keys?.encryption || !config?.keys?.finalize || !config?.keys?.recovery || !UUID_RE.test(config?.founderSubject || "")) throw new TypeError("invalid_mfa_config");
+  if (!config?.keys?.encryption || !config?.keys?.finalize || !config?.keys?.recovery || !UUID_RE.test(config?.founderSubject || "")
+      || !["disabled", "armed", "enforced"].includes(config?.mode)) throw new TypeError("invalid_mfa_config");
+  if (config.mode === "enforced" && (!config.deployment || !/^[0-9a-f]{40}$/.test(config.deployment.sourceCommit || "")
+      || !/^[0-9a-f]{64}$/.test(config.deployment.workflowDigest || ""))) throw new TypeError("invalid_mfa_config");
+  const mode = config.mode;
   const clock = dependencies.clock;
   const makeUuid = dependencies.randomUuid || randomUUID;
   const makeToken = dependencies.randomToken || createOpaqueToken;
@@ -196,6 +204,8 @@ export function createFounderMfaService(dependencies) {
   }
 
   async function beginChallenge(claims, options = {}) {
+    requireFounderMfaAction(mode, options.synthetic === true ? "synthetic-denial" : "challenge");
+    if (options.synthetic === true) return Object.freeze({ status: "denied", mode });
     if (!claims || claims.sub !== config.founderSubject || claims.username !== "PK Blick" || claims.is_admin !== true) throw rejected();
     const generatedCredential = makeToken();
     const token = generatedCredential;
@@ -253,14 +263,18 @@ export function createFounderMfaService(dependencies) {
   }
 
   async function discloseEnrollment({ token, csrf, issuer = "ProjectKidCreations", accountName = "Founder" }) {
-    const generatedSecretMaterial = makeSecret ? makeSecret() : (await import("./crypto.mjs")).generateTotpSecret();
-    const secret = generatedSecretMaterial;
+    requireFounderMfaAction(mode, "disclose");
+    let enrollmentMaterial;
     const result = await store.transaction(async (client) => {
       const now = await nowFor(client);
       const locked = await store.lockChallenge(client, hashOpaqueToken(token), hashOpaqueToken(csrf));
       if (!locked || !usable(locked.challenge, now, ["enroll"]) || locked.challenge.secret_disclosed_at) return { rejected: true };
+      const enrollmentGrant = await store.lockEnrollmentAuthorization(client, locked.factor.founder_subject);
+      const expected = enrollmentAuthorityFromConfig(config, locked.factor);
+      if (!enrollmentAuthorizationMatches(enrollmentGrant, expected, now)) return { rejected: true };
+      enrollmentMaterial = makeSecret ? makeSecret() : (await import("./crypto.mjs")).generateTotpSecret();
       const generation = Number(locked.factor.enrollment_generation) + 1;
-      const envelope = encryptTotpSecret(secret, selectActiveKey(config.keyrings.encryption, config.keyVersions.encryption), aadFor(locked.factor, generation), {
+      const envelope = encryptTotpSecret(enrollmentMaterial, selectActiveKey(config.keyrings.encryption, config.keyVersions.encryption), aadFor(locked.factor, generation), {
         keyVersion: config.keyVersions.encryption,
       });
       await client.query(
@@ -271,8 +285,8 @@ export function createFounderMfaService(dependencies) {
         [locked.factor.factor_id, generation, envelope.algorithm, envelope.keyVersion, envelope.ciphertext, envelope.nonce, envelope.tag, now],
       );
       await client.query(
-        "UPDATE pkc_auth.founder_mfa_challenges SET secret_disclosed_at=$2 WHERE challenge_id=$1",
-        [locked.challenge.challenge_id, now],
+        "UPDATE pkc_auth.founder_mfa_challenges SET secret_disclosed_at=$2,enrollment_authorization_id=$3 WHERE challenge_id=$1",
+        [locked.challenge.challenge_id, now, enrollmentGrant.enrollment_authorization_id],
       );
       await store.appendAudit(client, {
         factorId: locked.factor.factor_id,
@@ -280,11 +294,12 @@ export function createFounderMfaService(dependencies) {
         correlationId: makeUuid(),
         eventType: "enrollment_disclosed",
         outcomeClass: "accepted",
+        metadata: { approvalIdDigest: sha256(enrollmentGrant.approval_id).toString("hex") },
       });
       return { generation };
     });
     if (result.rejected) throw rejected();
-    const encoded = base32(secret);
+    const encoded = base32(enrollmentMaterial);
     const label = encodeURIComponent(`${issuer}:${accountName}`);
     const query = new URLSearchParams({ secret: encoded, issuer, algorithm: "SHA1", digits: "6", period: "30" });
     return { status: "enrollment_required", manualSecret: encoded, otpauthUri: `otpauth://totp/${label}?${query}` };
@@ -312,7 +327,7 @@ export function createFounderMfaService(dependencies) {
       session_id: `session-${sessionId}`,
       password_authenticated_at: Math.floor(new Date(locked.challenge.password_authenticated_at).getTime() / 1000),
       mfa_verified_at: issued,
-      auth_epoch: Number(authEpoch),
+      auth_epoch: pgBigint(authEpoch, "auth_epoch"),
       amr: ["pwd", "otp"],
       session_issued_at: issued,
       session_expires_at: expires,
@@ -334,11 +349,19 @@ export function createFounderMfaService(dependencies) {
   }
 
   async function verifyTotp({ token, csrf, code }) {
+    requireFounderMfaAction(mode, "verify");
     let recoveryCodes;
     const result = await store.transaction(async (client) => {
       const now = await nowFor(client);
       const locked = await store.lockChallenge(client, hashOpaqueToken(token), hashOpaqueToken(csrf));
       if (!locked || !usable(locked.challenge, now, ["enroll", "verify"]) || !["pending", "active"].includes(locked.factor.state)) return { rejected: true };
+      let enrollmentGrant = null;
+      if (locked.factor.state === "pending") {
+        if (!locked.challenge.enrollment_authorization_id) return { rejected: true };
+        enrollmentGrant = await store.lockEnrollmentAuthorization(client, locked.factor.founder_subject, locked.challenge.enrollment_authorization_id);
+        const expected = enrollmentAuthorityFromConfig(config, { ...locked.factor, state: enrollmentGrant?.expected_factor_state });
+        if (!enrollmentAuthorizationMatches(enrollmentGrant, expected, now)) return { rejected: true };
+      }
       let secret;
       try {
         const decryptedSecretMaterial = decryptWithKeyring(envelopeFromFactor(locked.factor), config.keyrings.encryption, aadFor(locked.factor));
@@ -352,21 +375,30 @@ export function createFounderMfaService(dependencies) {
         digits: Number(locked.factor.totp_digits),
         period: Number(locked.factor.totp_period_seconds),
         window: 1,
-        lastAcceptedCounter: locked.factor.last_accepted_counter === null ? null : Number(locked.factor.last_accepted_counter),
+        lastAcceptedCounter: locked.factor.last_accepted_counter === null ? null : pgBigint(locked.factor.last_accepted_counter, "last_accepted_counter"),
       });
       if (!checked.valid) {
         await failAttempt(client, locked, now, "totp_rejected");
         return { rejected: true };
       }
-      let authEpoch = Number(locked.factor.auth_epoch);
+      let authEpoch = pgBigint(locked.factor.auth_epoch, "auth_epoch");
       if (locked.factor.state === "pending") {
         recoveryCodes = generateRecoveryCodes({ count: 10 });
-        authEpoch += 1;
-        await client.query(
+        const epochRow = (await client.query(
           `UPDATE pkc_auth.founder_mfa_factors SET state='active', last_accepted_counter=$2,
-           auth_epoch=$3, revoked_before=$4, enrolled_at=$4, updated_at=$4, row_version=row_version+1 WHERE factor_id=$1`,
-          [locked.factor.factor_id, checked.counter, authEpoch, now],
+           auth_epoch=auth_epoch+1, revoked_before=$3, enrolled_at=$3, updated_at=$3, row_version=row_version+1
+           WHERE factor_id=$1 RETURNING auth_epoch::text AS auth_epoch`,
+          [locked.factor.factor_id, checked.counter, now],
+        )).rows[0];
+        authEpoch = pgBigint(epochRow.auth_epoch, "auth_epoch");
+        const consumedGrant = await client.query(
+          `UPDATE pkc_auth.founder_mfa_enrollment_authorizations
+           SET consumed_at=$2, consumed_by_challenge_id=$3
+           WHERE enrollment_authorization_id=$1 AND consumed_at IS NULL AND expires_at>=$2
+           RETURNING enrollment_authorization_id`,
+          [enrollmentGrant.enrollment_authorization_id, now, locked.challenge.challenge_id],
         );
+        if (consumedGrant.rows.length !== 1) throw rejected();
         await client.query("DELETE FROM pkc_auth.founder_mfa_recovery_codes WHERE factor_id=$1", [locked.factor.factor_id]);
         for (const recoveryCode of recoveryCodes) {
           await client.query(
@@ -415,6 +447,7 @@ export function createFounderMfaService(dependencies) {
   }
 
   async function useRecoveryCode({ token, csrf, code }) {
+    requireFounderMfaAction(mode, "recovery");
     const result = await store.transaction(async (client) => {
       const now = await nowFor(client);
       const locked = await store.lockChallenge(client, hashOpaqueToken(token), hashOpaqueToken(csrf));
@@ -443,18 +476,19 @@ export function createFounderMfaService(dependencies) {
         await failAttempt(client, locked, now, "recovery_rejected");
         return { rejected: true };
       }
-      const authEpoch = Number(locked.factor.auth_epoch) + 1;
+      let authEpoch;
       await client.query(
         "UPDATE pkc_auth.founder_mfa_recovery_codes SET used_at=$2, used_by_challenge_id=$3 WHERE recovery_code_id=$1",
         [recovery.recovery_code_id, now, locked.challenge.challenge_id],
       );
-      await client.query(
+      const epochRow = (await client.query(
         `UPDATE pkc_auth.founder_mfa_factors SET state='recovery_required', secret_algorithm=NULL,
          secret_key_version=NULL, secret_ciphertext=NULL, secret_nonce=NULL, secret_tag=NULL,
-         last_accepted_counter=NULL, enrolled_at=NULL, auth_epoch=$2, revoked_before=$3,
-         updated_at=$3, row_version=row_version+1 WHERE factor_id=$1`,
-        [locked.factor.factor_id, authEpoch, now],
-      );
+         last_accepted_counter=NULL, enrolled_at=NULL, auth_epoch=auth_epoch+1, revoked_before=$2,
+         updated_at=$2, row_version=row_version+1 WHERE factor_id=$1 RETURNING auth_epoch::text AS auth_epoch`,
+        [locked.factor.factor_id, now],
+      )).rows[0];
+      authEpoch = pgBigint(epochRow.auth_epoch, "auth_epoch");
       await client.query(
         `UPDATE pkc_auth.founder_mfa_challenges SET state=CASE WHEN challenge_id=$2 THEN 'consumed' ELSE 'superseded' END,
          consumed_at=CASE WHEN challenge_id=$2 THEN $3 ELSE consumed_at END,
@@ -489,7 +523,9 @@ export function createFounderMfaService(dependencies) {
     return { status: "reenrollment_required" };
   }
 
+
   async function finalize({ token, csrf, finalizeId }) {
+    requireFounderMfaAction(mode, "finalize");
     const claimed = await store.transaction(async (client) => {
       const now = await nowFor(client);
       const locked = await store.lockChallenge(client, hashOpaqueToken(token), hashOpaqueToken(csrf));
@@ -500,8 +536,8 @@ export function createFounderMfaService(dependencies) {
       )).rows[0];
       if (!row || row.state === "terminal_rejected") return { rejected: true };
       const claims = row.claims;
-      if (locked.factor.state !== "active" || Number(locked.factor.auth_epoch) !== Number(row.auth_epoch)
-        || Number(claims?.auth_epoch) !== Number(row.auth_epoch)) return { rejected: true };
+      if (locked.factor.state !== "active" || pgBigint(locked.factor.auth_epoch, "auth_epoch") !== pgBigint(row.auth_epoch, "auth_epoch")
+        || pgBigint(claims?.auth_epoch, "auth_epoch") !== pgBigint(row.auth_epoch, "auth_epoch")) return { rejected: true };
       const finalizeVersion = /^finalize-v([1-9]\d*)$/.exec(String(claims?.kid || ""));
       if (!finalizeVersion) return { rejected: true };
       let grant;
@@ -529,7 +565,7 @@ export function createFounderMfaService(dependencies) {
          lease_expires_at=$3, lease_fence=lease_fence+1, dispatch_attempts=dispatch_attempts+1
          WHERE finalize_id=$1 AND lease_fence=$4 AND
            (state IN ('pending','unknown') OR (state='dispatching' AND lease_expires_at<=$5))
-         RETURNING lease_fence`,
+         RETURNING lease_fence::text AS lease_fence`,
         [row.finalize_id, owner, new Date(now.getTime() + 15_000), row.lease_fence, now],
       )).rows[0];
       if (!advanced) return { rejected: true };
@@ -572,8 +608,8 @@ export function createFounderMfaService(dependencies) {
           [claimed.databaseFinalizeId],
         )).rows[0];
         if (!row || row.state !== "succeeded" || !factor || factor.state !== "active"
-          || Number(factor.auth_epoch) !== Number(row.auth_epoch)
-          || Number(row.claims?.auth_epoch) !== Number(row.auth_epoch)) return "rejected";
+          || pgBigint(factor.auth_epoch, "auth_epoch") !== pgBigint(row.auth_epoch, "auth_epoch")
+          || pgBigint(row.claims?.auth_epoch, "auth_epoch") !== pgBigint(row.auth_epoch, "auth_epoch")) return "rejected";
         return "authenticated";
       });
       return replayState === "authenticated"
@@ -596,7 +632,7 @@ export function createFounderMfaService(dependencies) {
         [claimed.databaseFinalizeId],
       )).rows[0];
       if (!row || row.lease_owner !== claimed.owner || bigintFence(row.lease_fence) !== claimed.leaseFence || row.state !== "dispatching") return "unknown";
-      if (!factor || factor.state !== "active" || Number(factor.auth_epoch) !== Number(row.auth_epoch)) {
+      if (!factor || factor.state !== "active" || pgBigint(factor.auth_epoch, "auth_epoch") !== pgBigint(row.auth_epoch, "auth_epoch")) {
         await client.query(
           `UPDATE pkc_auth.founder_mfa_finalizations SET state='terminal_rejected', lease_owner=NULL,
            lease_expires_at=NULL, receipt_digest=NULL, finalized_at=NULL WHERE finalize_id=$1`,
@@ -621,5 +657,6 @@ export function createFounderMfaService(dependencies) {
     return state === "authenticated" ? { status: state, setCookie: receipt.setCookie } : { status: "unknown" };
   }
 
+  // No-code recovery is intentionally not exposed until a closed trusted approval API is injected.
   return Object.freeze({ beginChallenge, beginFromSignedHandoff, discloseEnrollment, verifyTotp, useRecoveryCode, finalize });
 }

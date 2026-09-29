@@ -69,6 +69,13 @@ export const WORKFLOW_REGISTRY = Object.freeze(Object.keys(IDS).map((role) => Ob
   semanticContract: CONTRACTS[role],
 })));
 
+export const N8N_ARTIFACT_ROLES = Object.freeze([
+  ...WORKFLOW_REGISTRY.map((entry) => entry.role),
+  "finalizer",
+  "dispatcher",
+  "rollback-login",
+]);
+
 const canonical = (value) => Array.isArray(value)
   ? `[${value.map(canonical).join(",")}]`
   : value && typeof value === "object"
@@ -87,7 +94,8 @@ const FINALIZER_RESPONSE_VALIDATOR = `const receipt=$('Verify Finalize Grant').f
 const allowed=${JSON.stringify(FINALIZER_PUBLIC_RESPONSE_KEYS)};if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||JSON.stringify(Object.keys(receipt).sort())!==JSON.stringify(allowed))throw new Error('unexpected_finalizer_response_shape');
 if(receipt.ok!==true||receipt.status!=='authenticated'||receipt.receipt_version!==1)throw new Error('unexpected_finalizer_response_shape');
 for(const key of ['finalize_id','grant_jti','session_id','session_token','username'])if(typeof receipt[key]!=='string'||receipt[key].length<1)throw new Error('unexpected_finalizer_response_shape');
-for(const key of ['auth_epoch','mfa_verified_at','issued_at','expires_at'])if(!Number.isSafeInteger(receipt[key]))throw new Error('unexpected_finalizer_response_shape');
+if(typeof receipt.auth_epoch!=='string'||!/^(?:0|[1-9][0-9]*)$/.test(receipt.auth_epoch)||receipt.auth_epoch.length>19||(receipt.auth_epoch.length===19&&receipt.auth_epoch>'9223372036854775807'))throw new Error('unexpected_finalizer_response_shape');
+for(const key of ['mfa_verified_at','issued_at','expires_at'])if(!Number.isSafeInteger(receipt[key]))throw new Error('unexpected_finalizer_response_shape');
 return [{json:{ok:receipt.ok,status:receipt.status,receipt_version:receipt.receipt_version,finalize_id:receipt.finalize_id,grant_jti:receipt.grant_jti,session_id:receipt.session_id,session_token:receipt.session_token,username:receipt.username,auth_epoch:receipt.auth_epoch,mfa_verified_at:receipt.mfa_verified_at,issued_at:receipt.issued_at,expires_at:receipt.expires_at}}];`;
 const FINALIZER_RESPONSE_EXPRESSION = "={{ { ok: $json.ok, status: $json.status, receipt_version: $json.receipt_version, finalize_id: $json.finalize_id, grant_jti: $json.grant_jti, session_id: $json.session_id, session_token: $json.session_token, username: $json.username, auth_epoch: $json.auth_epoch, mfa_verified_at: $json.mfa_verified_at, issued_at: $json.issued_at, expires_at: $json.expires_at } }}";
 
@@ -233,7 +241,7 @@ const rawId=body.account_id??claims.sub;const id=rawId==null?'':String(rawId);if
 if(signals.some(Boolean)&&!signals.every(Boolean))throw new Error('403:founder_identity_mismatch');if(!signals.some(Boolean)&&(id||username==='PK Blick'||admin===true))throw new Error('403:founder_identity_mismatch');return $input.all();`;
 const SESSION_GATE = `const rows=$input.all().map(item=>item.json).filter(Boolean);if(rows.length!==1)throw new Error('403:session_authority_ambiguous');const row=rows[0];
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;const founderSubject=String($env.PKC_FOUNDER_SUBJECT||'');if(!uuid.test(founderSubject))throw new Error('503:founder_authority_not_configured');const raw=row.account_id??row.sub;const subject=raw==null?'':String(raw);if(subject&&!uuid.test(subject))throw new Error('403:account_identity_invalid');const username=row.username==='PK Blick';const admin=row.is_admin===true||String(row.is_admin||'').toUpperCase()==='TRUE';const founder=subject===founderSubject&&username&&admin;
-if((subject===founderSubject||username||admin)&&!founder)throw new Error('403:founder_session_authority_invalid');if(founder&&(!Number.isSafeInteger(Number(row.auth_epoch))||String(row.amr||'').trim()!=='pwd otp'))throw new Error('403:founder_session_authority_invalid');return $input.all();`;
+if((subject===founderSubject||username||admin)&&!founder)throw new Error('403:founder_session_authority_invalid');if(founder&&String($env.PKC_FOUNDER_MFA_MODE||'')!=='enforced')throw new Error('403:founder_mfa_mode_denied');const epoch=String(row.auth_epoch??'');if(founder&&(!/^(?:0|[1-9][0-9]*)$/.test(epoch)||epoch.length>19||(epoch.length===19&&epoch>'9223372036854775807')||String(row.amr||'').trim()!=='pwd otp'))throw new Error('403:founder_session_authority_invalid');return $input.all();`;
 
 function applyIdentityAuthority(input, role) {
   const workflow = clone(input);
@@ -258,7 +266,7 @@ function applyFounderMfa(input, role) {
   if (role === "bootstrap") return workflow;
   if (!target) throw new Error(`${role}: MFA authority target missing`);
   if (role === "login") {
-    insertBefore(workflow, target.name, code("Founder MFA Before Session Effects", `const item=$input.first()?.json||{};const account=item.account||item;const founderSubject=String($env.PKC_FOUNDER_SUBJECT||'');const signals=[String(account.account_id||'')===founderSubject,account.username==='PK Blick',account.is_admin===true||String(account.is_admin||'').toUpperCase()==='TRUE'];if(signals.some(Boolean)&&!signals.every(Boolean))throw new Error('403:founder_identity_mismatch');if(signals.every(Boolean))throw new Error('MFA_REQUIRED_BEFORE_SESSION');return $input.all();`));
+    insertBefore(workflow, target.name, code("Founder MFA Before Session Effects", `const item=$input.first()?.json||{};const account=item.account||item;const founderSubject=String($env.PKC_FOUNDER_SUBJECT||'');const signals=[String(account.account_id||'')===founderSubject,account.username==='PK Blick',account.is_admin===true||String(account.is_admin||'').toUpperCase()==='TRUE'];if(signals.some(Boolean)&&!signals.every(Boolean))throw new Error('403:founder_identity_mismatch');if(signals.every(Boolean)){if(String($env.PKC_FOUNDER_MFA_MODE||'')!=='enforced')throw new Error('403:founder_mfa_mode_denied');throw new Error('MFA_REQUIRED_BEFORE_SESSION');}return $input.all();`));
   } else if (["profile", "sessions", "revoke", "logout"].includes(role)) {
     insertBefore(workflow, target.name, code(`Enforce ${role[0].toUpperCase()}${role.slice(1)} Session Authority`, SESSION_GATE));
   }
@@ -323,7 +331,10 @@ export function serializeNineArtifacts(inputs, { registry = WORKFLOW_REGISTRY, s
   const dispatcher = artifact("dispatcher", buildOutboxDispatcherWorkflow());
   const rollback = artifact("rollback-login", rollbackLogin(corrected.find((item) => item.role === "login").workflow));
   const artifacts = Object.freeze([...corrected, finalizer, dispatcher, rollback]);
-  if (artifacts.length !== 9) throw new Error("exactly nine artifacts required");
+  if (artifacts.length !== N8N_ARTIFACT_ROLES.length
+      || JSON.stringify(artifacts.map((item) => item.role)) !== JSON.stringify(N8N_ARTIFACT_ROLES)) {
+    throw new Error("exact canonical nine artifact roles required");
+  }
   const manifest = Object.freeze({
     schema: "pkc-n8n-nine-artifact-manifest-v1",
     n8nCompatibility: "2.19.5",

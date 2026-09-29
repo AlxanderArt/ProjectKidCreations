@@ -135,8 +135,10 @@ test("restore evidence refuses unsafe targets and reports non-authoritative pari
 });
 
 test("Vercel verifier binds exact source, scopes, KIDs, inventory, environment, alias, and rollback", () => {
-  const base = { environment: "Preview", expectedEnvironment: "Preview", sourceSha: SHA, expectedSourceSha: SHA, state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", expectedAliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10, candidate: candidateEvidence(), variables: [
-    { name: "PKC_DATABASE_URL", scopes: ["Preview"] }, { name: "PKC_FOUNDER_SUBJECT", scopes: ["Preview"] },
+  const base = { environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", expectedAliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10, candidate: candidateEvidence(), variables: [
+    { name: "PKC_DATABASE_URL", scopes: ["Preview"] }, { name: "PKC_DATABASE_NAME", scopes: ["Preview"] },
+    { name: "PKC_DATABASE_USER", scopes: ["Preview"] }, { name: "PKC_DATABASE_ENVIRONMENT", scopes: ["Preview"] },
+    { name: "PKC_FOUNDER_SUBJECT", scopes: ["Preview"] },
     { name: "PKC_MFA_HANDOFF_KEYRING", scopes: ["Preview"] }, { name: "PKC_MFA_HANDOFF_KEY_VERSION", scopes: ["Preview"] },
     { name: "PKC_MFA_FINALIZE_KEYRING", scopes: ["Preview"] }, { name: "PKC_MFA_FINALIZE_KEY_VERSION", scopes: ["Preview"] },
   ], vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
