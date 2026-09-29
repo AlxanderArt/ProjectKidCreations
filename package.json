@@ -8,11 +8,18 @@
     "dev": "python3 -m http.server ${PORT:-8765} --bind 127.0.0.1",
     "build": "node scripts/build.mjs",
     "audit:boot-performance": "node scripts/audit-boot-performance.mjs",
-    "test:contracts": "node --test tests/contracts/*.test.mjs",
+    "test:contracts": "node scripts/run-contract-tests.mjs",
+    "test:contracts:protected": "node --test tests/contracts/n8n-workflow-as-code.test.mjs tests/contracts/n8n-gate0-authority.test.mjs tests/contracts/n8n-gate-engine.test.mjs",
+    "test:contracts:protected:synthetic": "bash scripts/run-synthetic-n8n-gate.sh",
+    "test:n8n-workflows": "node --test tests/contracts/n8n-workflow-as-code.test.mjs",
+    "n8n:rehearse": "node ops/n8n-disposable/rehearse.mjs",
+    "test:mfa:postgres": "bash scripts/test-founder-mfa-postgres.sh",
+    "db:migrate": "node db/migrate.mjs",
+    "db:readiness": "node db/readiness.mjs",
     "test:e2e": "playwright test",
     "test:e2e:desktop": "playwright test --project=desktop-chromium",
     "test:e2e:mobile": "playwright test --project=mobile-webkit",
-    "test:e2e:live": "playwright test --config=playwright.config.mjs",
+
     "vercel-build": "npm run build"
   },
   "repository": {
@@ -22,6 +29,8 @@
   "license": "ISC",
   "dependencies": {
     "gsap": "3.15.0",
+    "pg": "8.16.3",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.160.0"

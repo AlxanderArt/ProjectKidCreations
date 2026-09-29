@@ -114,18 +114,23 @@ class PkcBootGlobe {
     this.canvas = canvas;
     this.wrap = wrap;
     this.props = props;
-    this.start();
+    this.ready = this.start();
   }
-  start(){
+  yieldInitialization(){
+    return new Promise(resolve => {
+      this.initializationTimer = window.setTimeout(() => {
+        this.initializationTimer = null;
+        resolve();
+      }, 0);
+    });
+  }
+  async start(){
     this.yaw = -38; this.pitch = 14; this.flowT = 0; this.clock = 0; this.land = null; this.landFade = 0;
     this.assemblyAnnounced = false;
     this.lastOperationalDrawAt = 0;
-    this.destroyed = false; this.landTimer = null; this.backgroundTimer = null;
+    this.destroyed = false; this.landTimer = null; this.backgroundTimer = null; this.initializationTimer = null;
     this.timelineStartedAt = performance.now();
     this.reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.buildGraph();
-    this.buildGraticule();
-
     const resize = () => {
       const r = this.wrap.getBoundingClientRect(), vv = window.visualViewport, d = Math.min(window.devicePixelRatio||1, 2);
       const preferVV = vv && vv.width > 0 && vv.height > 0 && (IOS_SAFARI || /Safari/.test(navigator.userAgent||'') && !/Chrome|Chromium|CriOS|FxiOS|Edg/.test(navigator.userAgent||''));
@@ -139,6 +144,15 @@ class PkcBootGlobe {
     window.addEventListener('resize', resize, {passive:true});
     if(window.visualViewport){ window.visualViewport.addEventListener('resize', resize, {passive:true}); window.visualViewport.addEventListener('scroll', resize, {passive:true}); }
     this._resize = resize;
+
+    await this.yieldInitialization();
+    if(this.destroyed) return;
+    this.buildGraph();
+    await this.yieldInitialization();
+    if(this.destroyed) return;
+    this.buildGraticule();
+    await this.yieldInitialization();
+    if(this.destroyed) return;
     if(this.props.showCoastlines ?? true) this.loadLand();
     const assembledAt = T.in + T.snap + T.hold + T.out + T.assemble;
     this._loop = ts => {
@@ -162,6 +176,7 @@ class PkcBootGlobe {
   destroy(){
     if(this.destroyed) return;
     this.destroyed = true;
+    if(this.initializationTimer !== null) clearTimeout(this.initializationTimer);
     if(this.landTimer !== null) clearTimeout(this.landTimer);
     if(this.backgroundTimer !== null) clearTimeout(this.backgroundTimer);
     cancelAnimationFrame(this.raf);
@@ -307,8 +322,23 @@ class PkcBootGlobe {
   fade(z){ return z <= 0.02 ? 0 : Math.min(1, (z - 0.02)/0.32); }
 
   /* ── layers ─────────────────────────────────────────────────── */
+  paintBackgroundStrips(ctx, width, height, paint, complete){
+    const version = this.backgroundVersion;
+    const stripHeight = 64;
+    let y = 0;
+    const next = () => {
+      if(this.destroyed || version !== this.backgroundVersion) return;
+      const heightForStrip = Math.min(stripHeight, height - y);
+      paint(y, heightForStrip);
+      y += heightForStrip;
+      if(y < height) this.backgroundTimer = window.setTimeout(next, 0);
+      else complete();
+    };
+    this.backgroundTimer = window.setTimeout(next, 0);
+  }
   prepareBackground(key, c){
     this.bgPendingKey = key;
+    this.backgroundVersion = (this.backgroundVersion ?? 0) + 1;
     const w = Math.max(1, Math.round(this.w)), h = Math.max(1, Math.round(this.h));
     const oc = document.createElement('canvas'); oc.width = w; oc.height = h;
     const o = oc.getContext('2d');
@@ -322,34 +352,39 @@ class PkcBootGlobe {
     scheduleStage(() => {
       let g = o.createRadialGradient(w*0.15, 0, 0, w*0.15, 0, Math.hypot(w, h)*1.25);
       g.addColorStop(0, '#26262a'); g.addColorStop(0.45, '#161618'); g.addColorStop(1, '#0C0C0D');
-      o.fillStyle = g; o.fillRect(0, 0, w, h);
-
-      scheduleStage(() => {
-      const gc = document.createElement('canvas'); gc.width = w; gc.height = h;
-      const gx = gc.getContext('2d');
-      gx.strokeStyle = 'rgba(255,255,255,' + (0.045*(this.props.gridStrength ?? 1)).toFixed(3) + ')';
-      gx.lineWidth = 1;
-      for(let x = 0; x <= w; x += 52){ gx.beginPath(); gx.moveTo(x+0.5, 0); gx.lineTo(x+0.5, h); gx.stroke(); }
-      for(let y = 0; y <= h; y += 52){ gx.beginPath(); gx.moveTo(0, y+0.5); gx.lineTo(w, y+0.5); gx.stroke(); }
-      gx.globalCompositeOperation = 'destination-in';
-      const mask = gx.createRadialGradient(w*0.5, 0, 0, w*0.5, 0, Math.max(w*0.75, h*1.15));
-      mask.addColorStop(0, 'rgba(0,0,0,1)'); mask.addColorStop(0.42, 'rgba(0,0,0,0.85)'); mask.addColorStop(1, 'rgba(0,0,0,0)');
-      gx.fillStyle = mask; gx.fillRect(0, 0, w, h);
-      o.drawImage(gc, 0, 0);
-
-      scheduleStage(() => {
-      const glow = this.props.glow ?? 1;
-      g = o.createRadialGradient(w*1.02, h, 0, w*1.02, h, Math.max(w, h)*0.85);
-      g.addColorStop(0, c.accentAlpha(0.20*glow));
-      g.addColorStop(0.45, c.accentAlpha(0.07*glow));
-      g.addColorStop(1, c.accentAlpha(0));
-      o.fillStyle = g; o.fillRect(0, 0, w, h);
-
-      g = o.createRadialGradient(w/2, h/2, Math.min(w,h)*0.32, w/2, h/2, Math.max(w,h)*0.85);
-      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.5)');
-      o.fillStyle = g; o.fillRect(0, 0, w, h);
-      this.bg = oc; this.bgKey = key; this.bgPendingKey = null; this.backgroundTimer = null;
-      });
+      o.fillStyle = g;
+      this.paintBackgroundStrips(o, w, h, (y, stripHeight) => o.fillRect(0, y, w, stripHeight), () => {
+        scheduleStage(() => {
+          const gc = document.createElement('canvas'); gc.width = w; gc.height = h;
+          const gx = gc.getContext('2d');
+          gx.strokeStyle = 'rgba(255,255,255,' + (0.045*(this.props.gridStrength ?? 1)).toFixed(3) + ')';
+          gx.lineWidth = 1;
+          for(let x = 0; x <= w; x += 52){ gx.beginPath(); gx.moveTo(x+0.5, 0); gx.lineTo(x+0.5, h); gx.stroke(); }
+          for(let y = 0; y <= h; y += 52){ gx.beginPath(); gx.moveTo(0, y+0.5); gx.lineTo(w, y+0.5); gx.stroke(); }
+          gx.globalCompositeOperation = 'destination-in';
+          const mask = gx.createRadialGradient(w*0.5, 0, 0, w*0.5, 0, Math.max(w*0.75, h*1.15));
+          mask.addColorStop(0, 'rgba(0,0,0,1)'); mask.addColorStop(0.42, 'rgba(0,0,0,0.85)'); mask.addColorStop(1, 'rgba(0,0,0,0)');
+          gx.fillStyle = mask;
+          this.paintBackgroundStrips(gx, w, h, (y, stripHeight) => gx.fillRect(0, y, w, stripHeight), () => {
+            o.drawImage(gc, 0, 0);
+            scheduleStage(() => {
+              const glow = this.props.glow ?? 1;
+              g = o.createRadialGradient(w*1.02, h, 0, w*1.02, h, Math.max(w, h)*0.85);
+              g.addColorStop(0, c.accentAlpha(0.20*glow));
+              g.addColorStop(0.45, c.accentAlpha(0.07*glow));
+              g.addColorStop(1, c.accentAlpha(0));
+              o.fillStyle = g;
+              this.paintBackgroundStrips(o, w, h, (y, stripHeight) => o.fillRect(0, y, w, stripHeight), () => {
+                g = o.createRadialGradient(w/2, h/2, Math.min(w,h)*0.32, w/2, h/2, Math.max(w,h)*0.85);
+                g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.5)');
+                o.fillStyle = g;
+                this.paintBackgroundStrips(o, w, h, (y, stripHeight) => o.fillRect(0, y, w, stripHeight), () => {
+                  this.bg = oc; this.bgKey = key; this.bgPendingKey = null; this.backgroundTimer = null;
+                });
+              });
+            });
+          });
+        });
       });
     });
   }
@@ -662,68 +697,72 @@ class PkcBootGlobe {
 }
 
 
-const canvas = document.getElementById('pkc-globe-canvas');
-const root = document.querySelector('.pkc-globe');
-const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const globe = new PkcBootGlobe(canvas, root, {
-  showIntro: !reduceMotion,
-  nodeCount: 25,
-  seed: 7,
-  arcHeight: 1.8,
-  maxPings: reduceMotion ? 1 : 8,
-  flowSpeed: reduceMotion ? 0 : 0.0022,
-  spinSpeed: reduceMotion ? 0 : 0.028,
-  motion: 'quiet',
-  accent: '#FF5F1F',
-  density: 'balanced',
-  globeScale: 1,
-  gridStrength: 1,
-  glow: 1,
-  showCoastlines: true
-});
+const initializeBootRenderer = () => {
+  const canvas = document.getElementById('pkc-globe-canvas');
+  const root = document.querySelector('.pkc-globe');
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const globe = new PkcBootGlobe(canvas, root, {
+    showIntro: !reduceMotion,
+    nodeCount: 25,
+    seed: 7,
+    arcHeight: 1.8,
+    maxPings: reduceMotion ? 1 : 8,
+    flowSpeed: reduceMotion ? 0 : 0.0022,
+    spinSpeed: reduceMotion ? 0 : 0.028,
+    motion: 'quiet',
+    accent: '#FF5F1F',
+    density: 'balanced',
+    globeScale: 1,
+    gridStrength: 1,
+    glow: 1,
+    showCoastlines: true
+  });
 
-Object.defineProperty(window, '__pkcBootProbe', {
-  configurable: false,
-  value: Object.freeze({
-    get clock() { return globe.clock; },
-    get assemble() {
-      const introOn = (globe.props.showIntro ?? true) && !globe.reduced;
-      const globeStart = introOn ? T.in + T.snap + T.hold + T.out : 0;
-      return Math.max(0, Math.min(1, (globe.clock - globeStart) / T.assemble));
-    },
-    get frameWidth() { return globe.w; },
-    get frameHeight() { return globe.h; },
-    get radius() { return globe.view?.R ?? 0; },
-    get hasLand() { return Array.isArray(globe.land); },
-    get running() { return globe.raf !== null; },
-  }),
-});
+  Object.defineProperty(window, '__pkcBootProbe', {
+    configurable: false,
+    value: Object.freeze({
+      get clock() { return globe.clock; },
+      get assemble() {
+        const introOn = (globe.props.showIntro ?? true) && !globe.reduced;
+        const globeStart = introOn ? T.in + T.snap + T.hold + T.out : 0;
+        return Math.max(0, Math.min(1, (globe.clock - globeStart) / T.assemble));
+      },
+      get frameWidth() { return globe.w; },
+      get frameHeight() { return globe.h; },
+      get radius() { return globe.view?.R ?? 0; },
+      get hasLand() { return Array.isArray(globe.land); },
+      get running() { return globe.raf !== null; },
+    }),
+  });
 
-const announceReady = () => {
-  document.documentElement.dataset.pkcGlobeReady = reduceMotion ? 'reduced' : 'true';
-  window.parent.postMessage({
-    type: 'pkc:boot-globe-ready',
-    reduced: reduceMotion,
-    rendererRunning: window.__pkcBootProbe.running,
-    assemble: window.__pkcBootProbe.assemble,
-  }, window.location.origin);
+  const announceReady = () => {
+    document.documentElement.dataset.pkcGlobeReady = reduceMotion ? 'reduced' : 'true';
+    window.parent.postMessage({
+      type: 'pkc:boot-globe-ready',
+      reduced: reduceMotion,
+      rendererRunning: window.__pkcBootProbe.running,
+      assemble: window.__pkcBootProbe.assemble,
+    }, window.location.origin);
+  };
+
+  const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  Promise.all([globe.ready, fontsReady]).then(announceReady, announceReady);
+
+  const onVisibility = () => {
+    if (document.hidden) {
+      cancelAnimationFrame(globe.raf);
+      globe.raf = null;
+      globe.last = 0;
+      globe.lastOperationalDrawAt = 0;
+    } else if (!globe.reduced && !globe.raf) {
+      globe.raf = requestAnimationFrame(globe._loop);
+    }
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('pagehide', () => {
+    document.removeEventListener('visibilitychange', onVisibility);
+    globe.destroy();
+  }, { once: true });
 };
 
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(announceReady, announceReady);
-else announceReady();
-
-const onVisibility = () => {
-  if (document.hidden) {
-    cancelAnimationFrame(globe.raf);
-    globe.raf = null;
-    globe.last = 0;
-    globe.lastOperationalDrawAt = 0;
-  } else if (!globe.reduced && !globe.raf) {
-    globe.raf = requestAnimationFrame(globe._loop);
-  }
-};
-document.addEventListener('visibilitychange', onVisibility);
-window.addEventListener('pagehide', () => {
-  document.removeEventListener('visibilitychange', onVisibility);
-  globe.destroy();
-}, { once: true });
+window.setTimeout(initializeBootRenderer, 0);

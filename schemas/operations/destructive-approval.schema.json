@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectkidcreations.example/schemas/operations/destructive-approval.schema.json",
+  "title": "Exact approval for protected n8n execution-history purge",
+  "type": "object",
+  "additionalProperties": false,
+  "x-runtimeLimits": { "maxDepth": 6, "maxNodes": 512, "maxArrayLength": 64, "maxStringLength": 1024, "maxAggregateBytes": 16384, "secretScan": "key-names-and-string-values" },
+  "required": ["schemaVersion", "planDigest", "action", "actor", "approvedAt", "workflowIds", "purgePlanDigest", "typedApproval"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "planDigest": { "const": "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814e5454" },
+    "action": { "const": "PURGE_PROTECTED_N8N_HISTORY" },
+    "actor": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": ".*\\S.*" },
+    "approvedAt": { "type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$" },
+    "workflowIds": { "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true, "items": { "type": "string", "minLength": 16, "maxLength": 16, "enum": ["wfDsutVsW15DHGr3", "nvgxxBPinPmsEmZq", "uuNgivASLQZ08gX7", "GVVnbelFG97UjJDw", "W63ETZfmKVI7UDFW", "jb0I4CqlJuuG6fXs"] } },
+    "purgePlanDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "typedApproval": { "const": "APPROVE PURGE_PROTECTED_N8N_HISTORY" }
+  }
+}

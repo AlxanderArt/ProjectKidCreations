@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 
 export const OWNER_USERNAME = "PK Blick";
-export const OWNER_EMAIL = "projectkidcreations@gmail.com";
 export const PUBLIC_USERNAME_RE = /^[a-z0-9_.-]{3,32}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const OWNER_CLAIM_RE = /^pk blick$/i;
 
@@ -15,17 +15,18 @@ export function canonicalizeUsername(value) {
   return publicUsername;
 }
 
-export function classifyProvisioningIdentity(usernameValue, emailValue) {
-  const rawUsername = String(usernameValue ?? "").trim();
-  const email = String(emailValue ?? "").trim().toLowerCase();
-  const ownerByUsername = rawUsername === OWNER_USERNAME;
-  const ownerClaim = OWNER_CLAIM_RE.test(rawUsername);
-  const ownerByEmail = email === OWNER_EMAIL;
-  if (ownerByUsername !== ownerByEmail || (ownerClaim && !ownerByUsername)) {
-    throw new Error("owner_identity_mismatch");
-  }
-  const username = ownerByUsername ? OWNER_USERNAME : canonicalizeUsername(rawUsername);
-  return { username, email, isOwner: ownerByUsername && ownerByEmail };
+export function classifyProvisioningIdentity(account, founderSubjectValue) {
+  const founderSubject = String(founderSubjectValue ?? "");
+  if (!UUID_RE.test(founderSubject)) throw new Error("invalid_founder_subject");
+  const accountId = String(account?.account_id ?? "");
+  if (!UUID_RE.test(accountId)) throw new Error("invalid_account_id");
+  const username = canonicalizeUsername(account?.username);
+  const subjectMatch = accountId === founderSubject;
+  const usernameMatch = username === OWNER_USERNAME;
+  const adminMatch = account?.is_admin === true || String(account?.is_admin || "").toUpperCase() === "TRUE";
+  const isOwner = subjectMatch && usernameMatch && adminMatch;
+  if ((subjectMatch || usernameMatch || adminMatch) && !isOwner) throw new Error("owner_identity_mismatch");
+  return { accountId, username, isOwner };
 }
 
 export function authenticateInternalRequest(provided, expected) {
@@ -50,8 +51,9 @@ function replaceExact(source, oldText, newText, label) {
 }
 
 const AUTH_AND_IDENTITY_SOURCE = `const OWNER_USERNAME = 'PK Blick';
-const OWNER_EMAIL = 'projectkidcreations@gmail.com';
 const PUBLIC_USERNAME_RE = /^[a-z0-9_.-]{3,32}$/;
+const founderSubject = String($env.PKC_FOUNDER_SUBJECT || '');
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('500: PKC_FOUNDER_SUBJECT missing or invalid');
 const headers = ($input.first()?.json?.headers) || {};
 const expectedKey = $env.PKC_AUTH_KEY;
 if (!expectedKey) throw new Error('500: PKC_AUTH_KEY missing');
@@ -62,20 +64,13 @@ if (!crypto.timingSafeEqual(digest(headers['x-pkc-key']), digest(expectedKey))) 
 const body = ($input.first()?.json?.body) || $input.first()?.json || {};
 const rawUsername = String(body.username || '').trim();
 const email = String(body.email || '').trim().toLowerCase();
-const ownerByUsername = rawUsername === OWNER_USERNAME;
-const ownerClaim = /^pk blick$/i.test(rawUsername);
-const ownerByEmail = email === OWNER_EMAIL;
-if (ownerByUsername !== ownerByEmail || (ownerClaim && !ownerByUsername)) {
-  throw new Error('403: owner_identity_mismatch');
-}
-const username = ownerByUsername ? OWNER_USERNAME : rawUsername.toLowerCase();
-if (!ownerByUsername && !PUBLIC_USERNAME_RE.test(username)) {
-  throw new Error('400: invalid username format');
-}
+if (/^pk blick$/i.test(rawUsername)) throw new Error('403: reserved_owner_identity');
+const username = rawUsername.toLowerCase();
+if (!PUBLIC_USERNAME_RE.test(username)) throw new Error('400: invalid username format');
 if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
   throw new Error('400: invalid email format');
 }
-const is_owner = ownerByUsername && ownerByEmail;`;
+const is_owner = false;`;
 
 function patchBootstrap(workflow) {
   const init = getNode(workflow, "Init Trace");
@@ -94,7 +89,7 @@ return [{ json: {
   issue.parameters.jsCode = replaceExact(
     issue.parameters.jsCode,
     "const account = existing.find(r => String(r.username||'').toLowerCase() === trace.username);",
-    "const account = existing.find(r => String(r.username||'') === trace.username);\nif (account && String(account.email||'').trim().toLowerCase() !== trace.email) throw new Error('409: account_identity_mismatch');",
+    "const accountMatches = existing.filter(r => String(r.username||'') === trace.username);\nif (accountMatches.length > 1) throw new Error('409: account_authority_ambiguous');\nconst account = accountMatches.length === 1 ? accountMatches[0] : null;\nif (account && String(account.email||'').trim().toLowerCase() !== trace.email) throw new Error('409: account_identity_mismatch');",
     `${workflow.id}:Issue Token`,
   );
   if (issue.parameters.jsCode.includes("staticData.bootstrap[tokenHash]")) {
@@ -159,21 +154,21 @@ return [{ json: { request_id: crypto.randomUUID(), trace_start_ms: Date.now(), t
   redeemValidate.parameters.jsCode = replaceExact(
     redeemValidate.parameters.jsCode,
     "return [{ json: { ...trace, _valid: true, submission_id: entry.submission_id, email: entry.email } }];",
-    "const ownerTuple = entry.username === 'PK Blick' && String(entry.email||'').trim().toLowerCase() === 'projectkidcreations@gmail.com' && entry.is_owner === true;\nif ((entry.username === 'PK Blick' || String(entry.email||'').trim().toLowerCase() === 'projectkidcreations@gmail.com') && !ownerTuple) return [{ json: { ...trace, _valid: false, _reason: 'owner_identity_mismatch' } }];\nreturn [{ json: { ...trace, _valid: true, submission_id: entry.submission_id, email: entry.email, is_owner: ownerTuple } }];",
+    "if (entry.username === 'PK Blick' || entry.is_owner === true) return [{ json: { ...trace, _valid: false, _reason: 'owner_identity_mismatch' } }];\nreturn [{ json: { ...trace, _valid: true, submission_id: entry.submission_id, email: entry.email, is_owner: false } }];",
     `${workflow.id}:redeem-validate tuple`,
   );
 
   const sign = getNode(workflow, "redeem-hash-and-sign");
   sign.parameters.jsCode = replaceExact(
     sign.parameters.jsCode,
-    "String(r.username||'').toLowerCase() === trace.username",
-    "String(r.username||'') === trace.username",
+    "const acct = rows.find(r => r && String(r.username||'').toLowerCase() === trace.username) || null;",
+    "const accountMatches = rows.filter(r => r && String(r.username||'') === trace.username);\nif (accountMatches.length !== 1) throw new Error('409: account_authority_ambiguous');\nconst acct = accountMatches[0];",
     `${workflow.id}:redeem exact account`,
   );
   sign.parameters.jsCode = replaceExact(
     sign.parameters.jsCode,
     "if (acct && acct.password_hash) throw new Error('409: already_redeemed');",
-    "if (!acct) throw new Error('404: account_not_found');\nif (String(acct.email||'').trim().toLowerCase() !== String(trace.email||'').trim().toLowerCase()) throw new Error('409: account_identity_mismatch');\nconst ownerTuple = trace.username === 'PK Blick' && String(trace.email||'').trim().toLowerCase() === 'projectkidcreations@gmail.com' && trace.is_owner === true;\nif ((trace.username === 'PK Blick' || String(trace.email||'').trim().toLowerCase() === 'projectkidcreations@gmail.com') && !ownerTuple) throw new Error('403: owner_identity_mismatch');\nif (ownerTuple && String(acct.is_admin||'').toUpperCase() !== 'TRUE') throw new Error('403: owner_admin_state_invalid');\nif (!ownerTuple && String(acct.is_admin||'').toUpperCase() === 'TRUE') throw new Error('403: public_admin_state_invalid');\nif (acct.password_hash) throw new Error('409: already_redeemed');",
+    "if (!acct) throw new Error('404: account_not_found');\nif (String(acct.email||'').trim().toLowerCase() !== String(trace.email||'').trim().toLowerCase()) throw new Error('409: account_identity_mismatch');\nif (trace.username === 'PK Blick' || trace.is_owner === true || String(acct.is_admin||'').toUpperCase() === 'TRUE') throw new Error('403: owner_identity_mismatch');\nif (acct.password_hash) throw new Error('409: already_redeemed');",
     `${workflow.id}:redeem tuple guard`,
   );
 
@@ -209,13 +204,13 @@ return [{ json: { request_id: crypto.randomUUID(), trace_start_ms: Date.now(), u
   verify.parameters.jsCode = replaceExact(
     verify.parameters.jsCode,
     "const account = rows.find(r => String(r.username||'').toLowerCase() === trace.username) || null;",
-    "const account = rows.find(r => String(r.username||'') === trace.username) || null;",
+    "const founderSubject = String($env.PKC_FOUNDER_SUBJECT || '');\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('500: PKC_FOUNDER_SUBJECT missing or invalid');\nconst founderLookup = trace.username === 'PK Blick';\nconst accountMatches = rows.filter(r => founderLookup ? String(r.account_id||'') === founderSubject : String(r.username||'') === trace.username);\nif (accountMatches.length > 1) throw new Error('409: account_authority_ambiguous');\nconst account = accountMatches.length === 1 ? accountMatches[0] : null;\nconst conflictingFounderRows = rows.filter(r => { const subject = String(r.account_id||''); const username = r.username === 'PK Blick'; const admin = String(r.is_admin||'').toUpperCase() === 'TRUE'; const signal = subject === founderSubject || username || admin; return signal && !(subject === founderSubject && username && admin); });\nif (conflictingFounderRows.length) throw new Error('403: owner_identity_mismatch');",
     `${workflow.id}:Verify Credentials exact account`,
   );
   verify.parameters.jsCode = replaceExact(
     verify.parameters.jsCode,
     "// Locked permanently",
-    "const ownerTuple = account && account.username === 'PK Blick' && String(account.email||'').trim().toLowerCase() === 'projectkidcreations@gmail.com';\nif (account && ownerTuple && String(account.is_admin||'').toUpperCase() !== 'TRUE') throw new Error('403: owner_admin_state_invalid');\nif (account && !ownerTuple && String(account.is_admin||'').toUpperCase() === 'TRUE') throw new Error('403: public_admin_state_invalid');\n\n// Locked permanently",
+    "const founderSubject = String($env.PKC_FOUNDER_SUBJECT || '');\nif (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('500: PKC_FOUNDER_SUBJECT missing or invalid');\nconst accountSubject = account ? String(account.account_id||'') : '';\nif (account && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(accountSubject)) throw new Error('403: owner_identity_mismatch');\nconst subjectMatch = account && accountSubject === founderSubject;\nconst usernameMatch = account && account.username === 'PK Blick';\nconst adminMatch = account && String(account.is_admin||'').toUpperCase() === 'TRUE';\nconst founderTuple = subjectMatch && usernameMatch && adminMatch;\nif (account && (subjectMatch || usernameMatch || adminMatch) && !founderTuple) throw new Error('403: owner_identity_mismatch');\n\n// Locked permanently",
     `${workflow.id}:Verify Credentials admin invariant`,
   );
   return workflow;
@@ -233,16 +228,16 @@ function patchJwtSubjectWorkflow(workflow) {
     if (typeof item.parameters?.jsCode !== "string") continue;
     item.parameters.jsCode = item.parameters.jsCode.replaceAll(
       "String(payload.sub || '').toLowerCase()",
-      "canonicalUsername(payload.sub)",
+      "canonicalUsername(payload.sub, payload)",
     ).replaceAll(
       "String(payload.sub||'').toLowerCase()",
-      "canonicalUsername(payload.sub)",
+      "canonicalUsername(payload.sub, payload)",
     );
     for (const [before, after] of replacements) {
       item.parameters.jsCode = item.parameters.jsCode.replaceAll(before, after);
     }
     if (item.parameters.jsCode.includes("canonicalUsername(") && !item.parameters.jsCode.includes("const canonicalUsername =")) {
-      item.parameters.jsCode = `const canonicalUsername = value => { const raw = String(value || '').trim(); if (raw === 'PK Blick') return 'PK Blick'; if (/^pk blick$/i.test(raw)) throw new Error('401:reserved_owner_identity'); const normalized = raw.toLowerCase(); if (!/^[a-z0-9_.-]{3,32}$/.test(normalized)) throw new Error('401:invalid_session_subject'); return normalized; };\n${item.parameters.jsCode}`;
+      item.parameters.jsCode = `const canonicalUsername = (value, claims) => { const raw = String(value || ''); const founderSubject = String($env.PKC_FOUNDER_SUBJECT || ''); if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(founderSubject)) throw new Error('503:founder_authority_not_configured'); const founderKeys = ['amr','aud','auth_epoch','exp','iat','is_admin','jti','mfa_verified_at','sub','username']; const founderSignal = raw === founderSubject || /^pk blick$/i.test(raw) || claims?.username === 'PK Blick' || claims?.is_admin === true; if (founderSignal) { const exact = claims && JSON.stringify(Object.keys(claims).sort()) === JSON.stringify(founderKeys); if (!exact || raw !== founderSubject || claims.username !== 'PK Blick' || claims.is_admin !== true) throw new Error('401:invalid_founder_session_subject'); return 'PK Blick'; } const normalized = raw.trim().toLowerCase(); if (!/^[a-z0-9_.-]{3,32}$/.test(normalized)) throw new Error('401:invalid_session_subject'); return normalized; };\n${item.parameters.jsCode}`;
     }
   }
   return workflow;

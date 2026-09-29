@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 const cspErrors = (page) => {
   const errors = [];
@@ -14,6 +14,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.__pkcBootEvents = [];
     window.__pkcBootCompleteEvents = [];
+
     window.addEventListener('pkc:boot-ready', (event) => {
       window.__pkcBootEvents.push({ at: performance.now(), detail: event.detail });
     });
@@ -27,6 +28,7 @@ test.beforeEach(async ({ page }) => {
 
 test('normal boot owns the viewport, loads the native globe, then removes cleanly', async ({ page }) => {
   const errors = cspErrors(page);
+  await page.bringToFront();
   await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
 
   const boot = page.locator('#pkc-boot');
@@ -92,9 +94,11 @@ test('normal boot owns the viewport, loads the native globe, then removes cleanl
   await expect.poll(() => page.evaluate(() => window.__pkcBootEvents.length), { timeout: 9_000 }).toBe(1);
   await expect(boot).toHaveCount(0, { timeout: 3_000 });
   expect(await page.evaluate(() => window.__pkcStepHistory)).toContain('6');
-  await expect(page.locator('html')).toHaveClass(/pkc-boot-ready/);
+  await expect.poll(() => page.evaluate(() =>
+    document.documentElement.classList.contains('pkc-boot-ready'))).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__pkcBootEvents)).toHaveLength(1);
   await expect.poll(() => page.evaluate(() => window.__pkcBootCompleteEvents)).toHaveLength(1);
+
 
   const event = await page.evaluate(() => window.__pkcBootEvents[0]);
   expect(event.detail).toMatchObject({ reduced: false, exitMs: 6380, removeMs: 7000 });
@@ -150,6 +154,7 @@ test('reduced motion reaches the same ready state on the bounded path', async ({
   const completeEvent = await page.evaluate(() => window.__pkcBootCompleteEvents[0]);
   expect(await page.evaluate(() => window.__pkcBootEvents.length)).toBe(1);
   expect(await page.evaluate(() => window.__pkcBootCompleteEvents.length)).toBe(1);
+
   expect(event.detail).toMatchObject({
     reduced: true,
     exitMs: 950,

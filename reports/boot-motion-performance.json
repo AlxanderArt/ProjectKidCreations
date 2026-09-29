@@ -14,7 +14,15 @@
       "height": 1000,
       "maxLongTaskMs": 0,
       "longTaskCount": 0,
-      "cumulativeLayoutShift": 0,
+      "cumulativeLayoutShift": 0.000018909746334876545,
+      "route": {
+        "pathname": "/landing.html",
+        "search": ""
+      },
+      "resourceContract": {
+        "landingBundle": true,
+        "rootRouter": false
+      },
       "contextsMeasured": [
         "top-level including descendant-frame tasks"
       ],
@@ -28,7 +36,15 @@
       "height": 844,
       "maxLongTaskMs": 0,
       "longTaskCount": 0,
-      "cumulativeLayoutShift": 0,
+      "cumulativeLayoutShift": 0.00006797178578648279,
+      "route": {
+        "pathname": "/landing.html",
+        "search": ""
+      },
+      "resourceContract": {
+        "landingBundle": true,
+        "rootRouter": false
+      },
       "contextsMeasured": [
         "top-level including descendant-frame tasks"
       ],

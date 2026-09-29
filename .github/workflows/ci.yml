@@ -15,13 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "24"
 
 jobs:
   build-contracts-security:
     name: Build, contracts, and security
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +40,23 @@ jobs:
 
       - name: Run contract and security tests
         run: npm run test:contracts
+
+      - name: Run mandatory n8n gate engine with permission-isolated synthetic authority (not production snapshot evidence)
+        run: npm run test:contracts:protected:synthetic
+
+      - name: Generate unit-only synthetic workflow fixtures (not production evidence)
+        run: |
+          set -euo pipefail
+          artifact_dir="$(mktemp -d)"
+          trap 'rm -rf "$artifact_dir"' EXIT
+          node scripts/n8n-ci-rehearsal-fixtures.mjs "$artifact_dir"
+          test "$(find "$artifact_dir" -maxdepth 1 -type f -name '*.json' | wc -l)" -eq 10
+
+      - name: Pull exact founder MFA PostgreSQL test image
+        run: docker pull postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+
+      - name: Run pinned native founder MFA PostgreSQL gate
+        run: npm run test:mfa:postgres
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
@@ -103,5 +120,63 @@ jobs:
             playwright-report/
             test-results/
             /tmp/pkc-ci-server.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  founder-mfa-browser:
+    name: Founder MFA — Chromium and mobile WebKit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run full founder MFA browser verification
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/pkc-founder-mfa-ci-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:4173/account/login/; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/pkc-founder-mfa-ci-server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent --output /dev/null http://127.0.0.1:4173/account/login/
+          npx playwright test tests/e2e/founder-mfa.spec.mjs \
+            --project=desktop-chromium \
+            --project=mobile-webkit
+
+      - name: Upload founder MFA browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: founder-mfa-playwright-failure-evidence
+          path: |
+            playwright-report/
+            test-results/
+            /tmp/pkc-founder-mfa-ci-server.log
           if-no-files-found: ignore
           retention-days: 7

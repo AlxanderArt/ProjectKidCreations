@@ -113,15 +113,19 @@ test("root uses a CSP-compatible canonical entry-state router", () => {
   assert.match(read("index.html"), /<script\s+src=["']\/root-router\.js["'][^>]*><\/script>/);
   assert.ok(existsSync(resolve(root, "root-router.js")));
   assert.match(read("root-router.js"), /\/api\/account\/entry-state/);
-  assert.ok(existsSync(resolve(root, "api/account/entry-state.js")));
+  assert.ok(existsSync(resolve(root, "api/[...route].js")));
+  assert.ok(existsSync(resolve(root, "server/api/entry-state.mjs")));
 });
 
 test("entry-state pins the n8n origin and forwards only the exact session cookie", () => {
-  const source = read("api/account/entry-state.js");
+  const source = read("server/api/entry-state.mjs");
   assert.match(source, /PKC_N8N_ALLOWED_ORIGINS/);
   assert.match(source, /allowedOrigins\.has\(parsed\.origin\)/);
   assert.match(source, /parsed\.pathname\s*!==\s*["']\/["']/);
   assert.match(source, /Cookie: `pkc_session=\$\{cookie\}`/);
+  assert.match(source, /PKC_FOUNDER_SUBJECT/);
+  assert.match(source, /account\?\.account_id/);
+  assert.doesNotMatch(source, /OWNER_EMAIL|account\?\.email/);
   assert.doesNotMatch(source, /authorization/i);
   assert.doesNotMatch(source, /x-forwarded-for/i);
 });

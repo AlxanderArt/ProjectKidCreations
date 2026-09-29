@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "planDigest": "7f9b6d6f5c17e80649e42fefd860f476160be6bd1a809511543e4a27814e5454",
+  "action": "PURGE_PROTECTED_N8N_HISTORY",
+  "actor": "REPLACE_WITH_APPROVER_ID",
+  "approvedAt": "2026-01-01T00:00:00.000Z",
+  "workflowIds": ["GVVnbelFG97UjJDw", "W63ETZfmKVI7UDFW", "jb0I4CqlJuuG6fXs", "nvgxxBPinPmsEmZq", "uuNgivASLQZ08gX7", "wfDsutVsW15DHGr3"],
+  "purgePlanDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "typedApproval": "APPROVE PURGE_PROTECTED_N8N_HISTORY"
+}

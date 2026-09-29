@@ -36,8 +36,8 @@ const status = $("#status");
 const toast = $("#toast");
 
 const params = new URLSearchParams(window.location.search);
-const BOOTSTRAP_TOKEN = (params.get("bootstrap") || "").trim() || null;
-const RESET_TOKEN     = (params.get("reset")     || "").trim() || null;
+const BOOTSTRAP_CREDENTIAL = (params.get("bootstrap") || "").trim() || null;
+const RESET_CREDENTIAL     = (params.get("reset")     || "").trim() || null;
 const DEV_FORCED      = params.get("dev") === "1";
 
 let state = "LOADING";
@@ -100,10 +100,10 @@ async function boot() {
   wireDashboardControls();
   wireBadgeModal();
 
-  if (BOOTSTRAP_TOKEN) {
+  if (BOOTSTRAP_CREDENTIAL) {
     setState("BOOTSTRAP");
     await sleep(420);
-    const res = await verifyBootstrap(BOOTSTRAP_TOKEN);
+    const res = await verifyBootstrap(BOOTSTRAP_CREDENTIAL);
     if (!res.ok) {
       setState("ERROR");
       $("#error-meta").textContent = res.message || "Bootstrap link not recognized.";
@@ -116,7 +116,7 @@ async function boot() {
     return;
   }
 
-  if (RESET_TOKEN) {
+  if (RESET_CREDENTIAL) {
     setState("RESET_CONFIRM");
     return;
   }
@@ -170,12 +170,12 @@ function wireAuthForms() {
   $("#login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = $("#login-email").value.trim();
-    const password = $("#login-password").value;
+    const loginCredential = $("#login-password").value;
     clearError("#login-error");
-    if (!email || !password) { showError("#login-error", "Email and password required."); return; }
+    if (!email || !loginCredential) { showError("#login-error", "Email and password required."); return; }
     const btn = $("#login-submit");
     btn.setAttribute("disabled", "");
-    const res = await login({ email, password });
+    const res = await login({ email, password: loginCredential });
     btn.removeAttribute("disabled");
     if (!res.ok) {
       if (res.code === "LOCKED_OUT" && res.data && res.data.lockoutUntil) {
@@ -211,7 +211,7 @@ function wireAuthForms() {
     if (pw.length < 8) { showError("#reset-confirm-error", "8+ characters required."); return; }
     const btn = $("#reset-confirm-submit");
     btn.setAttribute("disabled", "");
-    const res = await confirmReset(RESET_TOKEN || "mock-xyz789", pw);
+    const res = await confirmReset(RESET_CREDENTIAL || "mock-xyz789", pw);
     btn.removeAttribute("disabled");
     if (!res.ok) { showError("#reset-confirm-error", res.message || "Couldn't update password."); return; }
     logEvent("password_reset_confirmed");

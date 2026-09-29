@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "externalSend": false,
+  "payloadPolicy": {
+    "maximumAlerts": 64,
+    "maximumInputStringLength": 128,
+    "maximumOutputMetadataBytes": 512,
+    "maximumDepth": 4,
+    "maximumNodes": 128,
+    "maximumAggregateInputBytes": 4096,
+    "allowedInputMetadata": ["eventId", "operationKey", "state", "attemptCount", "errorClass", "observedAt"],
+    "emittedMetadata": ["eventIdDigest", "operationKeyDigest", "state", "attemptCount", "errorClass", "observedAt"],
+    "opaqueDigestInputs": ["eventId", "operationKey"]
+  },
+  "rules": [
+    { "code": "READINESS_DRIFT", "severity": "critical", "condition": "readiness.ok == false" },
+    { "code": "MIGRATION_CHECKSUM_DRIFT", "severity": "critical", "condition": "migration.checksumDrift == true" },
+    { "code": "ROLE_DRIFT", "severity": "critical", "condition": "migration.roleDrift == true" },
+    { "code": "ACL_DRIFT", "severity": "critical", "condition": "migration.aclDrift == true" },
+    { "code": "OUTBOX_AGE", "severity": "warning", "condition": "outbox.oldestPendingSeconds > 120" },
+    { "code": "OUTBOX_RETRY", "severity": "warning", "condition": "outbox.retryMax > 5" },
+    { "code": "OUTBOX_UNKNOWN", "severity": "warning", "condition": "outbox.unknownMinutes > 5" },
+    { "code": "OUTBOX_TERMINAL", "severity": "warning", "condition": "outbox.terminal > 0" },
+    { "code": "OUTBOX_DLQ", "severity": "warning", "condition": "outbox.dlq > 0" },
+    { "code": "KEY_READ_FAILURE", "severity": "critical", "condition": "keys.readFailures > 0" },
+    { "code": "N8N_WORKFLOW_DRIFT", "severity": "warning", "condition": "n8n.workflowDrift == true" },
+    { "code": "N8N_VERSION_DRIFT", "severity": "warning", "condition": "n8n.versionDrift == true" },
+    { "code": "N8N_RETENTION_DRIFT", "severity": "warning", "condition": "n8n.retentionDrift == true" },
+    { "code": "VERCEL_SOURCE_DRIFT", "severity": "warning", "condition": "vercel.sourceDrift == true" },
+    { "code": "VERCEL_ALIAS_DRIFT", "severity": "warning", "condition": "vercel.aliasDrift == true" },
+    { "code": "BACKUP_FAILURE", "severity": "critical", "condition": "backup.failed == true" },
+    { "code": "AUTH_CHALLENGE_EXHAUSTION", "severity": "warning", "condition": "auth.challengeExhaustion > 3" },
+    { "code": "AUTH_EPOCH_MISMATCH", "severity": "warning", "condition": "auth.epochMismatchSpike == true" },
+    { "code": "SESSION_ANOMALY", "severity": "warning", "condition": "auth.sessionAnomaly == true" }
+  ]
+}

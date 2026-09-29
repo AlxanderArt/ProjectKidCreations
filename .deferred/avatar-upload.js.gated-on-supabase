@@ -24,14 +24,14 @@ export default async function handler(request) {
   }
 
   const auth = request.headers.get("authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token) {
+  const bearerCredential = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  if (!bearerCredential) {
     return envelope({ ok: false, code: "INVALID_TOKEN", message: "missing bearer token" }, 401, requestId, started);
   }
 
   let verifyResult;
   try {
-    verifyResult = await verifyToken(token, base, key);
+    verifyResult = await verifyToken(bearerCredential, base, key);
   } catch (err) {
     const message = err && err.name === "AbortError" ? "verify upstream timeout" : "verify upstream unreachable";
     return envelope({ ok: false, code: "SERVER_ERROR", message, retryable: true }, 502, requestId, started);

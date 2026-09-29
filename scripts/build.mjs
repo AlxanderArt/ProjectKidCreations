@@ -57,4 +57,14 @@ await build({
   legalComments: "none",
 });
 
+await build({
+  entryPoints: ["account/login/app.js"],
+  bundle: true,
+  minify: true,
+  format: "iife",
+  target: "es2020",
+  outfile: "dist/account-login.js",
+  legalComments: "none",
+});
+
 await writeFile("dist/landing.meta.json", `${JSON.stringify(result.metafile, null, 2)}\n`);

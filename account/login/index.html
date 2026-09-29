@@ -123,6 +123,59 @@
       <p class="confirm-line" data-revealed="true">Routing to your loadout.</p>
     </section>
 
+    <section class="state state--mfa" data-state="MFA" data-active="false" aria-hidden="true">
+      <p class="step-label">// FOUNDER VERIFICATION</p>
+      <div class="mfa-panel" id="mfa-loading-panel" hidden>
+        <h1 class="prompt">PREPARING MFA</h1>
+        <p class="idle-hint">Securing this sign-in...</p>
+      </div>
+      <div class="mfa-panel" id="mfa-enrollment-panel" hidden>
+        <h1 class="prompt">SET UP AUTHENTICATOR</h1>
+        <p class="momentum">Scan this one-time QR code with your authenticator app, or enter the manual key.</p>
+        <div class="mfa-qr-frame"><img id="mfa-qr" alt="Authenticator enrollment QR code"></div>
+        <p class="field-label">Manual setup key</p>
+        <code class="mfa-secret" id="mfa-manual-secret" data-testid="mfa-manual-secret"></code>
+      </div>
+      <div class="mfa-panel" id="mfa-verify-panel" hidden>
+        <h1 class="prompt">AUTHENTICATOR VERIFICATION</h1>
+        <p class="momentum">Enter the current six-digit code from your authenticator app.</p>
+      </div>
+      <form id="mfa-code-form" class="account-form mfa-panel" novalidate hidden>
+        <div class="field">
+          <label class="field-label" for="mfa-code-input">6-digit authenticator code</label>
+          <input id="mfa-code-input" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" aria-describedby="mfa-error" aria-invalid="false" required>
+        </div>
+        <p class="submit-error" id="mfa-error" role="alert" aria-live="assertive" hidden></p>
+        <button type="submit" class="cta" id="mfa-code-submit"><span id="mfa-code-submit-label">VERIFY AUTHENTICATOR</span> <span aria-hidden="true">→</span></button>
+        <button type="button" class="link-button" id="show-recovery-btn">USE A RECOVERY CODE</button>
+      </form>
+      <form id="mfa-recovery-form" class="account-form mfa-panel" novalidate hidden>
+        <div class="field">
+          <label class="field-label" for="mfa-recovery-input">Recovery code</label>
+          <input id="mfa-recovery-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" aria-describedby="mfa-recovery-error" aria-invalid="false" required>
+        </div>
+        <p class="submit-error" id="mfa-recovery-error" role="alert" aria-live="assertive" hidden></p>
+        <button type="submit" class="cta">USE RECOVERY CODE <span aria-hidden="true">→</span></button>
+        <button type="button" class="link-button" id="cancel-recovery-btn">USE AUTHENTICATOR INSTEAD</button>
+      </form>
+      <div class="mfa-panel" id="mfa-codes-panel" hidden>
+        <h1 class="prompt">SAVE RECOVERY CODES</h1>
+        <p class="momentum">Store these one-time codes offline. They will not be shown again.</p>
+        <ul class="mfa-code-list" id="mfa-recovery-codes" data-testid="recovery-code-list" aria-label="Single-use recovery codes"></ul>
+        <button type="button" class="cta" id="mfa-codes-confirm">I STORED THESE CODES OFFLINE <span aria-hidden="true">→</span></button>
+      </div>
+      <div class="mfa-panel" id="mfa-unknown-panel" hidden>
+        <h1 class="prompt">VERIFYING SESSION</h1>
+        <p class="momentum">Your sign-in result is still being reconciled. Do not enter another code.</p>
+        <button type="button" class="cta" id="mfa-finalize-retry">CHECK SIGN-IN STATUS <span aria-hidden="true">↻</span></button>
+      </div>
+      <div class="mfa-panel" id="mfa-reenroll-panel" hidden>
+        <h1 class="prompt">RECOVERY ACCEPTED</h1>
+        <p class="momentum">Sign in again to set up a new authenticator. Existing founder sessions are no longer valid.</p>
+        <button type="button" class="cta" id="mfa-return-login">RETURN TO SIGN-IN <span aria-hidden="true">→</span></button>
+      </div>
+    </section>
+
     <section class="state kill kill--locked" data-state="LOCKED" data-active="false" aria-hidden="true">
       <h1>ACCOUNT LOCKED</h1>
       <p class="kill-line">Too many failed attempts.</p>
@@ -140,7 +193,7 @@
     <section class="state kill kill--retry" data-state="ERROR_RETRY" data-active="false" aria-hidden="true">
       <h1>TRY AGAIN</h1>
       <p class="kill-line">We couldn't reach the server just now.</p>
-      <p class="kill-meta" id="error-retry-meta">Hang tight — we'll try again automatically.</p>
+      <p class="kill-meta" id="error-retry-meta">The result is unknown. Retry manually to reuse this sign-in attempt.</p>
       <div class="retry-row">
         <button type="button" class="cta" id="retry-btn">
           TRY AGAIN
@@ -165,6 +218,6 @@
 
   <script src="/account/login/config.js" defer></script>
   <script defer src="/account/login/username-policy.js"></script>
-  <script defer src="/account/login/app.js"></script>
+  <script defer src="/dist/account-login.js"></script>
 </body>
 </html>

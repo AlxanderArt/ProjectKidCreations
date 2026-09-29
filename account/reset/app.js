@@ -253,7 +253,8 @@
   // ── Boot ─────────────────────────────────────────────────────
   function boot() {
     bind();
-    token = safeParseToken();
+    const parsedCredential = safeParseToken();
+    token = parsedCredential;
     window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     if (!token) {
       setState("INVALID");

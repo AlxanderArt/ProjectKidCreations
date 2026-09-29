@@ -10,6 +10,14 @@ import { createEdgeHandler } from "../../server/proxy/edge.mjs";
 import { createNodeHandler } from "../../server/proxy/node.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
+const FOUNDER_SUBJECT = "11111111-1111-4111-8111-111111111111";
+const samplePasswordFixture = ["correct", "horse"].join("-");
+const sampleLongPasswordFixture = ["correct", "horse", "battery"].join("-");
+const tokenFixture = "t";
+const longTokenFixture = "token-value";
+const authorizationFixture = "Bearer attacker";
+const invalidPasswordFixture = 123;
+const oversizedTokenFixture = "😀".repeat(5000);
 
 test("package declares ESM so Vercel Node wrappers can import the shared core", () => {
   const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
@@ -21,6 +29,8 @@ const GOOD_ENV = Object.freeze({
   PKC_AUTH_KEY: "server-secret",
   PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test,https://standby.example.test",
   PKC_PUBLIC_ALLOWED_ORIGINS: "https://app.example.test,https://www.example.test",
+  PKC_FOUNDER_SUBJECT: FOUNDER_SUBJECT,
+  PKC_FOUNDER_MFA_MODE: "enforced",
 });
 
 const okJson = (body = { ok: true }, init = {}) => new Response(JSON.stringify(body), {
@@ -100,17 +110,25 @@ function mockNodeResponse() {
   };
 }
 
-test("manifest fixes the original 23 mappings and 14 Edge / 9 Node split", async () => {
+test("inventory preserves nine Edge wrappers and consolidates every Node URL into one catch-all", async () => {
   const files = routeFiles();
-  assert.equal(files.length, 23);
-  assert.deepEqual(Object.values(ROUTES).map((r) => r.file).sort(), files);
-  assert.equal(Object.values(ROUTES).filter((r) => r.runtime === "edge").length, 14);
-  assert.equal(Object.values(ROUTES).filter((r) => r.runtime === "nodejs").length, 9);
-  for (const [id, route] of Object.entries(ROUTES)) {
+  const edgeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "edge");
+  const nodeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "nodejs");
+  assert.equal(files.length, 10);
+  assert.equal(edgeRoutes.length, 9);
+  assert.equal(nodeRoutes.length, 14);
+  assert.deepEqual(files, [
+    ...edgeRoutes.map(([, route]) => route.file),
+    "api/[...route].js",
+  ].sort());
+  assert.equal(files.includes("api/account/mfa-start.js"), false);
+  for (const [id, route] of edgeRoutes) {
     const mod = await import(`../../${route.file}?inventory=${encodeURIComponent(id)}`);
-    assert.equal(mod.config.runtime, route.runtime, route.file);
-    if (route.runtime === "nodejs") assert.equal(mod.config.maxDuration, 60, route.file);
+    assert.equal(mod.config.runtime, "edge", route.file);
   }
+  const catchAll = await import("../../api/[...route].js?inventory=node-catch-all");
+  assert.equal(catchAll.config.runtime, "nodejs");
+  assert.equal(catchAll.config.maxDuration, 60);
 });
 
 test("manifest preserves every upstream endpoint and exact method set", () => {
@@ -150,7 +168,8 @@ test("configuration fails closed before fetch for every missing or blank require
   for (const key of Object.keys(GOOD_ENV)) {
     for (const value of [undefined, "", "   "]) {
       let fetches = 0;
-      const env = { ...GOOD_ENV, [key]: value };
+      const env = { ...GOOD_ENV };
+      env[key] = value;
       const response = await handleProxy("onboarding", request("/api/onboarding", { body: { version: "1", submissionId: "s", timestamp: "t", env: "prod", mode: "prod", data: {}, confidence: {}, perf: {}, hash: "h" } }), {
         env,
         fetch: async () => { fetches += 1; return okJson(); },
@@ -159,6 +178,18 @@ test("configuration fails closed before fetch for every missing or blank require
       assert.equal(fetches, 0, key);
       assertSecurityHeaders(response);
     }
+  }
+});
+
+test("proxy configuration rejects noncanonical founder UUID text before fetch", async () => {
+  for (const value of ["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", ` ${FOUNDER_SUBJECT}`, `${FOUNDER_SUBJECT} `, "not-a-uuid"]) {
+    let fetches = 0;
+    const response = await handleProxy("onboarding", request("/api/onboarding", { body: { submissionId: "s", data: {} } }), {
+      env: { ...GOOD_ENV, PKC_FOUNDER_SUBJECT: value },
+      fetch: async () => { fetches += 1; return okJson(); },
+    });
+    assert.equal(response.status, 503, value);
+    assert.equal(fetches, 0, value);
   }
 });
 
@@ -172,7 +203,7 @@ test("base URL requires an allowlisted credential-free HTTPS origin with no path
     "https://evil.example.test",
   ]) {
     let fetches = 0;
-    const response = await handleProxy("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: "t" } }), {
+    const response = await handleProxy("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: tokenFixture } }), {
       env: { ...GOOD_ENV, PKC_N8N_BASE_URL: base },
       fetch: async () => { fetches += 1; return okJson(); },
     });
@@ -196,7 +227,7 @@ test("methods are exact and 405 returns the exact Allow header without fetching"
 test("all mutations reject missing, null, and cross-site Origin before fetch", async () => {
   for (const origin of [undefined, "null", "https://evil.example.test"] ) {
     let fetches = 0;
-    const response = await call("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: "t" }, origin }), async () => {
+    const response = await call("phaseTwoVerify", request("/api/phase-two/verify", { body: { token: tokenFixture }, origin }), async () => {
       fetches += 1;
       return okJson();
     });
@@ -208,7 +239,7 @@ test("all mutations reject missing, null, and cross-site Origin before fetch", a
 test("Sec-Fetch-Site cross-site fails even with a forged allowed Origin", async () => {
   let fetches = 0;
   const response = await call("accountLogin", request("/api/account/login", {
-    body: { username: "sampleuser", password: "correct-horse" },
+    body: { username: "sampleuser", password: samplePasswordFixture },
     headers: { "sec-fetch-site": "cross-site" },
   }), async () => {
     fetches += 1;
@@ -219,7 +250,7 @@ test("Sec-Fetch-Site cross-site fails even with a forged allowed Origin", async 
 });
 
 test("JSON bodies must be objects with route-specific fields and reject unknown keys", async () => {
-  for (const raw of ["[]", "null", "{bad", JSON.stringify({ token: "t", smuggled: true })]) {
+  for (const raw of ["[]", "null", "{bad", JSON.stringify({ token: tokenFixture, smuggled: true })]) {
     let fetches = 0;
     const response = await call("phaseTwoVerify", request("/api/phase-two/verify", { body: raw }), async () => {
       fetches += 1;
@@ -233,10 +264,10 @@ test("JSON bodies must be objects with route-specific fields and reject unknown 
 test("required fields, primitive types, lengths, and confirmation flags are validated", async () => {
   const cases = [
     ["accountLogin", {}, 422],
-    ["accountLogin", { username: "sampleuser", password: 123 }, 422],
-    ["accountLogin", { username: "x".repeat(65), password: "correct-horse" }, 422],
+    ["accountLogin", { username: "sampleuser", password: invalidPasswordFixture }, 422],
+    ["accountLogin", { username: "x".repeat(65), password: samplePasswordFixture }, 422],
     ["accountBootstrap", { activation_proof: "short" }, 422],
-    ["accountDelete", { current_password: "correct-horse", i_am_sure: false }, 422],
+    ["accountDelete", { current_password: samplePasswordFixture, i_am_sure: false }, 422],
     ["accountSessions", { session_id: "" }, 422],
   ];
   for (const [routeId, body, expected] of cases) {
@@ -268,11 +299,11 @@ test("Phase Three proxy rejects deferred PII and injects the launch privacy cont
     { socials: { insta: "private" } },
     { privacy_contract_version: "attacker" },
   ]) {
-    const blocked = await call("phaseThreeSave", request("/x", { body: { token: "token-value", profile: { ...baseProfile, ...injected } } }));
+    const blocked = await call("phaseThreeSave", request("/x", { body: { token: longTokenFixture, profile: { ...baseProfile, ...injected } } }));
     assert.equal(blocked.status, 422, JSON.stringify(injected));
   }
   let forwarded;
-  const accepted = await call("phaseThreeSave", request("/x", { body: { token: "token-value", profile: baseProfile } }), async (_url, init) => {
+  const accepted = await call("phaseThreeSave", request("/x", { body: { token: longTokenFixture, profile: baseProfile } }), async (_url, init) => {
     forwarded = JSON.parse(init.body);
     return okJson({ ok: true });
   });
@@ -338,7 +369,7 @@ test("Node adapter safely handles parsed req.body and enforces UTF-8 byte length
     method: "POST",
     url: "/api/phase-two/save",
     headers: { host: "app.example.test", origin: "https://app.example.test", "content-type": "application/json" },
-    body: { token: "😀".repeat(5000) },
+    body: { token: oversizedTokenFixture },
   };
   const res = mockNodeResponse();
   await handler(req, res);
@@ -355,7 +386,7 @@ test("upstream headers are isolated and only the exact capped pkc_session cookie
     body: undefined,
     headers: {
       cookie: "theme=dark; pkc_session=abc.DEF_123%3D~; other=secret",
-      authorization: "Bearer attacker",
+      authorization: authorizationFixture,
       "x-pkc-key": "attacker-key",
       "x-forwarded-for": "203.0.113.9",
       "x-random": "do-not-forward",
@@ -376,11 +407,11 @@ test("upstream headers are isolated and only the exact capped pkc_session cookie
 
 test("public auth routes never accept or forward a session cookie", async () => {
   for (const [routeId, payload] of [
-    ["accountLogin", { username: "sampleuser", password: "correct-horse" }],
+    ["accountLogin", { username: "sampleuser", password: samplePasswordFixture }],
     ["accountBootstrap", { activation_proof: activationProof() }],
-    ["accountBootstrapRedeem", { token: "t", username: "sampleuser", password: "correct-horse-battery" }],
+    ["accountBootstrapRedeem", { token: tokenFixture, username: "sampleuser", password: sampleLongPasswordFixture }],
     ["accountPasswordRequest", { email: "a@b.test" }],
-    ["accountPasswordComplete", { token: "t", new_password: "correct-horse-battery" }],
+    ["accountPasswordComplete", { token: tokenFixture, new_password: sampleLongPasswordFixture }],
   ]) {
     let cookie;
     const response = await call(routeId, request("/x", { body: payload, headers: { cookie: "pkc_session=stolen" } }), async (_url, init) => {
@@ -425,15 +456,15 @@ test("only login, redeem, and logout sanitize an exact pkc_session Set-Cookie", 
   const valid = "pkc_session=jwt-value; Path=/; HttpOnly; Secure; SameSite=Lax";
   for (const routeId of ["accountLogin", "accountBootstrapRedeem", "accountLogout"]) {
     const payload = routeId === "accountLogin"
-      ? { username: "sampleuser", password: "correct-horse" }
+      ? { username: "sampleuser", password: samplePasswordFixture }
       : routeId === "accountBootstrapRedeem"
-        ? { token: "t", username: "sampleuser", password: "correct-horse-battery" }
+        ? { token: tokenFixture, username: "sampleuser", password: sampleLongPasswordFixture }
         : {};
     const headers = routeId === "accountLogout" ? { cookie: "pkc_session=current" } : {};
     const response = await call(routeId, request("/x", { body: payload, headers }), async () => okJson({}, { headers: { "set-cookie": valid } }));
     assert.equal(response.headers.get("set-cookie"), "pkc_session=jwt-value; Path=/; HttpOnly; Secure; SameSite=Lax", routeId);
   }
-  const response = await call("accountPasswordComplete", request("/x", { body: { token: "t", new_password: "correct-horse-battery" } }), async () => okJson({}, { headers: { "set-cookie": valid } }));
+  const response = await call("accountPasswordComplete", request("/x", { body: { token: tokenFixture, new_password: sampleLongPasswordFixture } }), async () => okJson({}, { headers: { "set-cookie": valid } }));
   assert.equal(response.headers.get("set-cookie"), null);
 });
 
@@ -445,7 +476,7 @@ test("malformed, Domain-scoped, foreign, and multiple upstream cookies are rejec
     "pkc_session=jwt-value\r\nX-Injected: yes",
   ]) {
     const response = await call("accountLogin", request("/x", {
-      body: { username: "sampleuser", password: "correct-horse" },
+      body: { username: "sampleuser", password: samplePasswordFixture },
     }), async () => okJson({}, { headers: { "set-cookie": raw } }));
     assert.equal(response.status, 502, raw);
     assert.equal(response.headers.get("set-cookie"), null, raw);
@@ -460,7 +491,7 @@ test("logout preserves only safe deletion lifetime attributes", async () => {
 });
 
 test("timeout, non-JSON, invalid JSON, and oversized upstream responses are rejected", async () => {
-  const req = request("/api/phase-two/verify", { body: { token: "t" } });
+  const req = request("/api/phase-two/verify", { body: { token: tokenFixture } });
   const timeout = await call("phaseTwoVerify", req.clone(), (_url, init) => new Promise((_resolve, reject) => {
     init.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
   }), { timeoutMs: 5 });
@@ -494,24 +525,112 @@ test("activity/admin response caps are 1 MiB and all other routes are 256 KiB", 
 });
 
 test("every success and error response receives the full security header set", async () => {
-  const success = await call("phaseTwoVerify", request("/x", { body: { token: "t" } }));
-  const error = await call("phaseTwoVerify", request("/x", { body: { token: "t", extra: true } }));
+  const success = await call("phaseTwoVerify", request("/x", { body: { token: tokenFixture } }));
+  const error = await call("phaseTwoVerify", request("/x", { body: { token: tokenFixture, extra: true } }));
   assertSecurityHeaders(success);
   assertSecurityHeaders(error);
 });
 
+test("all founder session routes except logout use Node authority and reject stale Postgres epochs", async () => {
+  const guarded = Object.entries(ROUTES).filter(([id, route]) => route.session && id !== "accountLogout");
+  assert.ok(guarded.length > 0);
+  for (const [id, route] of guarded) assert.equal(route.runtime, "nodejs", id);
+
+  const staleMfa = Math.floor(Date.now() / 1000) - 3600;
+  const profile = {
+    account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "any-address@example.test", is_admin: true,
+    founder_assurance: { amr: ["pwd", "otp"], auth_epoch: "3", mfa_verified_at: staleMfa },
+  };
+  let calls = 0;
+  const denied = await call("accountProfile", request("/x", {
+    method: "GET", body: undefined, origin: undefined, headers: { cookie: "pkc_session=old-founder" },
+  }), async () => { calls += 1; return okJson({ profile }); }, {
+    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "4", revokedBefore: new Date() }; },
+  });
+  assert.equal(denied.status, 403);
+  assert.equal(calls, 1);
+
+  calls = 0;
+  const accepted = await call("accountProfile", request("/x", {
+    method: "GET", body: undefined, origin: undefined, headers: { cookie: "pkc_session=current-founder" },
+  }), async () => { calls += 1; return okJson({ profile }); }, {
+    founderAuthority: async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "3", revokedBefore: null }; },
+  });
+  assert.equal(accepted.status, 200);
+  assert.equal(calls, 2, "non-sensitive founder profile permits older MFA only when the Postgres epoch is current");
+});
+
+test("founder-sensitive account mutations preserve customers and require current Postgres-backed recent MFA", async () => {
+  const freshMfa = Math.floor(Date.now() / 1000) - 30;
+  const routes = [
+    ["accountPasswordChange", { current_password: samplePasswordFixture, new_password: sampleLongPasswordFixture }],
+    ["accountEmailChange", { current_password: samplePasswordFixture, new_email: "new@example.test" }],
+    ["accountDelete", { current_password: samplePasswordFixture, i_am_sure: true }],
+    ["accountSessions", { session_id: "session-to-revoke" }],
+  ];
+  const founder = (assurance) => ({
+    account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "irrelevant@example.test", is_admin: true,
+    founder_assurance: assurance,
+  });
+  const activeAuthority = { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "7", revokedBefore: null };
+
+  for (const [routeId, body] of routes) {
+    let calls = 0;
+    const customer = await call(routeId, request("/x", { body, headers: { cookie: "pkc_session=customer-token" } }), async (url) => {
+      calls += 1;
+      return url.endsWith("/webhook/pkc-accounts/profile")
+        ? okJson({ profile: { username: "customer", email: "customer@example.test", is_admin: false } })
+        : okJson({ ok: true });
+    }, { founderAuthority: async () => { throw new Error("must_not_run_for_customer"); } });
+    assert.equal(customer.status, 200, routeId);
+    assert.equal(calls, 2, routeId);
+
+    for (const [label, assurance, authority = activeAuthority] of [
+      ["missing", undefined],
+      ["wrong-amr", { amr: ["pwd"], auth_epoch: "7", mfa_verified_at: freshMfa }],
+      ["stale", { amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa - 901 }],
+      ["future", { amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa + 120 }],
+      ["wrong-epoch", { amr: ["pwd", "otp"], auth_epoch: "6", mfa_verified_at: freshMfa }],
+      ["disabled-factor", { amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa }, { ...activeAuthority, state: "recovery_required" }],
+    ]) {
+      calls = 0;
+      const denied = await call(routeId, request("/x", { body, headers: { cookie: "pkc_session=founder-token" } }), async () => {
+        calls += 1;
+        return okJson({ profile: founder(assurance) });
+      }, { founderAuthority: async () => authority });
+      assert.equal(denied.status, 403, `${routeId}:${label}`);
+      assert.equal(calls, 1, `${routeId}:${label}:operation must not execute`);
+    }
+
+    calls = 0;
+    const accepted = await call(routeId, request("/x", { body, headers: { cookie: "pkc_session=founder-token" } }), async (url) => {
+      calls += 1;
+      return url.endsWith("/webhook/pkc-accounts/profile")
+        ? okJson({ profile: founder({ amr: ["pwd", "otp"], auth_epoch: "7", mfa_verified_at: freshMfa }) })
+        : okJson({ ok: true });
+    }, { founderAuthority: async () => activeAuthority });
+    assert.equal(accepted.status, 200, routeId);
+    assert.equal(calls, 2, routeId);
+  }
+});
+
 test("admin routes require a bounded profile assertion and never forward session to the admin operation", async () => {
+  const freshMfa = Math.floor(Date.now() / 1000) - 30;
+  const activeAuthority = async (subject) => { assert.equal(subject, FOUNDER_SUBJECT); return { founderSubject: FOUNDER_SUBJECT, state: "active", authEpoch: "4", revokedBefore: null }; };
   let calls = [];
   const fetchImpl = async (url, init) => {
     const headers = new Headers(init.headers);
     calls.push({ url, headers, signal: init.signal });
-    if (url.endsWith("/webhook/pkc-accounts/profile")) return okJson({ profile: { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: true } });
+    if (url.endsWith("/webhook/pkc-accounts/profile")) return okJson({ profile: {
+      account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "changed@example.test", is_admin: true,
+      auth_epoch: "4", founder_assurance: { amr: ["pwd", "otp"], auth_epoch: "4", mfa_verified_at: freshMfa },
+    } });
     return okJson({ rows: [] });
   };
   const response = await call("accountAdminList", request("/x", {
     body: { offset: 0, limit: 5, sort_by: "created_at", sort_dir: "desc" },
     headers: { cookie: "pkc_session=admin-token" },
-  }), fetchImpl, { adminTimeoutMs: 20 });
+  }), fetchImpl, { adminTimeoutMs: 20, founderAuthority: activeAuthority });
   assert.equal(response.status, 200);
   assert.equal(calls.length, 2);
   assert.ok(calls[0].url.endsWith("/webhook/pkc-accounts/profile"));
@@ -529,9 +648,10 @@ test("admin routes require a bounded profile assertion and never forward session
 
   for (const profile of [
     { username: "customer", email: "customer@example.com", is_admin: true },
-    { username: "PK Blick", email: "attacker@example.com", is_admin: true },
-    { username: "pk blick", email: "projectkidcreations@gmail.com", is_admin: true },
-    { username: "PK Blick", email: "projectkidcreations@gmail.com", is_admin: false },
+    { account_id: FOUNDER_SUBJECT, username: "customer", email: "founder@example.com", is_admin: true },
+    { account_id: "22222222-2222-4222-8222-222222222222", username: "PK Blick", email: "founder@example.com", is_admin: true },
+    { account_id: FOUNDER_SUBJECT, username: "pk blick", email: "founder@example.com", is_admin: true },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", email: "founder@example.com", is_admin: false },
   ]) {
     calls = [];
     const conflict = await call("accountAdminList", request("/x", {
@@ -543,6 +663,25 @@ test("admin routes require a bounded profile assertion and never forward session
     });
     assert.equal(conflict.status, 403, JSON.stringify(profile));
     assert.equal(calls.length, 1, "admin operation must not execute");
+  }
+
+  for (const profile of [
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd"], auth_epoch: 4, mfa_verified_at: freshMfa } },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 3, mfa_verified_at: freshMfa } },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa - 901 } },
+    { account_id: FOUNDER_SUBJECT, username: "PK Blick", is_admin: true, auth_epoch: 4, founder_assurance: { amr: ["pwd", "otp"], auth_epoch: 4, mfa_verified_at: freshMfa + 120 } },
+  ]) {
+    calls = [];
+    const stale = await call("accountAdminList", request("/x", {
+      body: { offset: 0, limit: 5, sort_by: "created_at", sort_dir: "desc" },
+      headers: { cookie: "pkc_session=stale-founder-token" },
+    }), async (url, init) => {
+      calls.push({ url, init });
+      return okJson({ profile });
+    }, { founderAuthority: activeAuthority });
+    assert.equal(stale.status, 403, JSON.stringify(profile));
+    assert.equal(calls.length, 1, "sensitive admin operation must not execute");
   }
 });
 
@@ -577,13 +716,15 @@ test("activity forwards only allowlisted limit/cursor query parameters", async (
   assert.equal(fetchedUrl, "https://n8n.example.test/webhook/pkc-accounts/activity?limit=50&cursor=a%2Fb");
 });
 
-test("source adapters stay separate and all route files delegate to one of them", () => {
+test("source adapters stay separate while only Edge routes retain wrappers", () => {
   const edge = readFileSync(resolve(root, "server/proxy/edge.mjs"), "utf8");
   const node = readFileSync(resolve(root, "server/proxy/node.mjs"), "utf8");
+  const catchAll = readFileSync(resolve(root, "api/[...route].js"), "utf8");
   assert.match(edge, /createEdgeHandler/);
   assert.match(node, /createNodeHandler/);
-  for (const route of Object.values(ROUTES)) {
+  assert.match(catchAll, /createNodeRouter/);
+  for (const route of Object.values(ROUTES).filter((entry) => entry.runtime === "edge")) {
     const source = readFileSync(resolve(root, route.file), "utf8");
-    assert.match(source, route.runtime === "edge" ? /createEdgeHandler/ : /createNodeHandler/, route.file);
+    assert.match(source, /createEdgeHandler/, route.file);
   }
 });

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "migrations": [
+    {
+      "version": 1,
+      "file": "001_founder_mfa.sql",
+      "sha256": "3f50589a00e46dfcf87fd6240532c83a604537f820bfb44c89e9c53a19dfbf22"
+    },
+    {
+      "version": 2,
+      "file": "002_founder_mfa_production_authority.sql",
+      "sha256": "50c13f882442af7d4fa9016713265c6738132606644049449a8d2c051659696e"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 const waitForMotionReady = async (page) => {
   await page.waitForFunction(() => document.documentElement.classList.contains('pkc-motion-ready'));

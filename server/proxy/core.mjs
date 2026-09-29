@@ -1,4 +1,5 @@
 import { ROUTES } from "./manifest.mjs";
+import { parseFounderMfaMode } from "../mfa/mode.mjs";
 
 const JSON_TYPE = "application/json; charset=utf-8";
 const SECURITY_HEADERS = Object.freeze({
@@ -12,7 +13,7 @@ const COOKIE_VALUE_RE = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]*$/;
 const DEFAULT_TIMEOUT_MS = 20_000;
 const ADMIN_TIMEOUT_MS = 5_000;
 const OWNER_USERNAME = "PK Blick";
-const OWNER_EMAIL = "projectkidcreations@gmail.com";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export const utf8Size = (value) => new TextEncoder().encode(value).byteLength;
 
@@ -38,14 +39,17 @@ function exactOriginList(raw) {
 }
 
 function configuration(env) {
-  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS"];
+  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_SUBJECT", "PKC_FOUNDER_MFA_MODE"];
   for (const key of required) if (typeof env?.[key] !== "string" || env[key].trim() === "") throw new Error(`missing ${key}`);
   const upstreamOrigins = exactOriginList(env.PKC_N8N_ALLOWED_ORIGINS);
   const publicOrigins = exactOriginList(env.PKC_PUBLIC_ALLOWED_ORIGINS);
   const base = new URL(env.PKC_N8N_BASE_URL.trim());
   if (base.protocol !== "https:" || base.username || base.password || base.pathname !== "/" || base.search || base.hash) throw new Error("invalid base URL");
   if (!upstreamOrigins.has(base.origin)) throw new Error("base origin denied");
-  return { base: base.origin, authKey: env.PKC_AUTH_KEY.trim(), publicOrigins };
+  const founderSubject = env.PKC_FOUNDER_SUBJECT;
+  if (!UUID_RE.test(founderSubject)) throw new Error("invalid PKC_FOUNDER_SUBJECT");
+  const founderMfaMode = parseFounderMfaMode(env);
+  return { base: base.origin, authKey: env.PKC_AUTH_KEY.trim(), publicOrigins, founderSubject, founderMfaMode };
 }
 
 async function readStreamLimited(stream, limit) {
@@ -93,7 +97,7 @@ function optionalString(value, name, max = 4096) {
 }
 
 function validateRouteBody(routeId, method, body) {
-  const token = () => requireString(body.token, "token", 1, 4096);
+  const validateTokenField = () => requireString(body.token, "token", 1, 4096);
   switch (routeId) {
     case "onboarding":
       requireString(body.submissionId, "submission_id", 1, 128);
@@ -107,7 +111,7 @@ function validateRouteBody(routeId, method, body) {
     case "phaseTwoVerify":
     case "phaseTwoSave":
     case "phaseThreeVerify":
-      token();
+      validateTokenField();
       break;
     case "phaseTwoEvent":
     case "phaseThreeEvent":
@@ -116,16 +120,21 @@ function validateRouteBody(routeId, method, body) {
       if (body.data !== undefined && (!body.data || typeof body.data !== "object" || Array.isArray(body.data))) throw new Error("invalid_data");
       break;
     case "phaseThreeCheckUsername":
-      token();
+      validateTokenField();
       requireString(body.username, "username", 3, 32);
       break;
     case "phaseThreeSave":
-      token();
+      validateTokenField();
       if (!body.profile || typeof body.profile !== "object" || Array.isArray(body.profile)) throw new Error("invalid_profile");
       break;
     case "accountLogin":
       requireString(body.username, "username", 3, 64);
       requireString(body.password, "password", 8, 256);
+      optionalString(body.login_attempt_id, "login_attempt_id", 36);
+      if (body.login_attempt_id !== undefined
+        && (body.login_attempt_id.length !== 36 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.login_attempt_id))) {
+        throw new Error("invalid_login_attempt_id");
+      }
       break;
     case "accountBootstrap":
       requireString(body.activation_proof, "activation_proof", 20, 8192);
@@ -134,7 +143,7 @@ function validateRouteBody(routeId, method, body) {
       }
       break;
     case "accountBootstrapRedeem":
-      token();
+      validateTokenField();
       requireString(body.username, "username", 3, 64);
       requireString(body.password, "password", 12, 256);
       break;
@@ -142,7 +151,7 @@ function validateRouteBody(routeId, method, body) {
       requireString(body.email, "email", 3, 320);
       break;
     case "accountPasswordComplete":
-      token();
+      validateTokenField();
       requireString(body.new_password, "new_password", 12, 256);
       break;
     case "accountPasswordChange":
@@ -264,7 +273,6 @@ async function validateActivationProof(proof, authKey) {
     || typeof claims.submission_id !== "string" || !claims.submission_id.trim()
     || typeof claims.username !== "string" || !/^[a-z0-9_.-]{3,32}$/.test(claims.username)
     || typeof claims.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(claims.email)
-    || claims.email.toLowerCase() === OWNER_EMAIL
     || /^pk blick$/i.test(claims.username)) {
     throw invalidActivationProof();
   }
@@ -346,7 +354,7 @@ function sanitizedSetCookie(raw) {
   return output;
 }
 
-async function assertAdmin(config, cookie, dependencies) {
+async function assertFounderPolicy(config, cookie, dependencies, { adminOnly, requireRecent }) {
   if (!cookie) return jsonError("unauthenticated", 401);
   let checked;
   try {
@@ -366,10 +374,43 @@ async function assertAdmin(config, cookie, dependencies) {
   }
   if (checked.denied) return jsonError("unauthenticated", 401);
   const profile = checked.data?.profile || checked.data;
-  const isOwner = profile?.username === OWNER_USERNAME
-    && String(profile?.email || "").toLowerCase() === OWNER_EMAIL
-    && profile?.is_admin === true;
-  return isOwner ? true : jsonError("admin_required", 403);
+  const subjectMatch = profile?.account_id === config.founderSubject;
+  const usernameMatch = profile?.username === OWNER_USERNAME;
+  const adminMatch = profile?.is_admin === true;
+  const isFounder = subjectMatch && usernameMatch && adminMatch;
+  const hasFounderSignal = subjectMatch || usernameMatch || adminMatch;
+  if (!isFounder) return (adminOnly || hasFounderSignal) ? jsonError("admin_required", 403) : true;
+  if (config.founderMfaMode !== "enforced") return jsonError("founder_mfa_mode_denied", 403);
+
+  const assurance = profile?.founder_assurance;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const amr = Array.isArray(assurance?.amr) ? assurance.amr : [];
+  let authority;
+  try {
+    if (typeof dependencies.founderAuthority !== "function") throw new Error("founder_authority_unavailable");
+    authority = await timedOperation(
+      () => dependencies.founderAuthority(config.founderSubject),
+      dependencies.adminTimeoutMs,
+    );
+  } catch (error) {
+    return jsonError(isTimeout(error) ? "founder_authority_timeout" : "founder_authority_failed", isTimeout(error) ? 504 : 503);
+  }
+  const hasFreshFounderMfa = authority?.founderSubject === config.founderSubject
+    && authority?.state === "active"
+    && typeof authority?.authEpoch === "string"
+    && /^(?:[1-9][0-9]*)$/.test(authority.authEpoch)
+    && (authority.authEpoch.length < 19 || (authority.authEpoch.length === 19 && authority.authEpoch <= "9223372036854775807"))
+    && typeof assurance?.auth_epoch === "string"
+    && assurance.auth_epoch === authority.authEpoch
+    && amr.length === 2
+    && amr.includes("pwd")
+    && amr.includes("otp")
+    && Number.isSafeInteger(assurance?.mfa_verified_at)
+    && assurance.mfa_verified_at <= nowSeconds + 5
+    && (!requireRecent || assurance.mfa_verified_at >= nowSeconds - 900);
+  return hasFreshFounderMfa
+    ? true
+    : jsonError(adminOnly ? "admin_required" : requireRecent ? "recent_mfa_required" : "founder_session_invalid", 403);
 }
 
 export async function handleProxy(routeId, request, options = {}) {
@@ -428,11 +469,15 @@ export async function handleProxy(routeId, request, options = {}) {
 
   const dependencies = {
     fetch: options.fetch || globalThis.fetch,
+    founderAuthority: options.founderAuthority,
     timeoutMs: options.timeoutMs || DEFAULT_TIMEOUT_MS,
     adminTimeoutMs: options.adminTimeoutMs || ADMIN_TIMEOUT_MS,
   };
-  if (route.admin) {
-    const check = await assertAdmin(config, cookie, dependencies);
+  const requiresFounderPolicy = route.admin || route.founderSensitiveMethods.includes(method)
+    || (route.session && routeId !== "accountLogout");
+  if (requiresFounderPolicy) {
+    const requireRecent = route.admin || route.founderSensitiveMethods.includes(method);
+    const check = await assertFounderPolicy(config, cookie, dependencies, { adminOnly: route.admin, requireRecent });
     if (check !== true) return check;
   }
 
@@ -458,6 +503,16 @@ export async function handleProxy(routeId, request, options = {}) {
     return jsonError(invalidResponse ? "invalid_upstream_response" : "upstream_unreachable", 502);
   }
   const { upstream, text } = result;
+  if (typeof options.transformUpstream === "function") {
+    let transformed;
+    try {
+      transformed = await options.transformUpstream({ upstream, data: JSON.parse(text) });
+    } catch {
+      return jsonError("invalid_upstream_response", 502);
+    }
+    if (transformed instanceof Response) return transformed;
+    if (transformed !== null && transformed !== undefined) return jsonError("invalid_upstream_response", 502);
+  }
   const additions = {};
   if (route.setCookie) {
     const rawCookie = upstream.headers.get("set-cookie");

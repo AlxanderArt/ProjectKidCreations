@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:4173";
+const parsedBase = new URL(baseURL);
+if (parsedBase.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]", "::1"].includes(parsedBase.hostname)) {
+  throw new Error("PLAYWRIGHT_BASE_URL must be loopback HTTP");
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -26,7 +30,7 @@ export default defineConfig({
     },
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
-    command: "vercel dev --yes --listen 127.0.0.1:4173",
+    command: "env -u VERCEL -u VERCEL_ENV -u VERCEL_URL -u VERCEL_PROJECT_ID -u VERCEL_ORG_ID node scripts/playwright-local-server.mjs",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: false,
     timeout: 120_000,
