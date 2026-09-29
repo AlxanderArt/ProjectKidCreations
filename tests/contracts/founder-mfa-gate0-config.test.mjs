@@ -110,3 +110,26 @@ test("keyring cryptography rejects forged Map-like keyring objects", () => {
   assert.throws(() => selectActiveKey(forged, 1), /invalid_keyring/);
   assert.throws(() => signWithKeyring({ purpose: "handoff" }, forged, 1), /invalid_keyring/);
 });
+
+test("enforced Production configuration requires provider deployment identity and rejects legacy authority", () => {
+  const production = {
+    ...base,
+    PKC_DATABASE_ENVIRONMENT: "production",
+    NODE_ENV: "production",
+    PKC_FOUNDER_MFA_MODE: "enforced",
+    PKC_SOURCE_COMMIT: "a".repeat(40),
+    PKC_MFA_WORKFLOW_DIGEST: "b".repeat(64),
+    VERCEL_DEPLOYMENT_ID: "dpl_provider_authority",
+  };
+  assert.deepEqual(loadMfaConfig(production).deployment, {
+    sourceCommit: production.PKC_SOURCE_COMMIT,
+    deploymentId: production.VERCEL_DEPLOYMENT_ID,
+    workflowDigest: production.PKC_MFA_WORKFLOW_DIGEST,
+  });
+  const missingProviderIdentity = { ...production };
+  delete missingProviderIdentity.VERCEL_DEPLOYMENT_ID;
+  assert.throws(() => loadMfaConfig(missingProviderIdentity), /VERCEL_DEPLOYMENT_ID/);
+  assert.throws(() => loadMfaConfig({ ...production, PKC_DEPLOYMENT_ID: "legacy-deployment" }), /PKC_DEPLOYMENT_ID.*forbidden/);
+  assert.throws(() => loadMfaConfig({ ...production, PKC_MFA_ENROLLMENT_APPROVAL_ID: "legacy-approval" }), /PKC_MFA_ENROLLMENT_APPROVAL_ID.*forbidden/);
+  assert.throws(() => loadMfaConfig(production, { nonVercelDeploymentId: "injected-deployment" }), /non-Vercel.*forbidden.*Production/i);
+});

@@ -27,12 +27,13 @@ function candidateEvidence(functionInventory = ["api/[...route].js"]) {
 }
 
 function vercelInput() {
+  const variables = VARIABLES.map((name) => ({ name, target: "Preview", gitBranch: null, customEnvironmentIds: [], ...(name === "PKC_SOURCE_COMMIT" ? { value: SHA } : {}), ...(name === "PKC_MFA_WORKFLOW_DIGEST" ? { value: HEX("e") } : {}) }));
   return {
     phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40),
     state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable",
     rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10,
-    candidate: candidateEvidence(),
-    variables: VARIABLES.map((name) => ({ name, scopes: ["Preview"] })),
+    candidate: candidateEvidence(), expectedWorkflowDigest: HEX("e"),
+    variables,
     vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" },
   };
 }
@@ -104,7 +105,9 @@ test("Vercel candidate evidence is generated from a disposable accepted catch-al
   spawnSync("git", ["commit", "-qm", "accepted catch-all router"], { cwd: repo });
   const manifest = await buildCandidateManifest(repo);
   const candidate = buildVercelCandidateEvidence(manifest);
-  const input = { ...vercelInput(), sourceSha: manifest.snapshot.headCommit, expectedSourceSha: manifest.snapshot.headCommit, sourceTreeSha: manifest.snapshot.headTree, candidate };
+  const fixture = vercelInput();
+  const variables = fixture.variables.map((row) => row.name === "PKC_SOURCE_COMMIT" ? { ...row, value: manifest.snapshot.headCommit } : row);
+  const input = { ...fixture, sourceSha: manifest.snapshot.headCommit, expectedSourceSha: manifest.snapshot.headCommit, sourceTreeSha: manifest.snapshot.headTree, candidate, variables };
   assert.equal(verifyVercelDeployment(input).candidateFingerprint, manifest.fingerprint);
 });
 

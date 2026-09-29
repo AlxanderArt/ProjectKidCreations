@@ -135,14 +135,10 @@ test("restore evidence refuses unsafe targets and reports non-authoritative pari
 });
 
 test("Vercel verifier binds exact source, scopes, KIDs, inventory, environment, alias, and rollback", () => {
-  const base = { phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40), state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10, candidate: candidateEvidence(), variables: [
-    { name: "PKC_DATABASE_URL", scopes: ["Preview"] }, { name: "PKC_DATABASE_NAME", scopes: ["Preview"] },
-    { name: "PKC_DATABASE_USER", scopes: ["Preview"] }, { name: "PKC_DATABASE_ENVIRONMENT", scopes: ["Preview"] },
-    { name: "PKC_FOUNDER_SUBJECT", scopes: ["Preview"] },
-    { name: "PKC_MFA_HANDOFF_KEYRING", scopes: ["Preview"] }, { name: "PKC_MFA_HANDOFF_KEY_VERSION", scopes: ["Preview"] },
-    { name: "PKC_MFA_FINALIZE_KEYRING", scopes: ["Preview"] }, { name: "PKC_MFA_FINALIZE_KEY_VERSION", scopes: ["Preview"] },
-  ], vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
-  for (const name of ["PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE", "PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"]) base.variables.push({ name, scopes: ["Preview"] });
+  const names = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE"];
+  const variables = names.map((name) => ({ name, target: "Preview", gitBranch: null, customEnvironmentIds: [] }));
+  variables.push({ name: "PKC_SOURCE_COMMIT", target: ["Preview"], gitBranch: null, customEnvironmentIds: [], value: SHA }, { name: "PKC_MFA_WORKFLOW_DIGEST", target: "Preview", gitBranch: null, customEnvironmentIds: [], value: "e".repeat(64) });
+  const base = { phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40), state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10, candidate: candidateEvidence(), expectedWorkflowDigest: "e".repeat(64), variables, vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
   assert.equal(verifyVercelDeployment(base).ok, true);
   for (const founderMfaMode of ["disabled", "armed", "enforced"]) assert.equal(verifyVercelDeployment({ ...base, founderMfaMode, expectedFounderMfaMode: founderMfaMode }).founderMfaMode, founderMfaMode);
   assert.equal(verifyVercelDeployment({ ...base, phase: "isolated", founderMfaMode: "disabled", expectedFounderMfaMode: "disabled", aliasTarget: base.rollbackDeploymentId }).phase, "isolated");
@@ -150,11 +146,28 @@ test("Vercel verifier binds exact source, scopes, KIDs, inventory, environment, 
   assert.throws(() => verifyVercelDeployment({ ...base, sourceTreeSha: "c".repeat(40) }), /tree/i);
   assert.throws(() => verifyVercelDeployment({ ...base, candidate: { ...base.candidate, manifestDirty: true } }), /candidate.*digest|dirty|clean/i);
   assert.throws(() => verifyVercelDeployment({ ...base, environment: "Production" }), /environment/i);
-  assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((item) => item.name === "PKC_DATABASE_URL" ? { ...item, scopes: ["Preview", "Production"] } : item) }), /scope/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((item) => item.name === "PKC_DATABASE_URL" ? { ...item, target: ["Preview", "Production"] } : item) }), /target/i);
   for (const name of ["PKC_SOURCE_COMMIT", "PKC_MFA_WORKFLOW_DIGEST"]) {
-    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.filter((item) => item.name !== name) }), /required variable.*scope/i);
+    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.filter((item) => item.name !== name) }), /required variable.*target/i);
   }
   assert.throws(() => verifyVercelDeployment({ ...base, n8nKids: { ...base.n8nKids, finalize: "finalize-v2" } }), /KID/i);
+});
+
+test("Vercel verifier binds a post-merge source commit by its accepted tree and exact lineage-variable readback", () => {
+  const base = { phase: "promoted", environment: "Production", expectedEnvironment: "Production", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: "c".repeat(40), expectedSourceSha: "c".repeat(40), sourceTreeSha: "b".repeat(40), state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10, candidate: candidateEvidence(), expectedWorkflowDigest: "e".repeat(64), variables: [], vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
+  const required = ["PKC_DATABASE_URL", "PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT", "PKC_FOUNDER_SUBJECT", "PKC_TOTP_ENCRYPTION_KEYRING", "PKC_TOTP_ENCRYPTION_KEY_VERSION", "PKC_MFA_HANDOFF_KEYRING", "PKC_MFA_HANDOFF_KEY_VERSION", "PKC_MFA_FINALIZE_KEYRING", "PKC_MFA_FINALIZE_KEY_VERSION", "PKC_MFA_RECOVERY_PEPPER_KEYRING", "PKC_MFA_RECOVERY_PEPPER_VERSION", "PKC_AUTH_KEY", "PKC_N8N_BASE_URL", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_MFA_MODE"];
+  base.variables = required.map((name) => ({ name, target: "Production", gitBranch: null, customEnvironmentIds: [] }));
+  base.variables.push(
+    { name: "PKC_SOURCE_COMMIT", target: ["Production"], gitBranch: null, customEnvironmentIds: [], value: SHA },
+    { name: "PKC_MFA_WORKFLOW_DIGEST", target: "Production", gitBranch: null, customEnvironmentIds: [], value: base.expectedWorkflowDigest },
+  );
+  assert.equal(verifyVercelDeployment(base).sourceSha, base.sourceSha);
+  assert.throws(() => verifyVercelDeployment({ ...base, sourceTreeSha: "f".repeat(40) }), /tree/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, expectedSourceSha: "d".repeat(40) }), /source SHA/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((row) => row.name === "PKC_SOURCE_COMMIT" ? { ...row, value: "f".repeat(40) } : row) }), /PKC_SOURCE_COMMIT.*value/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((row) => row.name === "PKC_MFA_WORKFLOW_DIGEST" ? { ...row, value: "f".repeat(64) } : row) }), /PKC_MFA_WORKFLOW_DIGEST.*value/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((row) => row.name === "PKC_SOURCE_COMMIT" ? { ...row, gitBranch: "main" } : row) }), /branch/i);
+  assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((row) => row.name === "PKC_SOURCE_COMMIT" ? { ...row, customEnvironmentIds: ["env_custom"] } : row) }), /custom environment/i);
 });
 
 test("n8n retention manifest and purge plan are exact and deterministic", () => {

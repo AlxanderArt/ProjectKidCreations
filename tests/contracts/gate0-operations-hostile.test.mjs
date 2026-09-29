@@ -20,7 +20,8 @@ function vercelInput() {
   const functionInventory = ["api/[...route].js"];
   const manifestBody = { schemaVersion: 1, serialization: "test-canonical-manifest", snapshot: { headCommit: SHA, headTree: "b".repeat(40), dirty: false, statusDigest: "0".repeat(64) }, files: functionInventory.map((path) => ({ path, bytes: 1, mode: 0o644, sha256: "d".repeat(64) })) };
   const candidate = buildVercelCandidateEvidence({ ...manifestBody, fingerprint: sha256(canonicalJson(manifestBody)) });
-  return { phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40), state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: functionInventory, maxFunctions: 10, candidate, variables: VARIABLES.map((name) => ({ name, scopes: ["Preview"] })), vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
+  const variables = VARIABLES.map((name) => ({ name, target: "Preview", gitBranch: null, customEnvironmentIds: [], ...(name === "PKC_SOURCE_COMMIT" ? { value: SHA } : {}), ...(name === "PKC_MFA_WORKFLOW_DIGEST" ? { value: "e".repeat(64) } : {}) }));
+  return { phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40), state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable", rollbackDeploymentId: "dpl_previous", functions: functionInventory, maxFunctions: 10, candidate, expectedWorkflowDigest: "e".repeat(64), variables, vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" } };
 }
 
 function restoreInput() {
@@ -128,8 +129,8 @@ test("Vercel verification requires exact enforced mode and database identity var
   for (const founderMfaMode of ["disabled", "armed", "ENFORCED", undefined])
     assert.throws(() => verifyVercelDeployment({ ...base, founderMfaMode }), /mode|enforced/i);
   for (const name of ["PKC_DATABASE_NAME", "PKC_DATABASE_USER", "PKC_DATABASE_ENVIRONMENT"]) {
-    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.filter((row) => row.name !== name) }), /variable.*scope/i);
-    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((row) => row.name === name ? { ...row, scopes: ["Production"] } : row) }), /variable.*scope/i);
+    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.filter((row) => row.name !== name) }), /variable.*target/i);
+    assert.throws(() => verifyVercelDeployment({ ...base, variables: base.variables.map((row) => row.name === name ? { ...row, target: ["Production"] } : row) }), /variable.*target/i);
   }
 });
 

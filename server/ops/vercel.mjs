@@ -83,10 +83,10 @@ export function buildVercelCandidateEvidence(rawManifest) {
 
 export function verifyVercelDeployment(raw) {
   const input = snapshotJsonData(raw, { label: "Vercel deployment evidence", maxDepth: 6, maxNodes: 20_000, maxArrayLength: 10_000, maxStringLength: 1024, maxAggregateBytes: 4 * 1024 * 1024 });
-  closed(input, ["phase", "environment", "expectedEnvironment", "founderMfaMode", "expectedFounderMfaMode", "sourceSha", "expectedSourceSha", "sourceTreeSha", "state", "deploymentId", "aliasTarget", "rollbackDeploymentId", "functions", "maxFunctions", "candidate", "variables", "vercelKids", "n8nKids"], "Vercel deployment evidence");
+  closed(input, ["phase", "environment", "expectedEnvironment", "founderMfaMode", "expectedFounderMfaMode", "sourceSha", "expectedSourceSha", "sourceTreeSha", "state", "deploymentId", "aliasTarget", "rollbackDeploymentId", "functions", "maxFunctions", "candidate", "expectedWorkflowDigest", "variables", "vercelKids", "n8nKids"], "Vercel deployment evidence");
   const inventory = verifyCandidate(input.candidate);
   if (input.candidate.manifestDirty) throw new Error("deployment verification requires a clean committed candidate manifest");
-  if (!HEX40.test(input.sourceSha ?? "") || input.sourceSha !== input.expectedSourceSha || input.sourceSha !== input.candidate.commitSha) throw new Error("exact candidate source SHA mismatch");
+  if (!HEX40.test(input.sourceSha ?? "") || input.sourceSha !== input.expectedSourceSha) throw new Error("exact provider source SHA mismatch");
   if (!HEX40.test(input.sourceTreeSha ?? "") || input.sourceTreeSha !== input.candidate.treeSha) throw new Error("exact candidate source tree mismatch");
   if (!input.environment || input.environment !== input.expectedEnvironment) throw new Error("deployment environment mismatch");
   if (input.state !== "READY") throw new Error("deployment is not Ready");
@@ -102,14 +102,25 @@ export function verifyVercelDeployment(raw) {
   if (!Array.isArray(variableRows) || variableRows.length > 128) throw new Error("variable metadata must be a bounded array");
   const names = new Map();
   for (const row of variableRows) {
-    closed(row, ["name", "scopes"], "variable metadata row");
+    closed(row, ["name", "target", "gitBranch", "customEnvironmentIds", "value"], "variable metadata row");
     if (typeof row.name !== "string" || names.has(row.name)) throw new Error("duplicate or invalid variable name rejected");
-    names.set(row.name, row.scopes);
+    const targets = typeof row.target === "string" ? [row.target] : row.target;
+    if (!Array.isArray(targets) || targets.length !== 1 || typeof targets[0] !== "string" || targets[0] !== input.environment) throw new Error(`required variable target mismatch: ${row.name}`);
+    if (!Object.hasOwn(row, "gitBranch") || row.gitBranch !== null) throw new Error(`variable branch binding must be absent: ${row.name}`);
+    if (!Array.isArray(row.customEnvironmentIds) || row.customEnvironmentIds.length !== 0) throw new Error(`variable custom environment binding must be absent: ${row.name}`);
+    names.set(row.name, row);
   }
   const requiredVariables = input.expectedFounderMfaMode === "enforced" ? [...REQUIRED, ...ENFORCED_REQUIRED] : REQUIRED;
   for (const name of requiredVariables) {
-    const scopes = names.get(name);
-    if (!Array.isArray(scopes) || scopes.length !== 1 || scopes[0] !== input.environment) throw new Error(`required variable name/scope mismatch: ${name}`);
+    if (!names.has(name)) throw new Error(`required variable name/target mismatch: ${name}`);
+  }
+  for (const [name, row] of names) {
+    if (!ENFORCED_REQUIRED.includes(name) && Object.hasOwn(row, "value")) throw new Error(`secret-bearing variable value readback is forbidden: ${name}`);
+  }
+  if (input.expectedFounderMfaMode === "enforced") {
+    if (!HEX64.test(input.expectedWorkflowDigest ?? "")) throw new Error("expected workflow digest is invalid");
+    if (names.get("PKC_SOURCE_COMMIT")?.value !== input.candidate.commitSha) throw new Error("PKC_SOURCE_COMMIT value mismatch");
+    if (names.get("PKC_MFA_WORKFLOW_DIGEST")?.value !== input.expectedWorkflowDigest) throw new Error("PKC_MFA_WORKFLOW_DIGEST value mismatch");
   }
   for (const purpose of ["handoff", "finalize"]) {
     const kid = input.vercelKids?.[purpose];

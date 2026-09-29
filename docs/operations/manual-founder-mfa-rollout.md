@@ -61,7 +61,7 @@ Founder MFA currently spans Vercel functions, PostgreSQL transactional state, an
 
 No provider credentials or network mutation are permitted in this gate.
 
-1. Freeze the complete dirty-worktree candidate without staging it and bind the inventory to the current HEAD/tree plus every intended untracked file.
+1. Freeze the complete working candidate with a disposable index for review without changing the real index. After acceptance, commit the exact bytes locally; only the resulting clean commit and tree can become publication or deployment authority.
 2. Run the contract, founder-MFA, PostgreSQL disposable, build, boot-motion, browser, syntax, secret-scan, diff-hygiene, and protected-drift checks required by the release review.
 3. Confirm exactly 10 API functions and zero drift under `api/**`, `db/migrations/**`, and `db/roles/**`.
 4. Confirm all rejected release-authority and monitoring control-plane files are absent.
@@ -125,7 +125,7 @@ Production variable changes, deployment creation, smoke traffic, and alias movem
 
 1. For each reviewed Production variable name/scope change, obtain a separate explicit approval. Set values only through the provider secret interface. Read back names, scopes, branch/custom-environment bindings, and version metadata only—never values. Founder mode must be `disabled`.
 2. Obtain separate approval to create one immutable Production deployment from the frozen source. Create it without changing the public alias.
-3. Read back deployment ID, exact source SHA/tree relationship, Production environment, `READY` state, creation time after variable staging, and the complete provider function inventory. It must equal the frozen inventory of exactly 10 API functions.
+3. Read back deployment ID, exact provider source SHA, independently resolved source tree, Production environment, `READY` state, creation time after variable staging, and the complete provider function inventory. The resolved tree must equal the accepted candidate tree even when a merge commit gives the provider source a different SHA. The function inventory must equal the frozen inventory of exactly 10 API functions.
 4. With separately approved synthetic smoke traffic, test only the isolated deployment URL: ordinary customer paths remain valid and founder MFA actions remain denied in `disabled` mode. Read back request/deployment association and secret-free results.
 5. Confirm the public alias still points to the recorded rollback deployment.
 
@@ -161,7 +161,7 @@ Changing the mode and creating the resulting deployment are separate external mu
 Enforcement is not enrollment. Mode change, deployment, alias move, and any rollback are separately approved mutations.
 
 1. Confirm database readiness, sealed roles, empty/reconciled queues, retention/privacy canary, exact active workflows, current backup, rollback deployment, and armed denial evidence.
-2. Obtain separate approval for each Production variable change required by enforced mode: set `PKC_SOURCE_COMMIT` to the accepted source commit and `PKC_MFA_WORKFLOW_DIGEST` to the accepted workflow digest through the provider interface. Read back each variable name, Production-only scope, absence of branch/custom-environment bindings, and version metadata without exposing secret values.
+2. Obtain separate approval for each Production variable change required by enforced mode: set `PKC_SOURCE_COMMIT` to the accepted source commit and `PKC_MFA_WORKFLOW_DIGEST` to the accepted workflow digest through the provider interface. These two values are non-secret lineage identities: read back their exact provider-native values, Production-only target, absence of branch/custom-environment bindings, and version metadata, then require exact equality. Do not read any secret-bearing variable value.
 3. Obtain separate approval to change only `PKC_FOUNDER_MFA_MODE` to `enforced`; change it and read back scope/version metadata.
 4. Obtain separate approval to create a new immutable Production deployment; create it and read back exact source, environment, readiness, mode label through safe runtime evidence, and exactly 10 functions. The isolated deployment must safely attest that its resolved source commit and workflow digest equal the accepted `PKC_SOURCE_COMMIT` and `PKC_MFA_WORKFLOW_DIGEST` identities before promotion.
 5. Before public traffic, verify the isolated deployment returns the expected generic pre-enrollment founder flow without creating a general founder session or disclosing a seed absent valid enrollment authority.
