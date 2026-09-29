@@ -111,6 +111,8 @@ test("compose and CI never pull or claim protected production release", () => {
   const compose=fs.readFileSync(new URL("../../ops/n8n-disposable/compose.yml",import.meta.url),"utf8");
   const rehearsal=fs.readFileSync(new URL("../../ops/n8n-disposable/rehearse.mjs",import.meta.url),"utf8");
   const ci=fs.readFileSync(new URL("../../.github/workflows/ci.yml",import.meta.url),"utf8");
+  assert.ok(rehearsal.indexOf("try {") < rehearsal.indexOf("fs.mkdtempSync"), "cleanup coverage must begin before the first temporary root is created");
+  assert.match(rehearsal, /ownedRoots\.push\(artifactStagingDir\)[\s\S]*ownedRoots\.push\(readbackDir\)/);
   assert.match(compose,/n8nio\/n8n@sha256:b1b0c592/);
   assert.doesNotMatch(rehearsal,/compose\(\["pull"/);
   assert.doesNotMatch(ci,/Rehearse nine inactive workflows/);

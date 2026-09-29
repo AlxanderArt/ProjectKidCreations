@@ -84,7 +84,10 @@ export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settleme
       const transactionClient = Object.freeze({
         query(...args) {
           if (!acceptingWorkQueries) return Promise.reject(new TransactionOutcomeUnknownError("work"));
-          const query = Promise.resolve().then(() => client.query(...args));
+          const query = Promise.resolve().then(() => {
+            if (!acceptingWorkQueries) throw new TransactionOutcomeUnknownError("work");
+            return client.query(...args);
+          });
           activeWorkQueries.add(query);
           query.then(
             () => activeWorkQueries.delete(query),
@@ -93,12 +96,23 @@ export function createFounderMfaStore({ pool, totalDeadlineMs = 20_000, settleme
           return query;
         },
       });
-      const workPromise = Promise.resolve().then(() => work(transactionClient));
+      let workPromise;
+      try {
+        workPromise = Promise.resolve(work(transactionClient));
+      } catch (error) {
+        acceptingWorkQueries = false;
+        throw error;
+      }
+      let workSettledWithActiveQueries = false;
+      workPromise.then(
+        () => { acceptingWorkQueries = false; workSettledWithActiveQueries = activeWorkQueries.size !== 0; },
+        () => { acceptingWorkQueries = false; },
+      );
       let result;
       try {
         result = await bounded(workPromise, totalDeadlineMs, "work", () => { acceptingWorkQueries = false; });
         acceptingWorkQueries = false;
-        if (activeWorkQueries.size !== 0) throw new TransactionOutcomeUnknownError("work");
+        if (workSettledWithActiveQueries || activeWorkQueries.size !== 0) throw new TransactionOutcomeUnknownError("work");
       } catch (error) {
         acceptingWorkQueries = false;
         workPromise.catch(() => {});

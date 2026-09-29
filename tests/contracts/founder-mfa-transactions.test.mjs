@@ -53,6 +53,22 @@ test("timed-out work poisons the client before late work can escape its transact
   assert.equal(queries.includes("SELECT 'late'"), false);
 });
 
+test("callback settlement closes query authority before a queued microtask can reach PostgreSQL", async () => {
+  const fake = fakePool();
+  const store = createFounderMfaStore({ pool: fake.pool, totalDeadlineMs: 1_000, settlementDeadlineMs: 100 });
+  let lateQuery;
+  await assert.rejects(
+    () => store.transaction((tx) => {
+      queueMicrotask(() => { lateQuery = tx.query("SELECT 'microtask-late'"); });
+      return "settled";
+    }),
+    (error) => error instanceof TransactionOutcomeUnknownError && error.stage === "work",
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  await assert.rejects(lateQuery, (error) => error instanceof TransactionOutcomeUnknownError && error.stage === "work");
+  assert.equal(fake.queries.includes("SELECT 'microtask-late'"), false);
+});
+
 test("transactions install local deadlines before work and commit", async () => {
   const fake = fakePool();
   const store = createFounderMfaStore({ pool: fake.pool, totalDeadlineMs: 20_000 });
