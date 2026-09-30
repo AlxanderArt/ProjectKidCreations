@@ -113,7 +113,7 @@ test("root uses a CSP-compatible canonical entry-state router", () => {
   assert.match(read("index.html"), /<script\s+src=["']\/root-router\.js["'][^>]*><\/script>/);
   assert.ok(existsSync(resolve(root, "root-router.js")));
   assert.match(read("root-router.js"), /\/api\/account\/entry-state/);
-  assert.ok(existsSync(resolve(root, "api/[...route].js")));
+  assert.ok(existsSync(resolve(root, "api/node.js")));
   assert.ok(existsSync(resolve(root, "server/api/entry-state.mjs")));
 });
 

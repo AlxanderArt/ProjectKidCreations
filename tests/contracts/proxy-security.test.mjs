@@ -110,7 +110,7 @@ function mockNodeResponse() {
   };
 }
 
-test("inventory preserves nine Edge wrappers and consolidates every Node URL into one catch-all", async () => {
+test("inventory preserves nine Edge wrappers and consolidates every Node URL into one rewritten function", async () => {
   const files = routeFiles();
   const edgeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "edge");
   const nodeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "nodejs");
@@ -119,16 +119,16 @@ test("inventory preserves nine Edge wrappers and consolidates every Node URL int
   assert.equal(nodeRoutes.length, 14);
   assert.deepEqual(files, [
     ...edgeRoutes.map(([, route]) => route.file),
-    "api/[...route].js",
+    "api/node.js",
   ].sort());
   assert.equal(files.includes("api/account/mfa-start.js"), false);
   for (const [id, route] of edgeRoutes) {
     const mod = await import(`../../${route.file}?inventory=${encodeURIComponent(id)}`);
     assert.equal(mod.config.runtime, "edge", route.file);
   }
-  const catchAll = await import("../../api/[...route].js?inventory=node-catch-all");
-  assert.equal(catchAll.config.runtime, "nodejs");
-  assert.equal(catchAll.config.maxDuration, 60);
+  const consolidated = await import("../../api/node.js?inventory=node-rewrite-target");
+  assert.equal(consolidated.config.runtime, "nodejs");
+  assert.equal(consolidated.config.maxDuration, 60);
 });
 
 test("manifest preserves every upstream endpoint and exact method set", () => {
@@ -719,10 +719,10 @@ test("activity forwards only allowlisted limit/cursor query parameters", async (
 test("source adapters stay separate while only Edge routes retain wrappers", () => {
   const edge = readFileSync(resolve(root, "server/proxy/edge.mjs"), "utf8");
   const node = readFileSync(resolve(root, "server/proxy/node.mjs"), "utf8");
-  const catchAll = readFileSync(resolve(root, "api/[...route].js"), "utf8");
+  const consolidated = readFileSync(resolve(root, "api/node.js"), "utf8");
   assert.match(edge, /createEdgeHandler/);
   assert.match(node, /createNodeHandler/);
-  assert.match(catchAll, /createNodeRouter/);
+  assert.match(consolidated, /createVercelNodeHandler/);
   for (const route of Object.values(ROUTES).filter((entry) => entry.runtime === "edge")) {
     const source = readFileSync(resolve(root, route.file), "utf8");
     assert.match(source, /createEdgeHandler/, route.file);

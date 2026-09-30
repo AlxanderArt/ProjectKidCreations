@@ -32,7 +32,7 @@ test.after(async () => {
   for (const root of temporaryRoots) await rm(root, { recursive: true, force: true });
 });
 
-function candidateEvidence(functionInventory = ["api/[...route].js"]) {
+function candidateEvidence(functionInventory = ["api/node.js"]) {
   const manifestBody = { schemaVersion: 1, serialization: "test-canonical-manifest", snapshot: { headCommit: SHA, headTree: "b".repeat(40), dirty: false, statusDigest: HEX("0") }, files: functionInventory.map((path) => ({ path, bytes: 1, mode: 0o644, sha256: HEX("d") })) };
   return buildVercelCandidateEvidence({ ...manifestBody, fingerprint: sha256(canonicalJson(manifestBody)) });
 }
@@ -42,7 +42,7 @@ function vercelInput() {
   return {
     phase: "promoted", environment: "Preview", expectedEnvironment: "Preview", founderMfaMode: "enforced", expectedFounderMfaMode: "enforced", sourceSha: SHA, expectedSourceSha: SHA, sourceTreeSha: "b".repeat(40),
     state: "READY", deploymentId: "dpl_immutable", aliasTarget: "dpl_immutable",
-    rollbackDeploymentId: "dpl_previous", functions: ["api/[...route].js"], maxFunctions: 10,
+    rollbackDeploymentId: "dpl_previous", functions: ["api/node.js"], maxFunctions: 10,
     candidate: candidateEvidence(), expectedWorkflowDigest: HEX("e"),
     variables,
     vercelKids: { handoff: "handoff-v3", finalize: "finalize-v3" }, n8nKids: { handoff: "handoff-v3", finalize: "finalize-v3" },
@@ -105,15 +105,15 @@ test("Vercel verification consumes exact frozen candidate evidence and exact rel
   assert.throws(() => verifyVercelDeployment({ ...base, candidate: candidateEvidence([]), functions: [] }), /nonempty|inventory/i);
 });
 
-test("Vercel candidate evidence is generated from a disposable accepted catch-all candidate", async () => {
+test("Vercel candidate evidence is generated from a disposable accepted consolidated Node candidate", async () => {
   const repo = await temporaryRoot("pkc-vercel-candidate-");
   spawnSync("git", ["init", "-q"], { cwd: repo });
   spawnSync("git", ["config", "user.email", "test@example.invalid"], { cwd: repo });
   spawnSync("git", ["config", "user.name", "Test"], { cwd: repo });
   await mkdir(join(repo, "api"));
-  await writeFile(join(repo, "api", "[...route].js"), "export default function handler() {}\n");
+  await writeFile(join(repo, "api", "node.js"), "export default function handler() {}\n");
   spawnSync("git", ["add", "."], { cwd: repo });
-  spawnSync("git", ["commit", "-qm", "accepted catch-all router"], { cwd: repo });
+  spawnSync("git", ["commit", "-qm", "accepted consolidated Node router"], { cwd: repo });
   const manifest = await buildCandidateManifest(repo);
   const candidate = buildVercelCandidateEvidence(manifest);
   const fixture = vercelInput();

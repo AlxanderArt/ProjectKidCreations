@@ -4,6 +4,82 @@
   "outputDirectory": ".",
   "rewrites": [
     {
+      "source": "/api/phase-two/save",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/phase-three/save",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/login",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/bootstrap-redeem",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/password-complete",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/password-change",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/email-change",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/delete",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/activity",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/profile",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/sessions",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/admin/list",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/admin/search",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/admin/chat",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/mfa-enrollment",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/mfa-verify",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/mfa-recovery",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/mfa-finalize",
+      "destination": "/api/node"
+    },
+    {
+      "source": "/api/account/entry-state",
+      "destination": "/api/node"
+    },
+    {
       "source": "/onboarding",
       "destination": "/phase-one/"
     },
