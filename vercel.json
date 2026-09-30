@@ -2,6 +2,20 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": ".",
+  "rewrites": [
+    {
+      "source": "/onboarding",
+      "destination": "/phase-one/"
+    },
+    {
+      "source": "/landing",
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/landing/",
+      "destination": "/landing.html"
+    }
+  ],
   "redirects": [
     {
       "source": "/phase-four",
@@ -62,15 +76,24 @@
       ]
     },
     {
+      "source": "/landing.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "private, no-store, max-age=0, must-revalidate" },
+        { "key": "Vary", "value": "Cookie" }
+      ]
+    },
+    {
       "source": "/dist/landing.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, no-cache, must-revalidate" }
+        { "key": "Cache-Control", "value": "private, no-store, max-age=0, must-revalidate" },
+        { "key": "Vary", "value": "Cookie" }
       ]
     },
     {
       "source": "/dist/landing.js.map",
       "headers": [
-        { "key": "Cache-Control", "value": "public, no-cache, must-revalidate" }
+        { "key": "Cache-Control", "value": "private, no-store, max-age=0, must-revalidate" },
+        { "key": "Vary", "value": "Cookie" }
       ]
     },
     {

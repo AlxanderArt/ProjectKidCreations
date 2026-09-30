@@ -118,7 +118,10 @@ test("root uses a CSP-compatible canonical entry-state router", () => {
 });
 
 test("entry-state pins the n8n origin and forwards only the exact session cookie", () => {
-  const source = read("server/api/entry-state.mjs");
+  const adapter = read("server/api/entry-state.mjs");
+  const source = read("server/auth/entry-state.mjs");
+  assert.match(adapter, /import \{ resolveEntryState \} from ["']\.\.\/auth\/entry-state\.mjs["']/);
+  assert.match(adapter, /resolveEntryState\(\{/);
   assert.match(source, /PKC_N8N_ALLOWED_ORIGINS/);
   assert.match(source, /allowedOrigins\.has\(parsed\.origin\)/);
   assert.match(source, /parsed\.pathname\s*!==\s*["']\/["']/);
@@ -160,6 +163,26 @@ test("public mock Phase Four is quarantined from production routing", () => {
   assert.ok(redirects.some((item) => item.source === "/phase-four" && item.destination === "/"));
   assert.ok(redirects.some((item) => item.source === "/phase-four/" && item.destination === "/"));
   assert.ok(redirects.some((item) => item.source === "/phase-four/:path*" && item.destination === "/"));
+});
+
+test("catalog rewrites, middleware matchers, and local harness share the full browse gate", () => {
+  const config = JSON.parse(read("vercel.json"));
+  const middleware = read("middleware.js");
+  const localServer = read("scripts/playwright-local-server.mjs");
+  const rewrites = new Map((config.rewrites || []).map((item) => [item.source, item.destination]));
+  assert.equal(rewrites.get("/landing"), "/landing.html");
+  assert.equal(rewrites.get("/landing/"), "/landing.html");
+  for (const route of ["/landing.html", "/landing", "/landing/", "/dist/landing.js", "/dist/landing.js.map"]) {
+    assert.ok(middleware.includes(JSON.stringify(route)), route);
+    assert.ok(localServer.includes(JSON.stringify(route)), route);
+  }
+  for (const source of [middleware, localServer]) {
+    assert.match(source, /result\.status === 200/);
+    assert.match(source, /result\.body\?\.ok === true/);
+    assert.match(source, /result\.body\?\.authenticated === true/);
+    assert.match(source, /result\.body\.state === "customer_active"/);
+    assert.match(source, /result\.body\.state === "owner_active"/);
+  }
 });
 
 test("internal tests, workflow tooling, and deferred source are excluded from Vercel uploads", () => {

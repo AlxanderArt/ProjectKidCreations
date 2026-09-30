@@ -1,6 +1,7 @@
 import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import { resolveEntryState } from "../server/auth/entry-state.mjs";
 
 const root = resolve(process.cwd());
 const port = Number(process.env.PORT || 4173);
@@ -19,6 +20,23 @@ const mime = Object.freeze({
 });
 const csp = "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' blob:; worker-src 'self'; frame-src 'self'";
 const frameCsp = "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self' data:; font-src 'self'; connect-src 'self'";
+const testEnv = Object.freeze({
+  PKC_N8N_BASE_URL: "https://n8n.example.test",
+  PKC_AUTH_KEY: "e2e-only-key",
+  PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test",
+  PKC_FOUNDER_SUBJECT: "11111111-1111-4111-8111-111111111111",
+});
+const testFetch = async (_url, init) => {
+  if (init?.headers?.Cookie !== "pkc_session=e2e-customer") return new Response(null, { status: 401 });
+  return new Response(JSON.stringify({
+    account: {
+      account_id: "22222222-2222-4222-8222-222222222222",
+      username: "e2e-customer",
+      display_name: "E2E Customer",
+      is_admin: false,
+    },
+  }), { status: 200, headers: { "content-type": "application/json" } });
+};
 
 function headers(pathname) {
   const frame = pathname === "/assets/pkc-motion/boot/pkc-boot-frame.html";
@@ -32,7 +50,7 @@ function headers(pathname) {
   };
 }
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.writeHead(405, { Allow: "GET, HEAD" });
     return response.end();
@@ -40,10 +58,26 @@ const server = createServer((request, response) => {
   const url = new URL(request.url, "http://127.0.0.1");
   let pathname;
   try { pathname = decodeURIComponent(url.pathname); } catch { response.writeHead(400); return response.end(); }
+  if (pathname === "/onboarding") pathname = "/phase-one/";
   if (pathname === "/phase-four" || pathname === "/phase-four/" || pathname.startsWith("/phase-four/")) {
     response.writeHead(307, { Location: "/", ...headers(pathname) });
     return response.end();
   }
+  if (["/landing.html", "/landing", "/landing/", "/dist/landing.js", "/dist/landing.js.map"].includes(pathname)) {
+    const result = await resolveEntryState({ cookieHeader: request.headers.cookie, env: testEnv, fetchImpl: testFetch });
+    const authorized = result.status === 200 && result.body?.ok === true && result.body?.authenticated === true &&
+      (result.body.state === "customer_active" || result.body.state === "owner_active");
+    if (!authorized) {
+      response.writeHead(307, {
+        Location: "/?reason=account_required",
+        "Cache-Control": "private, no-store, max-age=0, must-revalidate",
+        Vary: "Cookie",
+        ...headers(pathname),
+      });
+      return response.end();
+    }
+  }
+  if (pathname === "/landing" || pathname === "/landing/") pathname = "/landing.html";
   const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
   let file = resolve(root, relative);
   if (file !== root && !file.startsWith(`${root}${sep}`)) { response.writeHead(404); return response.end(); }

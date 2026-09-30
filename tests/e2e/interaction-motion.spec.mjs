@@ -6,7 +6,8 @@ const waitForMotionReady = async (page) => {
 
 const styleAttributeCount = (page) => page.locator('[style]').count();
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, context }) => {
+  await context.addCookies([{ name: 'pkc_session', value: 'e2e-customer', url: 'http://127.0.0.1:4173' }]);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/landing.html?entry=browse', { waitUntil: 'domcontentloaded' });
   await waitForMotionReady(page);

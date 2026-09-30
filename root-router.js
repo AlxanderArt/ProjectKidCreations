@@ -5,8 +5,7 @@
   const LOGOUT_ENDPOINT = "/api/account/logout";
   const TIMEOUT_MS = 8000;
   const ROUTES = Object.freeze({
-    browse: "/landing.html?entry=browse",
-    onboard: "/phase-one/",
+    onboard: "/onboarding",
     login: "/account/login/",
     founderLogin: "/account/login/?next=%2Faccount%2Fadmin%2F",
     account: "/account/",
@@ -26,7 +25,6 @@
   const degradedState = document.querySelector("#degraded-state");
   const sessionName = document.querySelector("#session-name");
   const continueLink = document.querySelector("#continue-link");
-  const retryButton = document.querySelector("#retry-entry");
   const signOutButton = document.querySelector("#sign-out");
   const startNewButton = document.querySelector("#start-new");
 
@@ -105,7 +103,6 @@
     }
   }
 
-  retryButton?.addEventListener("click", load);
   signOutButton?.addEventListener("click", () => signOut("/"));
   startNewButton?.addEventListener("click", () => signOut(ROUTES.onboard));
   load();

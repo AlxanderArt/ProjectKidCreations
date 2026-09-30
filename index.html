@@ -32,9 +32,8 @@
       <p class="eyebrow">// SCRIPT REQUIRED</p>
       <h1>CHOOSE YOUR PATH.</h1>
       <div class="actions">
-        <a class="primary" href="/phase-one/">START ONBOARDING →</a>
+        <a class="primary" href="/onboarding">START ONBOARDING →</a>
         <a href="/account/login/">RETURNING SIGN-IN →</a>
-        <a href="/landing.html?entry=browse">BROWSE PROJECTS →</a>
       </div>
     </main>
   </noscript>
@@ -57,11 +56,10 @@
     <section class="panel" id="public-state" hidden inert>
       <p class="eyebrow">// PUBLIC ENTRY</p>
       <h1>WHAT ARE YOU HERE TO DO?</h1>
-      <p>Browse the work, begin the three-step customer setup, or return to an existing account.</p>
+      <p>Begin the three-step customer setup or return to an existing account.</p>
       <div class="actions">
-        <a class="primary" href="/phase-one/">START ONBOARDING →</a>
+        <a class="primary" href="/onboarding">START ONBOARDING →</a>
         <a href="/account/login/">RETURNING CUSTOMER SIGN-IN →</a>
-        <a href="/landing.html?entry=browse">BROWSE PROJECTS →</a>
       </div>
     </section>
 
@@ -78,12 +76,11 @@
 
     <section class="panel" id="degraded-state" hidden inert>
       <p class="eyebrow">// STATE UNKNOWN</p>
-      <h1>WE COULDN'T VERIFY THIS SESSION.</h1>
-      <p>No onboarding state was changed. Retry the secure check or sign in directly.</p>
+      <h1>IDENTITY NOT FOUND.</h1>
+      <p>Please either sign in or proceed with onboarding in order to proceed.</p>
       <div class="actions">
-        <button class="primary" type="button" id="retry-entry">RETRY SESSION CHECK ↻</button>
+        <a class="primary" href="/onboarding">START ONBOARDING →</a>
         <a href="/account/login/">SIGN IN →</a>
-        <a href="/landing.html?entry=browse">BROWSE PROJECTS →</a>
       </div>
     </section>
   </main>

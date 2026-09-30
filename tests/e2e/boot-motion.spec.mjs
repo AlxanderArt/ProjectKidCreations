@@ -10,7 +10,8 @@ const cspErrors = (page) => {
   return errors;
 };
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, context }) => {
+  await context.addCookies([{ name: 'pkc_session', value: 'e2e-customer', url: 'http://127.0.0.1:4173' }]);
   await page.addInitScript(() => {
     window.__pkcBootEvents = [];
     window.__pkcBootCompleteEvents = [];
