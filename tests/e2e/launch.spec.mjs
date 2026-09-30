@@ -1,5 +1,9 @@
 import { expect, test } from "./fixtures.mjs";
 
+test.beforeEach(async ({ context }) => {
+  await context.addCookies([{ name: "pkc_session", value: "e2e-customer", url: "http://127.0.0.1:4173" }]);
+});
+
 function browserFailures(page) {
   const failures = [];
   page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
@@ -30,9 +34,10 @@ test("public root exposes explicit launch choices under strict CSP", async ({ pa
   await mockEntry(page, { ok: true, state: "public" });
   const response = await page.goto("/");
   await expect(page.getByRole("heading", { name: "WHAT ARE YOU HERE TO DO?" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /browse projects/i })).toHaveAttribute("href", "/landing.html?entry=browse");
-  await expect(page.getByRole("link", { name: /start onboarding/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /browse projects/i })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /start onboarding/i })).toHaveAttribute("href", "/onboarding");
   await expect(page.getByRole("link", { name: /returning customer sign-in/i })).toHaveAttribute("href", "/account/login/");
+  await expect(page.locator("#public-state .actions").getByRole("link")).toHaveCount(2);
   await expect(page.locator("#public-state .actions").getByRole("link", { name: /founder sign-in/i })).toHaveCount(0);
   const founderEntry = page.locator(".brand .mark");
   await expect(founderEntry).toHaveAttribute("href", "/account/login/?next=%2Faccount%2Fadmin%2F");
@@ -94,24 +99,20 @@ test("public-entry brand is centered on phone, tablet, and PC", async ({ page })
   }
 });
 
-test("direct PC landing entry reaches the chooser while Browse Projects intentionally enters the landing", async ({ page }) => {
+test("anonymous catalog requests always return to onboarding or sign-in", async ({ page, context }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await mockEntry(page, { ok: true, state: "public" });
+  await context.clearCookies();
 
-  await page.goto("/landing.html");
-  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
-  await expect(page.getByRole("heading", { name: "WHAT ARE YOU HERE TO DO?" })).toBeVisible();
-
-  await page.getByRole("link", { name: /browse projects/i }).click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe("/landing.html");
-  await expect.poll(() => new URL(page.url()).search).toBe("");
-  await expect(page.locator(".pkc-nav__logo")).toHaveAttribute("href", "#top");
-
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect.poll(() => new URL(page.url()).pathname).toBe("/landing.html");
-  await expect.poll(() => new URL(page.url()).search).toBe("");
-  await expect(page.locator(".pkc-nav__logo")).toHaveAttribute("href", "#top");
+  for (const path of ["/landing.html", "/landing.html?entry=browse", "/landing", "/landing/"]) {
+    await page.goto(path);
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await expect(page.getByRole("heading", { name: "WHAT ARE YOU HERE TO DO?" })).toBeVisible();
+    await expect(page.locator("#public-state .actions").getByRole("link", { name: /start onboarding/i })).toHaveAttribute("href", "/onboarding");
+    await expect(page.locator("#public-state .actions").getByRole("link", { name: /sign-in/i })).toHaveAttribute("href", "/account/login/");
+    await expect(page.getByRole("link", { name: /browse projects/i })).toHaveCount(0);
+  }
 });
 
 test("customer and Founder states are server-routed without identity inference", async ({ page }) => {
@@ -127,12 +128,21 @@ test("customer and Founder states are server-routed without identity inference",
   await expect(page.getByRole("link", { name: /continue to founder admin/i })).toHaveAttribute("href", "/account/admin/");
 });
 
-test("authority failure is degraded, never automatic onboarding", async ({ page }) => {
+test("authority failure exposes only onboarding and sign-in", async ({ page }) => {
   await page.route("**/api/account/entry-state", (route) => route.abort("timedout"));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "WE COULDN'T VERIFY THIS SESSION." })).toBeVisible();
-  await expect(page.getByRole("button", { name: /retry/i })).toBeVisible();
-  expect(page.url()).not.toContain("phase-one");
+
+  const degraded = page.locator("#degraded-state");
+  const degradedActions = degraded.locator(".actions");
+  await expect(degraded.getByRole("heading", { name: "IDENTITY NOT FOUND." })).toBeVisible();
+  await expect(degraded.locator("p").nth(1)).toHaveText(
+    "Please either sign in or proceed with onboarding in order to proceed.",
+  );
+  await expect(degradedActions.getByRole("link", { name: "START ONBOARDING →" })).toHaveAttribute("href", "/onboarding");
+  await expect(degradedActions.getByRole("link", { name: "SIGN IN →" })).toHaveAttribute("href", "/account/login/");
+  await expect(degradedActions.locator("button, a")).toHaveCount(2);
+  await expect(degradedActions.getByRole("button", { name: /retry session check/i })).toHaveCount(0);
+  await expect(degradedActions.getByRole("link", { name: /browse projects/i })).toHaveCount(0);
 });
 
 test("Phase Four is quarantined before mock HTML is served", async ({ page }) => {
@@ -156,7 +166,7 @@ test("token routes scrub query secrets immediately", async ({ page }) => {
 
 test("landing hydrates without runtime inline styles", async ({ page }) => {
   const failures = browserFailures(page);
-  await page.route("**/api/**", (route) => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
+  await page.route("**/api/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "{}" }));
   const modelLoaded = page.waitForResponse(
     (response) => response.url().endsWith("/assets/models/splatrball-400.glb"),
     { timeout: 3_000 },
@@ -433,7 +443,8 @@ test("root onboarding action has a visible keyboard focus indicator", async ({ p
 });
 
 test("Phase One questions use heading semantics", async ({ page }) => {
-  await page.goto("/phase-one/");
+  await page.goto("/onboarding");
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/onboarding");
   await expect(page.locator("#form > h1.sr-only")).toHaveText("PROJECTKIDCREATIONS ONBOARDING");
 });
 
@@ -441,9 +452,9 @@ for (const phase of ["phase-two", "phase-three"]) {
   test(`${phase} missing-token state offers visible recovery routes`, async ({ page }) => {
     await page.goto(`/${phase}/`);
     await expect(page.getByRole("heading", { name: "LINK NOT RECOGNIZED" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /restart onboarding/i })).toHaveAttribute("href", "/phase-one/");
+    await expect(page.getByRole("link", { name: /restart onboarding/i })).toHaveAttribute("href", "/onboarding");
     await expect(page.getByRole("link", { name: /^sign in/i })).toHaveAttribute("href", "/account/login/");
-    await expect(page.getByRole("link", { name: /browse projects/i })).toHaveAttribute("href", "/landing.html");
+    await expect(page.getByRole("link", { name: /browse projects/i })).toHaveCount(0);
   });
 }
 
