@@ -39,7 +39,7 @@ Any uncertain external outcome is `UNKNOWN_REQUIRES_RECONCILIATION`. Freeze retr
 Before any provider access:
 
 1. Confirm the frozen candidate contains **exactly 10 API functions**, using the complete `api/**/*.js` inventory from the frozen bytes. The accepted current topology is:
-   - `api/[...route].js`
+   - `api/node.js`
    - `api/account/bootstrap.js`
    - `api/account/logout.js`
    - `api/account/password-request.js`
