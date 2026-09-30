@@ -1,0 +1,26 @@
+services:
+  n8n:
+    image: n8nio/n8n@sha256:b1b0c592735e24acd3cc64db83f94ef4efd8e331e47c6883249cc51cc1bea16b
+    pull_policy: never
+    restart: "no"
+    networks: [rehearsal]
+    environment:
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_SECURE_COOKIE: "false"
+      EXECUTIONS_DATA_SAVE_ON_ERROR: none
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_PROGRESS: "false"
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "false"
+    volumes:
+      - n8n_phase_one_data:/home/node/.n8n
+      - ${PKC_N8N_CANDIDATE_DIR:?set PKC_N8N_CANDIDATE_DIR}:/candidate:ro
+      - ${PKC_N8N_READBACK_DIR:?set PKC_N8N_READBACK_DIR}:/readback
+networks:
+  rehearsal:
+    name: ${COMPOSE_PROJECT_NAME:?set COMPOSE_PROJECT_NAME}_network
+    internal: true
+volumes:
+  n8n_phase_one_data:
+    name: ${COMPOSE_PROJECT_NAME:?set COMPOSE_PROJECT_NAME}_data

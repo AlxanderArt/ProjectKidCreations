@@ -29,6 +29,30 @@ test("token journeys strip query parameters immediately after capture", () => {
   }
 });
 
+test("canonical onboarding route uses route-stable Phase One asset URLs", () => {
+  const html = read("phase-one/index.html");
+  assert.match(html, /href="\/phase-one\/styles\.css"/);
+  assert.match(html, /src="\/phase-one\/app\.js"/);
+  assert.doesNotMatch(html, /href="styles\.css"|src="app\.js"/);
+});
+
+test("Phase One requires explicit adult and policy consent before exposing PII", () => {
+  const html = read("phase-one/index.html");
+  const app = read("phase-one/app.js");
+  assert.match(html, /id="eligibility-section"/);
+  assert.match(html, /id="adult-confirm-input"[^>]*type="checkbox"[^>]*required/s);
+  assert.match(html, /id="policy-consent-input"[^>]*type="checkbox"[^>]*required/s);
+  assert.match(html, /href="\/terms\/"/);
+  assert.match(html, /href="\/privacy\/"/);
+  assert.doesNotMatch(html, /<label[^>]*>(?:(?!<\/label>)[\s\S])*?<a\s/i);
+  assert.match(app, /eligible:\s*false/);
+  assert.match(app, /adultConfirmed:\s*true/);
+  assert.match(app, /termsAccepted:\s*true/);
+  assert.match(app, /privacyAcknowledged:\s*true/);
+  assert.match(app, /policyVersion:\s*"pkc-onboarding-launch-v1"/);
+  assert.ok(app.indexOf("renderEligibility") < app.indexOf("render(target)"));
+});
+
 test("Phase One requires authoritative persistence before success and draft clearing", () => {
   const source = read("phase-one/app.js");
   assert.match(source, /body\.ok\s*===\s*true/);
@@ -36,6 +60,14 @@ test("Phase One requires authoritative persistence before success and draft clea
   assert.match(source, /return showSubmitError/);
   const submit = source.slice(source.indexOf("const submit ="), source.indexOf("//  Idle recovery"));
   assert.doesNotMatch(submit, /enqueue\(payload\)/);
+});
+
+test("Phase One field errors are associated, announced, and cleared deterministically", () => {
+  const source = read("phase-one/app.js");
+  assert.match(source, /aria-describedby="q-\$\{idx\}-hint q-\$\{idx\}-error"/);
+  assert.match(source, /id="q-\$\{idx\}-error"[^>]*role="alert"/);
+  assert.match(source, /f\.input\.setAttribute\("aria-invalid", "true"\)/);
+  assert.match(source, /f\.input\.removeAttribute\("aria-invalid"\)/);
 });
 
 test("Phase Three confirms account activation before showing success", () => {
@@ -112,4 +144,9 @@ test("Phase Three consent and pre-shop UX remain accurate and accessible", () =>
   assert.match(styles, /\.section-legend\s*\{[^}]*display:\s*block;/s);
   assert.match(sections, /VIEW MODS/);
   assert.doesNotMatch(sections, /SHOP MODS/);
+});
+
+test("Phase One Back control remains hidden when the hidden attribute is present", () => {
+  const css = read("phase-one/styles.css");
+  assert.match(css, /\.back\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/);
 });

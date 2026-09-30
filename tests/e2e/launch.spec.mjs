@@ -1,4 +1,6 @@
 import { expect, test } from "./fixtures.mjs";
+import { createHash } from "node:crypto";
+import { handleProxy } from "../../server/proxy/core.mjs";
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: "pkc_session", value: "e2e-customer", url: "http://127.0.0.1:4173" }]);
@@ -113,6 +115,18 @@ test("anonymous catalog requests always return to onboarding or sign-in", async 
     await expect(page.locator("#public-state .actions").getByRole("link", { name: /sign-in/i })).toHaveAttribute("href", "/account/login/");
     await expect(page.getByRole("link", { name: /browse projects/i })).toHaveCount(0);
   }
+
+  for (const path of [
+    "/dist/landing.js", "/dist/landing.css", "/dist/landing.meta.json",
+    "/dist/chunk-FW4363Y4.js", "/dist/hero3d-DNDWLFDQ.js",
+    "/assets/models/splatrball-400.glb", "/src/data/products.js", "/src/components/Products.jsx",
+  ]) {
+    const response = await context.request.get(path, { maxRedirects: 0 });
+    expect(response.status(), path).toBe(307);
+    expect(new URL(response.headers().location, "http://127.0.0.1").pathname, path).toBe("/");
+  }
+  expect((await context.request.get("/phase-one/app.js", { maxRedirects: 0 })).status()).toBe(200);
+  expect((await context.request.get("/dist/pkc-motion.js", { maxRedirects: 0 })).status()).toBe(200);
 });
 
 test("customer and Founder states are server-routed without identity inference", async ({ page }) => {
@@ -440,6 +454,116 @@ test("root onboarding action has a visible keyboard focus indicator", async ({ p
   });
   expect(focus.outlineStyle).not.toBe("none");
   expect(Number.parseFloat(focus.outlineWidth)).toBeGreaterThanOrEqual(2);
+});
+
+test("canonical onboarding route boots eligibility before PII instead of exposing completion copy", async ({ page }) => {
+  await page.goto("/onboarding");
+  await expect.poll(() => page.evaluate(() => document.body.classList.contains("ready"))).toBe(true);
+  await expect(page.locator("#eligibility-section")).toHaveAttribute("data-active", "true");
+  await expect(page.locator(".back")).toBeHidden();
+  await expect(page.getByLabel("FIRST NAME // LET'S START")).toBeHidden();
+  await expect(page.locator("#eligibility-continue")).toBeVisible();
+  await expect(page.locator("#end-section")).toBeHidden();
+  await expect.poll(() => page.evaluate(() => typeof window.PKC_HEALTH === "function")).toBe(true);
+});
+
+test("Phase One consented browser payload crosses the proxy in active-workflow format", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => { window.PKC_MODE = "prod"; });
+  let browserPayload;
+  await page.route("**/api/onboarding", async (route) => {
+    browserPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, persisted: true }),
+    });
+  });
+
+  await page.goto("/onboarding#3");
+  await waitForBootHandoff(page);
+  const eligibility = page.locator("#eligibility-section");
+  const adult = page.locator("#adult-confirm-input");
+  const policy = page.locator("#policy-consent-input");
+  await expect(eligibility).toHaveAttribute("data-active", "true");
+  await expect(page.getByLabel("FIRST NAME // LET'S START")).toBeHidden();
+
+  await page.locator("#eligibility-continue").click();
+  await expect(adult).toBeFocused();
+  await expect(adult).toHaveAttribute("aria-invalid", "true");
+  await expect(policy).toHaveAttribute("aria-invalid", "true");
+
+  await adult.check();
+  const policyBeforeLegal = await policy.isChecked();
+  await expect(page.getByRole("link", { name: /Terms \(opens in a new tab\)/ })).toHaveAttribute("href", "/terms/");
+  await expect(page.getByRole("link", { name: /Privacy Notice \(opens in a new tab\)/ })).toHaveAttribute("href", "/privacy/");
+  expect(await policy.isChecked()).toBe(policyBeforeLegal);
+  await policy.check();
+  await page.locator("#eligibility-continue").click();
+  const firstName = page.getByLabel("FIRST NAME // LET'S START");
+  await expect(firstName).toBeVisible();
+  await expect(firstName).toBeFocused();
+
+  for (const [label, value] of [
+    ["FIRST NAME // LET'S START", "Sample"],
+    ["LAST NAME // ALMOST THERE", "Maker"],
+    ["EMAIL // WHERE WE REACH YOU", "sample@example.test"],
+  ]) {
+    const input = page.getByLabel(label);
+    await input.fill(value);
+    await input.locator("xpath=ancestor::section").locator(".cta").click();
+  }
+
+  await expect(page.locator("#end-section")).toHaveAttribute("data-active", "true");
+  expect(browserPayload).toMatchObject({
+    version: "1.6.0",
+    data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test" },
+    consent: {
+      adultConfirmed: true,
+      termsAccepted: true,
+      privacyAcknowledged: true,
+      policyVersion: "pkc-onboarding-launch-v1",
+    },
+  });
+  expect(Object.keys(browserPayload).sort()).toEqual(["consent", "data", "submissionId", "version"]);
+
+  let upstream;
+  const proxyResponse = await handleProxy("onboarding", new Request("https://app.example.test/api/onboarding", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://app.example.test" },
+    body: JSON.stringify(browserPayload),
+  }), {
+    env: {
+      PKC_N8N_BASE_URL: "https://n8n.example.test",
+      PKC_AUTH_KEY: "server-secret",
+      PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test",
+      PKC_PUBLIC_ALLOWED_ORIGINS: "https://app.example.test",
+    },
+    fetch: async (_url, init) => {
+      upstream = JSON.parse(init.body);
+      return new Response(JSON.stringify({ ok: true, persisted: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+  expect(proxyResponse.status).toBe(200);
+  expect(upstream.hash).toBe(createHash("sha256").update([
+    upstream.firstName,
+    upstream.lastName,
+    upstream.email,
+    upstream.submissionId,
+    upstream.version,
+  ].join("|"), "utf8").digest("hex"));
+  expect(upstream).toMatchObject({
+    firstName: "Sample",
+    lastName: "Maker",
+    email: "sample@example.test",
+    adultConfirmed: true,
+    termsAccepted: true,
+    privacyAcknowledged: true,
+    policyVersion: "pkc-onboarding-launch-v1",
+  });
 });
 
 test("Phase One questions use heading semantics", async ({ page }) => {

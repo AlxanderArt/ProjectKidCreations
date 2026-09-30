@@ -27,28 +27,15 @@
   // ════════════════════════════════════════════════════════════════════
   //  CONFIG (single source of truth, #41 #42)
   // ════════════════════════════════════════════════════════════════════
-  const QUERY = new URLSearchParams(location.search);
-
-  const PKC_ENV =
-    window.PKC_ENV ||
-    (location.protocol === "file:" || location.hostname === "localhost" || location.hostname === "127.0.0.1"
-      ? "local"
-      : "prod");
-
-  const PKC_MODE =
-    QUERY.get("mode") ||
-    window.PKC_MODE ||
-    (PKC_ENV === "local" ? "dev" : "prod");
-
-  const PKC_DEBUG_RAW =
-    QUERY.get("debug") !== null
-      ? QUERY.get("debug") !== "0"
-      : window.PKC_DEBUG !== undefined
-        ? !!window.PKC_DEBUG
-        : PKC_MODE === "dev";
+  const IS_LOCAL = location.protocol === "file:"
+    || location.hostname === "localhost"
+    || location.hostname === "127.0.0.1";
+  const PKC_ENV = IS_LOCAL ? "local" : "prod";
+  const PKC_MODE = IS_LOCAL && window.PKC_MODE === "dev" ? "dev" : "prod";
+  const PKC_DEBUG_RAW = IS_LOCAL && window.PKC_DEBUG === true;
 
   const CONFIG = Object.freeze({
-    VERSION:           "1.5.0",
+    VERSION:           "1.6.0",
     ENV:               PKC_ENV,
     MODE:              PKC_MODE,
     DEBUG:             PKC_DEBUG_RAW,
@@ -76,7 +63,7 @@
   // ════════════════════════════════════════════════════════════════════
   //  Kill switch (#43) — first runtime line
   // ════════════════════════════════════════════════════════════════════
-  if (window.PKC_DISABLED === true || QUERY.get("disabled") === "1") {
+  if (window.PKC_DISABLED === true) {
     document.addEventListener("DOMContentLoaded", () => {
       document.body.innerHTML = `
         <main class="kill" role="alert">
@@ -122,6 +109,7 @@
   // ════════════════════════════════════════════════════════════════════
   const state = {
     answers:       {},
+    eligible:      false,
     currentStep:   1,
     startTime:     null,
     lastSubmit:    0,
@@ -407,6 +395,81 @@
   };
 
   // ════════════════════════════════════════════════════════════════════
+  //  Eligibility gate — explicit, tab-local, never restored
+  // ════════════════════════════════════════════════════════════════════
+  const eligibilityElements = () => ({
+    section: document.getElementById("eligibility-section"),
+    heading: document.getElementById("eligibility-heading"),
+    adult: document.getElementById("adult-confirm-input"),
+    policy: document.getElementById("policy-consent-input"),
+    error: document.getElementById("eligibility-error"),
+    continueButton: document.getElementById("eligibility-continue"),
+  });
+
+  const clearEligibilityField = (input) => {
+    if (input.checked) input.removeAttribute("aria-invalid");
+    const { adult, policy, error } = eligibilityElements();
+    if (adult.checked && policy.checked) {
+      error.hidden = true;
+      error.textContent = "";
+    }
+  };
+
+  const focusCurrentControl = () => {
+    if (!state.eligible) {
+      const { adult } = eligibilityElements();
+      try { adult.focus({ preventScroll: true }); } catch { adult.focus(); }
+      return;
+    }
+    const q = QUESTIONS[state.currentStep - 1];
+    const field = state.fields.get(q?.key);
+    if (field) {
+      try { field.input.focus({ preventScroll: true }); } catch { field.input.focus(); }
+    }
+  };
+
+  const renderEligibility = safe(() => {
+    state.currentStep = 0;
+    document.querySelectorAll('section[data-question]').forEach((section) => {
+      const active = section.id === "eligibility-section";
+      section.dataset.active = active ? "true" : "false";
+      section.setAttribute("aria-hidden", active ? "false" : "true");
+    });
+    const counter = document.getElementById("progress-counter");
+    const bar = document.getElementById("progress-bar");
+    const back = document.getElementById("back");
+    counter.textContent = `00 / ${padStep(TOTAL_STEPS)}`;
+    bar.setAttribute("aria-valuenow", "0");
+    Array.from(bar.children).forEach((child) => child.classList.remove("filled"));
+    back.hidden = true;
+    setStatus("// CONFIRM ELIGIBILITY TO CONTINUE", "momentum", { sticky: true });
+    requestAnimationFrame(focusCurrentControl);
+  }, "renderEligibility");
+
+  const confirmEligibility = safe(() => {
+    const { adult, policy, error } = eligibilityElements();
+    const invalid = [adult, policy].filter((input) => !input.checked);
+    for (const input of [adult, policy]) {
+      if (input.checked) input.removeAttribute("aria-invalid");
+      else input.setAttribute("aria-invalid", "true");
+    }
+    if (invalid.length) {
+      error.textContent = invalid.length === 2
+        ? "// CONFIRM AGE AND POLICY ACKNOWLEDGMENT TO CONTINUE"
+        : "// COMPLETE THE REQUIRED CONFIRMATION TO CONTINUE";
+      error.hidden = false;
+      invalid[0].focus();
+      track("eligibility_validation_fail", { missing: invalid.length });
+      return;
+    }
+    error.hidden = true;
+    error.textContent = "";
+    state.eligible = true;
+    history.replaceState(null, "", "#1");
+    render(1);
+  }, "confirmEligibility");
+
+  // ════════════════════════════════════════════════════════════════════
   //  Render question sections from QUESTIONS (#1)
   // ════════════════════════════════════════════════════════════════════
   const buildSections = () => {
@@ -439,10 +502,11 @@
           required
           spellcheck="false"
           autocapitalize="${q.key === "email" ? "off" : "words"}"
+          aria-describedby="q-${idx}-hint q-${idx}-error"
         >
         <div class="error-region">
-          <span class="error-msg"></span>
-          <span class="error-hint"></span>
+          <span class="error-msg" id="q-${idx}-error" role="alert"></span>
+          <span class="error-hint" id="q-${idx}-hint"></span>
         </div>
         <p class="hint">PRESS ENTER TO CONTINUE${idx > 1 ? " // SHIFT+TAB TO GO BACK" : ""}</p>
         <p class="idle-hint" hidden>// STILL THERE? PRESS ENTER TO CONTINUE</p>
@@ -530,17 +594,23 @@
       f.errMsg.textContent = "";
       f.errHint.textContent = "";
       f.sec.classList.remove("invalid");
+      f.input.removeAttribute("aria-invalid");
       return;
     }
     const def = ERRORS[errorKey] || { msg: "// INVALID INPUT" };
     f.errMsg.textContent  = def.msg;
     f.errHint.textContent = def.hint || "";
+    f.input.setAttribute("aria-invalid", "true");
   };
 
   // ════════════════════════════════════════════════════════════════════
   //  render(step) — show one section, update chrome (#1, #5, #7, #10)
   // ════════════════════════════════════════════════════════════════════
   const render = safe((step) => {
+    if (!state.eligible) {
+      renderEligibility();
+      return;
+    }
     state.currentStep = step;
 
     // Toggle sections
@@ -637,6 +707,7 @@
     state.pendingSubmission = null;
     writeStore();
     pushAttempt();
+    state.lastSubmit = 0;
     setStatus("SAVED ✓", "saved");
     track("autosave", { step, key: q.key });
     track("step_complete", { step, key: q.key });
@@ -675,6 +746,11 @@
   };
 
   const onHashChange = safe(() => {
+    if (!state.eligible) {
+      if (location.hash !== "#eligibility") history.replaceState(null, "", "#eligibility");
+      renderEligibility();
+      return;
+    }
     let target = parseHash();
 
     if (target === "done") {
@@ -711,6 +787,10 @@
   };
 
   const submit = safeAsync(async () => {
+    if (!state.eligible) {
+      renderEligibility();
+      return;
+    }
     // Completion guard (#37)
     const missing = firstMissingStep();
     if (missing !== null) {
@@ -731,20 +811,20 @@
       state.pendingSubmission = {
         version: CONFIG.VERSION,
         submissionId,
-        timestamp: new Date().toISOString(),
-        env: CONFIG.ENV,
-        mode: CONFIG.MODE,
         data,
-        confidence: computeConfidence(data),
-        perf: { ...state.perf },
-        hash: await sha256(data),
+        consent: {
+          adultConfirmed: true,
+          termsAccepted: true,
+          privacyAcknowledged: true,
+          policyVersion: "pkc-onboarding-launch-v1",
+        },
       };
     }
     const payload = state.pendingSubmission;
     const submissionId = payload.submissionId;
 
-    log("[PKC] submission payload", payload);
-    track("submit", { submissionId, hash: payload.hash });
+    log("[PKC] submission prepared", { submissionId });
+    track("submit", { submissionId });
     track("completion_time", { ms: state.perf.completionMs });
 
     const shouldFetch =
@@ -832,7 +912,7 @@
   }, "onOnline");
 
   const onOffline = safe(() => {
-    setStatus("OFFLINE MODE — WILL SYNC LATER", "offline", { sticky: true });
+    setStatus("// OFFLINE — RECONNECT, THEN SUBMIT AGAIN", "offline", { sticky: true });
     track("offline");
   }, "onOffline");
 
@@ -892,6 +972,12 @@
 
     // Build sections
     buildSections();
+
+    const { adult, policy, continueButton } = eligibilityElements();
+    continueButton.addEventListener("click", confirmEligibility);
+    adult.addEventListener("change", () => clearEligibilityField(adult));
+    policy.addEventListener("change", () => clearEligibilityField(policy));
+    window.addEventListener("pkc:boot-complete", focusCurrentControl);
 
     // Drain queue (best-effort, non-blocking)
     drainQueue();

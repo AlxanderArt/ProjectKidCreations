@@ -94,6 +94,11 @@
   ],
   "redirects": [
     {
+      "source": "/onboarding/",
+      "destination": "/onboarding",
+      "permanent": false
+    },
+    {
       "source": "/phase-four",
       "destination": "/",
       "permanent": false

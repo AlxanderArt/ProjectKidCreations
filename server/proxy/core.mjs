@@ -38,17 +38,23 @@ function exactOriginList(raw) {
   }));
 }
 
-function configuration(env) {
-  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS", "PKC_FOUNDER_SUBJECT", "PKC_FOUNDER_MFA_MODE"];
+function configuration(env, { requireFounderConfiguration = true } = {}) {
+  const required = ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS"];
   for (const key of required) if (typeof env?.[key] !== "string" || env[key].trim() === "") throw new Error(`missing ${key}`);
   const upstreamOrigins = exactOriginList(env.PKC_N8N_ALLOWED_ORIGINS);
   const publicOrigins = exactOriginList(env.PKC_PUBLIC_ALLOWED_ORIGINS);
   const base = new URL(env.PKC_N8N_BASE_URL.trim());
   if (base.protocol !== "https:" || base.username || base.password || base.pathname !== "/" || base.search || base.hash) throw new Error("invalid base URL");
   if (!upstreamOrigins.has(base.origin)) throw new Error("base origin denied");
-  const founderSubject = env.PKC_FOUNDER_SUBJECT;
-  if (!UUID_RE.test(founderSubject)) throw new Error("invalid PKC_FOUNDER_SUBJECT");
-  const founderMfaMode = parseFounderMfaMode(env);
+  let founderSubject = null;
+  let founderMfaMode = null;
+  if (requireFounderConfiguration) {
+    if (typeof env.PKC_FOUNDER_SUBJECT !== "string" || env.PKC_FOUNDER_SUBJECT.trim() === "") throw new Error("missing PKC_FOUNDER_SUBJECT");
+    if (typeof env.PKC_FOUNDER_MFA_MODE !== "string" || env.PKC_FOUNDER_MFA_MODE.trim() === "") throw new Error("missing PKC_FOUNDER_MFA_MODE");
+    founderSubject = env.PKC_FOUNDER_SUBJECT;
+    if (!UUID_RE.test(founderSubject)) throw new Error("invalid PKC_FOUNDER_SUBJECT");
+    founderMfaMode = parseFounderMfaMode(env);
+  }
   return { base: base.origin, authKey: env.PKC_AUTH_KEY.trim(), publicOrigins, founderSubject, founderMfaMode };
 }
 
@@ -96,17 +102,29 @@ function optionalString(value, name, max = 4096) {
   if (value !== undefined) requireString(value, name, 0, max);
 }
 
+function requireSafeText(value, name, min, max) {
+  requireString(value, name, min, max);
+  if (value !== value.trim() || /[<>\u0000-\u001f\u007f]/u.test(value)) throw new Error(`invalid_${name}`);
+}
+
 function validateRouteBody(routeId, method, body) {
   const validateTokenField = () => requireString(body.token, "token", 1, 4096);
   switch (routeId) {
     case "onboarding":
-      requireString(body.submissionId, "submission_id", 1, 128);
-      if (!body.data || typeof body.data !== "object" || Array.isArray(body.data)) throw new Error("invalid_data");
-      optionalString(body.version, "version", 32);
-      optionalString(body.timestamp, "timestamp", 64);
-      optionalString(body.env, "env", 32);
-      optionalString(body.mode, "mode", 32);
-      optionalString(body.hash, "hash", 256);
+      requireString(body.submissionId, "submission_id", 36, 36);
+      if (!UUID_RE.test(body.submissionId)) throw new Error("invalid_submission_id");
+      requireString(body.version, "version", 1, 32);
+      if (!/^\d+\.\d+\.\d+$/.test(body.version)) throw new Error("invalid_version");
+      validateNestedObject(body.data, ["firstName", "lastName", "email"]);
+      requireSafeText(body.data.firstName, "first_name", 1, 50);
+      requireSafeText(body.data.lastName, "last_name", 1, 50);
+      requireSafeText(body.data.email, "email", 3, 100);
+      if (body.data.email !== body.data.email.toLowerCase() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.data.email)) throw new Error("invalid_email");
+      validateNestedObject(body.consent, ["adultConfirmed", "termsAccepted", "privacyAcknowledged", "policyVersion"]);
+      if (body.consent.adultConfirmed !== true || body.consent.termsAccepted !== true || body.consent.privacyAcknowledged !== true) {
+        throw new Error("consent_required");
+      }
+      if (body.consent.policyVersion !== "pkc-onboarding-launch-v1") throw new Error("invalid_policy_version");
       break;
     case "phaseTwoVerify":
     case "phaseTwoSave":
@@ -210,9 +228,9 @@ function validateJsonBody(text, routeId, route, method) {
     throw new Error("invalid_json");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid_json_object");
-  const allowed = new Set(route.allowedFields[method] || []);
-  for (const key of Object.keys(parsed)) if (!allowed.has(key)) throw new Error("unknown_field");
   try {
+    const allowed = new Set(route.allowedFields[method] || []);
+    for (const key of Object.keys(parsed)) if (!allowed.has(key)) throw new Error("unknown_field");
     if (route === ROUTES.phaseThreeSave && parsed.profile !== undefined) {
       validateNestedObject(parsed.profile, ["display_name", "username", "avatar_url", "bio", "skill_level", "blasters_owned", "accessory_interests", "email_drops", "age_confirmed", "terms_accepted"]);
       if (parsed.profile.age_confirmed !== true || parsed.profile.terms_accepted !== true) throw new Error("consent_required");
@@ -230,6 +248,28 @@ function validateNestedObject(value, fields) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_nested_object");
   const allowed = new Set(fields);
   for (const key of Object.keys(value)) if (!allowed.has(key)) throw new Error("unknown_nested_field");
+}
+
+async function addOnboardingAuthority(body) {
+  const firstName = body.data.firstName;
+  const lastName = body.data.lastName;
+  const email = body.data.email;
+  const canonical = [firstName, lastName, email, body.submissionId, body.version].join("|");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  const upstream = {
+    version: body.version,
+    submissionId: body.submissionId,
+    firstName,
+    lastName,
+    email,
+    adultConfirmed: body.consent.adultConfirmed,
+    termsAccepted: body.consent.termsAccepted,
+    privacyAcknowledged: body.consent.privacyAcknowledged,
+    policyVersion: body.consent.policyVersion,
+    hash: [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join(""),
+  };
+  for (const key of Object.keys(body)) delete body[key];
+  Object.assign(body, upstream);
 }
 
 function invalidActivationProof() {
@@ -421,7 +461,9 @@ export async function handleProxy(routeId, request, options = {}) {
 
   let config;
   try {
-    config = configuration(options.env || process.env);
+    config = configuration(options.env || process.env, {
+      requireFounderConfiguration: route.founderConfigurationRequired,
+    });
   } catch {
     return jsonError("not_configured", 503);
   }
@@ -449,6 +491,7 @@ export async function handleProxy(routeId, request, options = {}) {
     try {
       bodyText = bodylessLogout ? "{}" : await readStreamLimited(request.body, route.bodyLimit);
       const parsed = validateJsonBody(bodyText, routeId, route, method);
+      if (routeId === "onboarding") await addOnboardingAuthority(parsed);
       if (routeId === "accountBootstrap") await validateActivationProof(parsed.activation_proof, config.authKey);
       if (routeId === "phaseThreeSave") parsed.profile.privacy_contract_version = "2026-09-26";
       bodyText = JSON.stringify(parsed);
