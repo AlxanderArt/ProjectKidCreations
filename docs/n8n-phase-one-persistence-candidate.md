@@ -16,8 +16,8 @@ This repository derives one deterministic, **inactive** n8n workflow candidate f
 - State: `active: false`, `availableInMCP: false`
 - Timeout: 18 seconds
 - Execution retention: error/success `none`; progress/manual `false`
-- External body is closed to exactly `version`, `submissionId`, `firstName`, `lastName`, `email`, `adultConfirmed`, `termsAccepted`, `privacyAcknowledged`, `policyVersion`, and `hash`.
-- All three consent booleans must be literal `true`; `policyVersion` must equal `pkc-onboarding-launch-v1`.
+- External body is closed to exactly `version`, `submissionId`, `firstName`, `lastName`, `email`, `minimumAgeConfirmed`, `termsAccepted`, `privacyAcknowledged`, `policyVersion`, and `hash`.
+- All three consent booleans must be literal `true`; `policyVersion` must equal `pkc-onboarding-14-plus-v1`.
 - The legacy digest remains SHA-256 of `firstName|lastName|email|submissionId|version`. No consent timestamp or consent digest is created.
 - The four consent fields are retained by Enrich and explicitly mapped into the Sheets append.
 - Credential references retain only credential type and credential name. IDs and other credential-reference values are removed.

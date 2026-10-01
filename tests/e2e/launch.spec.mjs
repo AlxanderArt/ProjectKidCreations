@@ -483,17 +483,17 @@ test("Phase One consented browser payload crosses the proxy in active-workflow f
   await page.goto("/onboarding#3");
   await waitForBootHandoff(page);
   const eligibility = page.locator("#eligibility-section");
-  const adult = page.locator("#adult-confirm-input");
+  const minimumAge = page.locator("#minimum-age-confirm-input");
   const policy = page.locator("#policy-consent-input");
   await expect(eligibility).toHaveAttribute("data-active", "true");
   await expect(page.getByLabel("FIRST NAME // LET'S START")).toBeHidden();
 
   await page.locator("#eligibility-continue").click();
-  await expect(adult).toBeFocused();
-  await expect(adult).toHaveAttribute("aria-invalid", "true");
+  await expect(minimumAge).toBeFocused();
+  await expect(minimumAge).toHaveAttribute("aria-invalid", "true");
   await expect(policy).toHaveAttribute("aria-invalid", "true");
 
-  await adult.check();
+  await minimumAge.check();
   const policyBeforeLegal = await policy.isChecked();
   await expect(page.getByRole("link", { name: /Terms \(opens in a new tab\)/ })).toHaveAttribute("href", "/terms/");
   await expect(page.getByRole("link", { name: /Privacy Notice \(opens in a new tab\)/ })).toHaveAttribute("href", "/privacy/");
@@ -519,10 +519,10 @@ test("Phase One consented browser payload crosses the proxy in active-workflow f
     version: "1.6.0",
     data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test" },
     consent: {
-      adultConfirmed: true,
+      minimumAgeConfirmed: true,
       termsAccepted: true,
       privacyAcknowledged: true,
-      policyVersion: "pkc-onboarding-launch-v1",
+      policyVersion: "pkc-onboarding-14-plus-v1",
     },
   });
   expect(Object.keys(browserPayload).sort()).toEqual(["consent", "data", "submissionId", "version"]);
@@ -559,11 +559,48 @@ test("Phase One consented browser payload crosses the proxy in active-workflow f
     firstName: "Sample",
     lastName: "Maker",
     email: "sample@example.test",
-    adultConfirmed: true,
+    minimumAgeConfirmed: true,
     termsAccepted: true,
     privacyAcknowledged: true,
-    policyVersion: "pkc-onboarding-launch-v1",
+    policyVersion: "pkc-onboarding-14-plus-v1",
   });
+});
+
+test("Phase One navigation never consumes or triggers the network submission limit", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    window.PKC_MODE = "prod";
+    sessionStorage.setItem("pkc_attempts", JSON.stringify(Array.from({ length: 5 }, (_, index) => Date.now() - index)));
+  });
+  let requests = 0;
+  await page.route("**/api/onboarding", async (route) => {
+    requests += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, persisted: true }) });
+  });
+
+  await page.goto("/onboarding");
+  await waitForBootHandoff(page);
+  await page.locator("#minimum-age-confirm-input").check();
+  await page.locator("#policy-consent-input").check();
+  await page.locator("#eligibility-continue").click();
+
+  for (const [label, value, expectedHash] of [
+    ["FIRST NAME // LET'S START", "Sample", "#2"],
+    ["LAST NAME // ALMOST THERE", "Maker", "#3"],
+  ]) {
+    const input = page.getByLabel(label);
+    await input.fill(value);
+    await input.locator("xpath=ancestor::section").locator(".cta").click();
+    await expect.poll(() => new URL(page.url()).hash).toBe(expectedHash);
+  }
+
+  const email = page.getByLabel("EMAIL // WHERE WE REACH YOU");
+  await email.fill("sample@example.test");
+  await email.locator("xpath=ancestor::section").locator(".cta").click();
+
+  await expect.poll(() => new URL(page.url()).hash).toBe("#3");
+  await expect(page.locator("#status")).toHaveText("// TOO MANY SUBMISSION ATTEMPTS — TRY AGAIN IN 60S");
+  expect(requests).toBe(0);
 });
 
 test("Phase One questions use heading semantics", async ({ page }) => {

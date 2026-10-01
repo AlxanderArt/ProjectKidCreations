@@ -69,10 +69,10 @@ function validPayload() {
     firstName: "Example",
     lastName: "Person",
     email: "example.invalid@example.test",
-    adultConfirmed: true,
+    minimumAgeConfirmed: true,
     termsAccepted: true,
     privacyAcknowledged: true,
-    policyVersion: "pkc-onboarding-launch-v1",
+    policyVersion: "pkc-onboarding-14-plus-v1",
   };
   payload.hash = crypto.createHash("sha256").update([
     payload.firstName,
@@ -191,7 +191,7 @@ test("candidate enforces the exact closed consent input and the legacy hash", ()
     (value) => { value.extra = true; },
     (value) => { value._meta = {}; },
     (value) => { value.headers = {}; },
-    (value) => { value.adultConfirmed = 1; },
+    (value) => { value.minimumAgeConfirmed = 1; },
     (value) => { value.termsAccepted = "true"; },
     (value) => { value.privacyAcknowledged = false; },
     (value) => { value.policyVersion = "pkc-onboarding-launch-v2"; },
@@ -215,7 +215,7 @@ test("Sheets explicitly maps consent and can only fail through a minimized 503 b
   assert.ok(sheet);
   assert.equal(sheet.parameters.columns.mappingMode, "defineBelow");
   assert.deepEqual(Object.keys(sheet.parameters.columns.value).sort(), [
-    "adultConfirmed", "email", "firstName", "hash", "lastName", "policyVersion",
+    "email", "firstName", "hash", "lastName", "minimumAgeConfirmed", "policyVersion",
     "privacyAcknowledged", "submissionId", "termsAccepted", "version",
   ]);
   assert.equal(sheet.retryOnFail, undefined);

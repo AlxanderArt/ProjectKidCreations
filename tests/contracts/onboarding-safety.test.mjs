@@ -36,21 +36,35 @@ test("canonical onboarding route uses route-stable Phase One asset URLs", () => 
   assert.doesNotMatch(html, /href="styles\.css"|src="app\.js"/);
 });
 
-test("Phase One requires explicit adult and policy consent before exposing PII", () => {
+test("Phase One requires explicit 14+ and policy consent before exposing PII", () => {
   const html = read("phase-one/index.html");
   const app = read("phase-one/app.js");
   assert.match(html, /id="eligibility-section"/);
-  assert.match(html, /id="adult-confirm-input"[^>]*type="checkbox"[^>]*required/s);
+  assert.match(html, /id="minimum-age-confirm-input"[^>]*type="checkbox"[^>]*required/s);
+  assert.match(html, /at least 14 years old/i);
+  assert.doesNotMatch(html, /18 years old|age 18|adult-only/i);
   assert.match(html, /id="policy-consent-input"[^>]*type="checkbox"[^>]*required/s);
   assert.match(html, /href="\/terms\/"/);
   assert.match(html, /href="\/privacy\/"/);
   assert.doesNotMatch(html, /<label[^>]*>(?:(?!<\/label>)[\s\S])*?<a\s/i);
   assert.match(app, /eligible:\s*false/);
-  assert.match(app, /adultConfirmed:\s*true/);
+  assert.match(app, /minimumAgeConfirmed:\s*true/);
+  assert.doesNotMatch(app, /adultConfirmed/);
   assert.match(app, /termsAccepted:\s*true/);
   assert.match(app, /privacyAcknowledged:\s*true/);
-  assert.match(app, /policyVersion:\s*"pkc-onboarding-launch-v1"/);
+  assert.match(app, /policyVersion:\s*"pkc-onboarding-14-plus-v1"/);
   assert.ok(app.indexOf("renderEligibility") < app.indexOf("render(target)"));
+});
+
+test("Phase One rate limits only actual network submissions, never question navigation", () => {
+  const source = read("phase-one/app.js");
+  const advance = source.slice(source.indexOf("const tryAdvance ="), source.indexOf("const shake ="));
+  const submit = source.slice(source.indexOf("const submit ="), source.indexOf("//  Idle recovery"));
+  assert.doesNotMatch(advance, /getAttempts\(|pushAttempt\(/);
+  assert.match(submit, /getAttempts\(\)\.length\s*>=\s*CONFIG\.RATE_LIMIT/);
+  assert.match(submit, /pushAttempt\(\)/);
+  assert.ok(submit.indexOf("getAttempts().length") < submit.indexOf("fetch(CONFIG.ENDPOINT"));
+  assert.ok(submit.indexOf("pushAttempt()") < submit.indexOf("fetch(CONFIG.ENDPOINT"));
 });
 
 test("Phase One requires authoritative persistence before success and draft clearing", () => {
@@ -106,16 +120,21 @@ test("onboarding drafts are tab-scoped and exclude sensitive Phase Three PII", (
   assert.doesNotMatch(saveDraft, /birthday|shipping|socials|email_drops|sms_optin/);
 });
 
-test("launch onboarding is adult-only, consented, and does not collect deferred PII", () => {
+test("launch onboarding is 14+, consented, and does not collect deferred PII", () => {
   const html = read("phase-three/index.html");
   const app = read("phase-three/app.js");
   assert.doesNotMatch(html, /id="birthday-input"|id="ship-|id="social-/);
   assert.match(html, /id="age-confirm-input"/);
+  assert.match(html, /at least 14 years old/i);
+  assert.doesNotMatch(html, /18 years old|adults only/i);
   assert.match(html, /id="terms-accept-input"/);
   assert.match(html, /href="\/privacy\/"/);
   assert.match(html, /href="\/terms\/"/);
   assert.doesNotMatch(html, /id="email-drops-input"\s+checked/);
   assert.match(app, /age_confirmed:\s*checked\("#age-confirm-input"\)/);
+  assert.match(app, /at least 14 years old/);
+  assert.match(app, /14\+ CONFIRMED/);
+  assert.doesNotMatch(app, /at least 18 years old|18\+ CONFIRMED/);
   assert.match(app, /terms_accepted:\s*checked\("#terms-accept-input"\)/);
   const formStart = app.indexOf("function readForm()");
   const formEnd = app.indexOf("function restoreDraft", formStart);
@@ -123,20 +142,28 @@ test("launch onboarding is adult-only, consented, and does not collect deferred 
   assert.doesNotMatch(form, /birthday:|shipping:|socials:/);
 });
 
-test("Privacy and Terms describe adult-only launch and non-public profiles", () => {
+test("Privacy and Terms describe the 14+ launch boundary and non-public profiles", () => {
   const privacy = read("privacy/index.html");
   const terms = read("terms/index.html");
-  assert.match(privacy, /18 or older/i);
+  assert.match(privacy, /Effective October 1, 2026/);
+  assert.match(privacy, /14 or older/i);
+  assert.doesNotMatch(privacy, /18 or older|under 18/i);
+  assert.match(privacy, /Phase One: first name, last name, email address, minimum-age confirmation/i);
+  assert.doesNotMatch(privacy, /Phase One:[^<]*(project interests|optional message)/i);
   assert.match(privacy, /not publicly displayed/i);
   assert.match(privacy, /deletion requests/i);
-  assert.match(terms, /guardian-consent workflow is not available/i);
+  assert.match(terms, /Effective October 1, 2026/);
+  assert.match(terms, /at least 14 years old/i);
+  assert.doesNotMatch(terms, /18\+|18 years old|adults only/i);
   assert.match(terms, /payment processing[^.]*not available/i);
 });
 
 test("Phase Three consent and pre-shop UX remain accurate and accessible", () => {
   const app = read("phase-three/app.js");
+  const config = read("phase-three/config.js");
   const styles = read("phase-three/styles.css");
   const sections = read("src/components/Sections.jsx");
+  assert.match(config, /EXPECTED_API_VERSION:\s*"1\.1\.0"/);
   assert.match(app, /contact:\s*"ACCOUNT CONSENT"/);
   assert.match(app, /setAttribute\("aria-invalid",\s*"true"\)/);
   assert.match(app, /setAttribute\("aria-describedby"/);

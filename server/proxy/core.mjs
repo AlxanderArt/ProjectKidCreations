@@ -120,11 +120,11 @@ function validateRouteBody(routeId, method, body) {
       requireSafeText(body.data.lastName, "last_name", 1, 50);
       requireSafeText(body.data.email, "email", 3, 100);
       if (body.data.email !== body.data.email.toLowerCase() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.data.email)) throw new Error("invalid_email");
-      validateNestedObject(body.consent, ["adultConfirmed", "termsAccepted", "privacyAcknowledged", "policyVersion"]);
-      if (body.consent.adultConfirmed !== true || body.consent.termsAccepted !== true || body.consent.privacyAcknowledged !== true) {
+      validateNestedObject(body.consent, ["minimumAgeConfirmed", "termsAccepted", "privacyAcknowledged", "policyVersion"]);
+      if (body.consent.minimumAgeConfirmed !== true || body.consent.termsAccepted !== true || body.consent.privacyAcknowledged !== true) {
         throw new Error("consent_required");
       }
-      if (body.consent.policyVersion !== "pkc-onboarding-launch-v1") throw new Error("invalid_policy_version");
+      if (body.consent.policyVersion !== "pkc-onboarding-14-plus-v1") throw new Error("invalid_policy_version");
       break;
     case "phaseTwoVerify":
     case "phaseTwoSave":
@@ -262,7 +262,7 @@ async function addOnboardingAuthority(body) {
     firstName,
     lastName,
     email,
-    adultConfirmed: body.consent.adultConfirmed,
+    minimumAgeConfirmed: body.consent.minimumAgeConfirmed,
     termsAccepted: body.consent.termsAccepted,
     privacyAcknowledged: body.consent.privacyAcknowledged,
     policyVersion: body.consent.policyVersion,
@@ -493,7 +493,7 @@ export async function handleProxy(routeId, request, options = {}) {
       const parsed = validateJsonBody(bodyText, routeId, route, method);
       if (routeId === "onboarding") await addOnboardingAuthority(parsed);
       if (routeId === "accountBootstrap") await validateActivationProof(parsed.activation_proof, config.authKey);
-      if (routeId === "phaseThreeSave") parsed.profile.privacy_contract_version = "2026-09-26";
+      if (routeId === "phaseThreeSave") parsed.profile.privacy_contract_version = "2026-10-01";
       bodyText = JSON.stringify(parsed);
     } catch (error) {
       const status = error?.code === "LIMIT" ? 413 : error?.code === "VALIDATION" ? 422 : 400;

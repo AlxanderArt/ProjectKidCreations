@@ -58,10 +58,10 @@ function onboardingBody(overrides = {}) {
     submissionId: "33333333-3333-4333-8333-333333333333",
     data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test" },
     consent: {
-      adultConfirmed: true,
+      minimumAgeConfirmed: true,
       termsAccepted: true,
       privacyAcknowledged: true,
-      policyVersion: "pkc-onboarding-launch-v1",
+      policyVersion: "pkc-onboarding-14-plus-v1",
     },
     ...overrides,
   };
@@ -148,12 +148,12 @@ test("inventory preserves eight Edge wrappers and consolidates every Node URL in
 
 test("manifest preserves every upstream endpoint and exact method set", () => {
   const expected = {
-    onboarding: ["POST", "/webhook/pkc-onboarding"],
+    onboarding: ["POST", "/webhook/pkc-onboarding-consent-v1"],
     phaseTwoVerify: ["POST", "/webhook/pkc-phase-two/verify"],
     phaseTwoSave: ["POST", "/webhook/pkc-phase-two/save"],
     phaseTwoEvent: ["POST", "/webhook/pkc-phase-two/event"],
     phaseThreeVerify: ["POST", "/webhook/pkc-phase-three/verify"],
-    phaseThreeSave: ["POST", "/webhook/pkc-phase-three/save"],
+    phaseThreeSave: ["POST", "/webhook/pkc-phase-three/save-14-plus-v1"],
     phaseThreeEvent: ["POST", "/webhook/pkc-phase-three/event"],
     phaseThreeCheckUsername: ["POST", "/webhook/pkc-phase-three/check-username"],
     accountLogin: ["POST", "/webhook/pkc-accounts/login"],
@@ -236,10 +236,10 @@ test("onboarding validates nested consent and emits the exact active-workflow sc
     firstName: "Sample",
     lastName: "Maker",
     email: "sample@example.test",
-    adultConfirmed: true,
+    minimumAgeConfirmed: true,
     termsAccepted: true,
     privacyAcknowledged: true,
-    policyVersion: "pkc-onboarding-launch-v1",
+    policyVersion: "pkc-onboarding-14-plus-v1",
     hash: expectedHash,
   });
 
@@ -247,8 +247,8 @@ test("onboarding validates nested consent and emits the exact active-workflow sc
     onboardingBody({ data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test", role: "admin" } }),
     onboardingBody({ data: { firstName: "<Sample>", lastName: "Maker", email: "sample@example.test" } }),
     onboardingBody({ data: { firstName: "Sample", lastName: "Maker", email: "SAMPLE@example.test" } }),
-    onboardingBody({ consent: { adultConfirmed: false, termsAccepted: true, privacyAcknowledged: true, policyVersion: "pkc-onboarding-launch-v1" } }),
-    onboardingBody({ consent: { adultConfirmed: true, termsAccepted: true, privacyAcknowledged: true, policyVersion: "other" } }),
+    onboardingBody({ consent: { minimumAgeConfirmed: false, termsAccepted: true, privacyAcknowledged: true, policyVersion: "pkc-onboarding-14-plus-v1" } }),
+    onboardingBody({ consent: { minimumAgeConfirmed: true, termsAccepted: true, privacyAcknowledged: true, policyVersion: "other" } }),
     { ...onboardingBody(), mode: "prod" },
     { ...onboardingBody(), perf: {} },
   ];
@@ -428,7 +428,7 @@ test("Phase Three proxy rejects deferred PII and injects the launch privacy cont
     return okJson({ ok: true });
   });
   assert.equal(accepted.status, 200);
-  assert.equal(forwarded.profile.privacy_contract_version, "2026-09-26");
+  assert.equal(forwarded.profile.privacy_contract_version, "2026-10-01");
   assert.equal(forwarded.profile.age_confirmed, true);
   assert.equal(forwarded.profile.terms_accepted, true);
 });

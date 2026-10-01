@@ -31,7 +31,7 @@ export const CANDIDATE_NAME = "PKC — Onboarding Submissions — Consent Persis
 export const CANDIDATE_ID = "pkcConsentCandV1";
 export const CANDIDATE_PATH = "pkc-onboarding-consent-v1";
 export const CONSENT_KEYS = Object.freeze([
-  "adultConfirmed",
+  "minimumAgeConfirmed",
   "termsAccepted",
   "privacyAcknowledged",
   "policyVersion",
@@ -138,7 +138,7 @@ const __pkcBody=$input.first()?.json?.body;
 const __pkcAllowed=${JSON.stringify([...INPUT_KEYS].sort())};
 if(!__pkcBody||typeof __pkcBody!=='object'||Array.isArray(__pkcBody))throw new Error('pkc_consent_schema_invalid');
 if(JSON.stringify(Object.keys(__pkcBody).sort())!==JSON.stringify(__pkcAllowed))throw new Error('pkc_consent_schema_invalid');
-if(__pkcBody.adultConfirmed!==true||__pkcBody.termsAccepted!==true||__pkcBody.privacyAcknowledged!==true||__pkcBody.policyVersion!=='pkc-onboarding-launch-v1')throw new Error('pkc_consent_value_invalid');
+if(__pkcBody.minimumAgeConfirmed!==true||__pkcBody.termsAccepted!==true||__pkcBody.privacyAcknowledged!==true||__pkcBody.policyVersion!=='pkc-onboarding-14-plus-v1')throw new Error('pkc_consent_value_invalid');
 }
 `;
 

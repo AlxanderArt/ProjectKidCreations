@@ -92,7 +92,6 @@
     email:        { msg: "// INVALID EMAIL FORMAT", hint: "// TRY: name@email.com" },
     too_short:    { msg: "// TOO SHORT" },
     too_long:     { msg: "// TOO LONG" },
-    rate_limited: { msg: "// TOO MANY ATTEMPTS", hint: "// TRY AGAIN IN 60S" },
   };
 
   const STORAGE_KEY  = "pkc_onboarding";
@@ -400,7 +399,7 @@
   const eligibilityElements = () => ({
     section: document.getElementById("eligibility-section"),
     heading: document.getElementById("eligibility-heading"),
-    adult: document.getElementById("adult-confirm-input"),
+    minimumAge: document.getElementById("minimum-age-confirm-input"),
     policy: document.getElementById("policy-consent-input"),
     error: document.getElementById("eligibility-error"),
     continueButton: document.getElementById("eligibility-continue"),
@@ -408,8 +407,8 @@
 
   const clearEligibilityField = (input) => {
     if (input.checked) input.removeAttribute("aria-invalid");
-    const { adult, policy, error } = eligibilityElements();
-    if (adult.checked && policy.checked) {
+    const { minimumAge, policy, error } = eligibilityElements();
+    if (minimumAge.checked && policy.checked) {
       error.hidden = true;
       error.textContent = "";
     }
@@ -417,8 +416,8 @@
 
   const focusCurrentControl = () => {
     if (!state.eligible) {
-      const { adult } = eligibilityElements();
-      try { adult.focus({ preventScroll: true }); } catch { adult.focus(); }
+      const { minimumAge } = eligibilityElements();
+      try { minimumAge.focus({ preventScroll: true }); } catch { minimumAge.focus(); }
       return;
     }
     const q = QUESTIONS[state.currentStep - 1];
@@ -447,9 +446,9 @@
   }, "renderEligibility");
 
   const confirmEligibility = safe(() => {
-    const { adult, policy, error } = eligibilityElements();
-    const invalid = [adult, policy].filter((input) => !input.checked);
-    for (const input of [adult, policy]) {
+    const { minimumAge, policy, error } = eligibilityElements();
+    const invalid = [minimumAge, policy].filter((input) => !input.checked);
+    for (const input of [minimumAge, policy]) {
       if (input.checked) input.removeAttribute("aria-invalid");
       else input.setAttribute("aria-invalid", "true");
     }
@@ -680,14 +679,6 @@
     const now = Date.now();
     if (now - state.lastSubmit < CONFIG.DEBOUNCE_MS) return;
 
-    // Rate limit (#33)
-    if (getAttempts().length >= CONFIG.RATE_LIMIT) {
-      setError(f, "rate_limited");
-      shake(f);
-      track("rate_limited", { step });
-      return;
-    }
-
     state.lastSubmit = now;
     const value = cleanValue(q.key, f.input.value);
     f.input.value = value; // reflect normalized value into the field
@@ -706,7 +697,6 @@
     state.answers[q.key] = value;
     state.pendingSubmission = null;
     writeStore();
-    pushAttempt();
     state.lastSubmit = 0;
     setStatus("SAVED ✓", "saved");
     track("autosave", { step, key: q.key });
@@ -813,10 +803,10 @@
         submissionId,
         data,
         consent: {
-          adultConfirmed: true,
+          minimumAgeConfirmed: true,
           termsAccepted: true,
           privacyAcknowledged: true,
-          policyVersion: "pkc-onboarding-launch-v1",
+          policyVersion: "pkc-onboarding-14-plus-v1",
         },
       };
     }
@@ -833,8 +823,13 @@
 
     if (!shouldFetch) return showSubmitError("// SERVICE UNAVAILABLE — YOUR DRAFT IS SAFE");
     if (!navigator.onLine) return showSubmitError("// OFFLINE — RECONNECT AND TRY AGAIN");
+    if (getAttempts().length >= CONFIG.RATE_LIMIT) {
+      track("rate_limited", { step: TOTAL_STEPS });
+      return showSubmitError("// TOO MANY SUBMISSION ATTEMPTS — TRY AGAIN IN 60S");
+    }
 
     setStatus("// SENDING…", "working", { sticky: true });
+    pushAttempt();
     let body;
     try {
       const res = await fetch(CONFIG.ENDPOINT, {
@@ -973,9 +968,9 @@
     // Build sections
     buildSections();
 
-    const { adult, policy, continueButton } = eligibilityElements();
+    const { minimumAge, policy, continueButton } = eligibilityElements();
     continueButton.addEventListener("click", confirmEligibility);
-    adult.addEventListener("change", () => clearEligibilityField(adult));
+    minimumAge.addEventListener("change", () => clearEligibilityField(minimumAge));
     policy.addEventListener("change", () => clearEligibilityField(policy));
     window.addEventListener("pkc:boot-complete", focusCurrentControl);
 
