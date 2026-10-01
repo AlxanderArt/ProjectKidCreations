@@ -1,13 +1,24 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import fs, { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { deriveConsentPersistenceCandidate, loadBoundSourceWorkflow } from "../../scripts/n8n-phase-one-persistence.mjs";
+import { deriveConsentPersistenceCandidate, loadBoundSourceWorkflow, SOURCE_AUTHORITY } from "../../scripts/n8n-phase-one-persistence.mjs";
 import { buildOnboardingEmailDispatcherWorkflow, buildOnboardingEmailOutboxPackage, buildOnboardingEmailReconcilerWorkflow } from "../../scripts/n8n-onboarding-email-outbox.mjs";
 
 const edges = (workflow, node, output = 0) => (workflow.connections?.[node]?.main?.[output] || []).map(({ node: target }) => target);
 const postgres = (workflow, name) => workflow.nodes.find((node) => node.type === "n8n-nodes-base.postgres" && node.name === name);
 const rollout = readFileSync(new URL("../../docs/operations/onboarding-email-outbox-rollout.md", import.meta.url), "utf8");
+const protectedSourceOptions = (() => {
+  if (process.env.PKC_TEST_PROTECTED_N8N_UNAVAILABLE === "1") {
+    return { skip: "protected Phase One workflow authority is unavailable on this runner" };
+  }
+  try {
+    fs.accessSync(SOURCE_AUTHORITY.path, fs.constants.R_OK);
+    return {};
+  } catch {
+    return { skip: "protected Phase One workflow authority is unavailable on this runner" };
+  }
+})();
 
 for (const [name, build] of [["dispatcher", buildOnboardingEmailDispatcherWorkflow], ["reconciler", buildOnboardingEmailReconcilerWorkflow]]) {
   test(`${name} candidate is inactive, MCP-off, and zero-retention`, () => {
@@ -25,7 +36,7 @@ for (const [name, build] of [["dispatcher", buildOnboardingEmailDispatcherWorkfl
   });
 }
 
-test("phase-one candidate uses PostgreSQL claim then Sheets persistence release and only returns queued", () => {
+test("phase-one candidate uses PostgreSQL claim then Sheets persistence release and only returns queued", protectedSourceOptions, () => {
   const workflow = deriveConsentPersistenceCandidate(loadBoundSourceWorkflow().value);
   const serialized = JSON.stringify(workflow);
   assert.equal(workflow.active, false);

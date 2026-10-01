@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { test } from "node:test";
 
 import {
@@ -10,12 +11,24 @@ import {
   patchLaunchPrivacyWorkflow,
   PRIVACY_VERSION,
   PREVIOUS_PRIVACY_VERSION,
+  SOURCE_AUTHORITY,
 } from "../../scripts/n8n-launch-privacy.mjs";
 
 const source = () => loadBoundPhaseThreeSource().value;
 const code = (workflow, name) => workflow.nodes.find((node) => node.name === name).parameters.jsCode;
+const protectedSourceOptions = (() => {
+  if (process.env.PKC_TEST_PROTECTED_N8N_UNAVAILABLE === "1") {
+    return { skip: "protected Phase Three workflow authority is unavailable on this runner" };
+  }
+  try {
+    fs.accessSync(SOURCE_AUTHORITY.path, fs.constants.R_OK);
+    return {};
+  } catch {
+    return { skip: "protected Phase Three workflow authority is unavailable on this runner" };
+  }
+})();
 
-test("Phase Three source is bound to the exact protected live authority", () => {
+test("Phase Three source is bound to the exact protected live authority", protectedSourceOptions, () => {
   const workflow = source();
   assert.doesNotThrow(() => assertPhaseThreeSourceAuthority(workflow));
   for (const mutate of [
@@ -35,7 +48,7 @@ test("Phase Three source is bound to the exact protected live authority", () => 
   }
 });
 
-test("Phase Three transition accepts only the two exact consent contracts", () => {
+test("Phase Three transition accepts only the two exact consent contracts", protectedSourceOptions, () => {
   const patched = patchLaunchPrivacyWorkflow(source());
   const validate = code(patched, "Validate + Compose Row");
   assert.match(validate, new RegExp(`value === "${PREVIOUS_PRIVACY_VERSION}"`));
@@ -59,7 +72,7 @@ test("privacy contract classifier rejects padded, whitespace-only, and wrong-typ
   }
 });
 
-test("consent-only 14+ records do not assert adult status while legacy DOB logic remains", () => {
+test("consent-only 14+ records do not assert adult status while legacy DOB logic remains", protectedSourceOptions, () => {
   const patched = patchLaunchPrivacyWorkflow(source());
   const validate = code(patched, "Validate + Compose Row");
   const strictBranch = validate.slice(validate.indexOf("const privacy_contract_version"), validate.indexOf("const socials ="));
@@ -72,7 +85,7 @@ test("consent-only 14+ records do not assert adult status while legacy DOB logic
   assert.match(validate, /const is_adult = age >= 18/);
 });
 
-test("Phase Three audit durably records truthful 14+ semantics", () => {
+test("Phase Three audit durably records truthful 14+ semantics", protectedSourceOptions, () => {
   const audit = code(patchLaunchPrivacyWorkflow(source()), "Compose Event");
   assert.match(audit, /minimum_age_confirmed: consentContract/);
   assert.match(audit, /minimum_age: consentContract \? 14 : null/);
@@ -81,7 +94,7 @@ test("Phase Three audit durably records truthful 14+ semantics", () => {
   assert.doesNotMatch(audit, /is_adult: row\.is_adult === 'true'/);
 });
 
-test("Phase Three response is versioned and omits adult inference", () => {
+test("Phase Three response is versioned and omits adult inference", protectedSourceOptions, () => {
   const response = code(patchLaunchPrivacyWorkflow(source()), "Build Response");
   assert.match(response, /const API_VERSION = '1\.1\.0'/);
   assert.match(response, /minimum_age_confirmed: row\.age_confirmed === 'true'/);
@@ -89,7 +102,7 @@ test("Phase Three response is versioned and omits adult inference", () => {
   assert.doesNotMatch(response, /is_adult:/);
 });
 
-test("candidate remains inactive and preserves topology, settings, and credential bindings", () => {
+test("candidate remains inactive and preserves topology, settings, and credential bindings", protectedSourceOptions, () => {
   const original = source();
   const patched = patchLaunchPrivacyWorkflow(original);
   assert.equal(patched.active, false);
@@ -101,7 +114,7 @@ test("candidate remains inactive and preserves topology, settings, and credentia
   );
 });
 
-test("isolated Phase Three candidate uses a distinct inactive webhook and name-only credentials", () => {
+test("isolated Phase Three candidate uses a distinct inactive webhook and name-only credentials", protectedSourceOptions, () => {
   const candidate = derivePhaseThree14PlusCandidate(source());
   assert.equal(candidate.active, false);
   assert.match(candidate.name, /14\+ Candidate v1/);

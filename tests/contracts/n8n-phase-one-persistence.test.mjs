@@ -15,6 +15,17 @@ import {
 
 const source = () => loadBoundSourceWorkflow().value;
 const candidate = () => deriveConsentPersistenceCandidate(source());
+const protectedSourceOptions = (() => {
+  if (process.env.PKC_TEST_PROTECTED_N8N_UNAVAILABLE === "1") {
+    return { skip: "protected Phase One workflow authority is unavailable on this runner" };
+  }
+  try {
+    fs.accessSync(SOURCE_AUTHORITY.path, fs.constants.R_OK);
+    return {};
+  } catch {
+    return { skip: "protected Phase One workflow authority is unavailable on this runner" };
+  }
+})();
 const targets = (workflow, name, output = 0) => (workflow.connections?.[name]?.main?.[output] || []).map(({ node }) => node);
 
 function validPayload() {
@@ -41,7 +52,7 @@ test("descriptor reader and bounded parser reject hostile source inputs", () => 
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-test("protected native source remains immutably bound", () => {
+test("protected native source remains immutably bound", protectedSourceOptions, () => {
   const loaded = loadBoundSourceWorkflow();
   assert.equal(loaded.rawSha256, SOURCE_AUTHORITY.rawSha256);
   assert.equal(loaded.canonicalSha256, SOURCE_AUTHORITY.canonicalSha256);
@@ -49,7 +60,7 @@ test("protected native source remains immutably bound", () => {
   assert.throws(() => deriveConsentPersistenceCandidate(drift), /source authority drift/i);
 });
 
-test("durable candidate is deterministic, inactive, minimized, and credential-ID-free", () => {
+test("durable candidate is deterministic, inactive, minimized, and credential-ID-free", protectedSourceOptions, () => {
   const input = source(); const before = serializeDeterministic(input);
   const first = deriveConsentPersistenceCandidate(input); const second = deriveConsentPersistenceCandidate(input);
   assert.equal(serializeDeterministic(input), before);
@@ -61,7 +72,7 @@ test("durable candidate is deterministic, inactive, minimized, and credential-ID
   for (const node of first.nodes) for (const reference of Object.values(node.credentials || {})) assert.deepEqual(Object.keys(reference), ["name"]);
 });
 
-test("closed consent input and legacy digest remain enforced before PostgreSQL claim", () => {
+test("closed consent input and legacy digest remain enforced before PostgreSQL claim", protectedSourceOptions, () => {
   const workflow = candidate();
   const intake = workflow.nodes.find((node) => node.parameters?.jsCode?.includes("pkc_consent_schema_invalid"));
   const hash = workflow.nodes.find((node) => node.name === "Hash Verify");
@@ -76,7 +87,7 @@ test("closed consent input and legacy digest remain enforced before PostgreSQL c
   }
 });
 
-test("PostgreSQL claim binds a server-derived digest over the complete closed onboarding payload", () => {
+test("PostgreSQL claim binds a server-derived digest over the complete closed onboarding payload", protectedSourceOptions, () => {
   const workflow = candidate();
   const enrich = workflow.nodes.find((node) => node.name === "Enrich");
   const claim = workflow.nodes.find((node) => node.name === "Claim Submission + Block Email");
@@ -89,7 +100,7 @@ test("PostgreSQL claim binds a server-derived digest over the complete closed on
   assert.match(claim.parameters.options.queryReplacement[3], /persistenceWorkerId/);
 });
 
-test("PostgreSQL owns claim/release while Sheets remains explicit and Gmail/static authority is absent", () => {
+test("PostgreSQL owns claim/release while Sheets remains explicit and Gmail/static authority is absent", protectedSourceOptions, () => {
   const workflow = candidate();
   const claim = workflow.nodes.find((node) => node.name === "Claim Submission + Block Email");
   const release = workflow.nodes.find((node) => node.name === "Release Email After Sheets Persistence");
@@ -114,7 +125,7 @@ test("PostgreSQL owns claim/release while Sheets remains explicit and Gmail/stat
   assert.doesNotMatch(JSON.stringify(workflow), /\$getWorkflowStaticData|staticData/);
 });
 
-test("success acknowledges durable Sheets persistence and queued email only", () => {
+test("success acknowledges durable Sheets persistence and queued email only", protectedSourceOptions, () => {
   const workflow = candidate();
   const response = workflow.nodes.find((node) => node.name === "Response Builder");
   assert.match(response.parameters.jsCode, /email:'queued'/);
@@ -124,7 +135,7 @@ test("success acknowledges durable Sheets persistence and queued email only", ()
   assert.doesNotMatch(failure.parameters.responseBody, /\$json|email|submissionId|stack|message/);
 });
 
-test("candidate package hashes final inactive bytes and CLI requires a caller path", () => {
+test("candidate package hashes final inactive bytes and CLI requires a caller path", protectedSourceOptions, () => {
   const first = buildCandidatePackage(source()); const second = buildCandidatePackage(source());
   assert.deepEqual(first, second); assert.deepEqual(first.manifest.n8n, N8N_IMAGE);
   assert.equal(first.manifest.candidate.rawSha256, crypto.createHash("sha256").update(first.workflowBytes).digest("hex"));
