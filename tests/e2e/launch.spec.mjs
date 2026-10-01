@@ -476,7 +476,7 @@ test("Phase One consented browser payload crosses the proxy in active-workflow f
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ ok: true, persisted: true }),
+      body: JSON.stringify({ ok: true, persisted: true, email: "queued" }),
     });
   });
 
@@ -515,7 +515,10 @@ test("Phase One consented browser payload crosses the proxy in active-workflow f
   }
 
   await expect(page.locator("#end-section")).toHaveAttribute("data-active", "true");
-  await expect(page.locator("#status")).toHaveText("// TRANSMISSION COMPLETE");
+  await expect(page.locator("#status")).toHaveText("// EMAIL QUEUED");
+  await expect(page.getByRole("heading", { name: "Check your email to continue onboarding" })).toBeVisible();
+  await expect(page.locator("#confirm-line")).toHaveText("Your information is saved. Email delivery may take a few minutes.");
+  await expect(page.locator("#delivery-help")).toHaveText("If you don’t see the email, check your spam or junk folder.");
   expect(browserPayload).toMatchObject({
     version: "1.6.0",
     data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test" },
@@ -565,6 +568,35 @@ test("Phase One consented browser payload crosses the proxy in active-workflow f
     privacyAcknowledged: true,
     policyVersion: "pkc-onboarding-14-plus-v1",
   });
+});
+
+test("Phase One never shows email-continuation success when queueing fails", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => { window.PKC_MODE = "prod"; });
+  await page.route("**/api/onboarding", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ ok: true, persisted: true, email: "not_queued" }),
+  }));
+
+  await page.goto("/onboarding");
+  await waitForBootHandoff(page);
+  await page.locator("#minimum-age-confirm-input").check();
+  await page.locator("#policy-consent-input").check();
+  await page.locator("#eligibility-continue").click();
+  for (const [label, value] of [
+    ["FIRST NAME // LET'S START", "Sample"],
+    ["LAST NAME // ALMOST THERE", "Maker"],
+    ["EMAIL // WHERE WE REACH YOU", "sample@example.test"],
+  ]) {
+    const input = page.getByLabel(label);
+    await input.fill(value);
+    await input.locator("xpath=ancestor::section").locator(".cta").click();
+  }
+
+  await expect(page.locator("#end-section")).toHaveAttribute("data-active", "false");
+  await expect(page.getByRole("heading", { name: "Check your email to continue onboarding" })).toBeHidden();
+  await expect(page.locator("#status")).toHaveText("// DETAILS SAVED — EMAIL COULD NOT BE QUEUED; CONTACT SUPPORT");
 });
 
 test("Phase One navigation never consumes or triggers the network submission limit", async ({ page }) => {

@@ -1,55 +1,83 @@
-# PKC Phase One consent-persistence candidate
+# PKC Phase One durable onboarding email outbox candidates
 
-This repository derives one deterministic, **inactive** n8n workflow candidate from the protected Phase One source snapshot. It does not modify, import into, execute against, bind credentials in, or activate any live n8n instance.
+This slice is repository-only. It creates inactive workflow-as-code candidates and PostgreSQL contracts; it does not import, bind credentials, activate workflows, call Gmail/Sheets/n8n, deploy, or change the server/proxy cutover.
 
-## Authority and runtime
+## PostgreSQL authority
 
-- Source identity is pinned in `scripts/n8n-phase-one-persistence.mjs` by workflow ID, name, version ID, update timestamp, node count, raw SHA-256, and canonical SHA-256.
-- Source reads use one `O_NOFOLLOW` descriptor with regular-file, `0600`, size, fatal UTF-8, JSON depth/node/string, duplicate-key, prototype-key, and pre/post descriptor identity checks.
-- Runtime compatibility is exactly n8n `2.19.5` at digest `sha256:b1b0c592735e24acd3cc64db83f94ef4efd8e331e47c6883249cc51cc1bea16b`.
+Migration `003_onboarding_email_outbox.sql` adds:
 
-## Candidate contract
+- `onboarding_submission_claims`: one immutable SHA-256 request digest per `submission_id`;
+- `onboarding_email_outbox`: exactly one generic blocked email per claim;
+- `pkc_onboarding_runtime`: function-only claim and Sheets-persistence transition authority;
+- `pkc_onboarding_email_worker`: function-only dispatch and reconciliation authority.
 
-- Name: `PKC — Onboarding Submissions — Consent Persistence Candidate v1`
-- Candidate-only workflow ID: `pkcConsentCandV1` (distinct from the protected source ID)
-- Webhook path: `pkc-onboarding-consent-v1`
-- State: `active: false`, `availableInMCP: false`
-- Timeout: 40 seconds (above the verified ~29-second workflow runtime and below the 45-second onboarding proxy timeout)
-- Execution retention: error/success `none`; progress/manual `false`
-- External body is closed to exactly `version`, `submissionId`, `firstName`, `lastName`, `email`, `minimumAgeConfirmed`, `termsAccepted`, `privacyAcknowledged`, `policyVersion`, and `hash`.
-- All three consent booleans must be literal `true`; `policyVersion` must equal `pkc-onboarding-14-plus-v1`.
-- The legacy digest remains SHA-256 of `firstName|lastName|email|submissionId|version`. No consent timestamp or consent digest is created.
-- The four consent fields are retained by Enrich and explicitly mapped into the Sheets append.
-- Credential references retain only credential type and credential name. IDs and other credential-reference values are removed.
-- Sheets native retry and regular-output continuation are disabled. Its error output releases the submission lock only when the stored owner still matches the failing execution, then enters a fixed, privacy-minimized HTTP 503 response.
-- An in-flight duplicate terminates with a privacy-minimized HTTP 409 (`submission_in_progress`, `persisted: false`). It cannot enter Aggregate, reach the success response, or claim durable persistence.
-- Gmail behavior is preserved with at most two attempts and a 1-second retry delay.
-- This candidate does **not** claim exactly-once processing, and it does not treat n8n-local throttling or in-memory deduplication as authoritative distributed control.
+The Phase One candidate derives a server-side SHA-256 over the complete closed onboarding payload and calls `claim_onboarding_submission` before Sheets. PostgreSQL grants one fenced persistence lease; concurrent exact replays receive `in_progress` and cannot append. A resumed lease reads Sheets by `submissionId`: an exact existing row is acknowledged without appending, no row is appended once, and mismatched or duplicate rows fail closed. This closes both the concurrent-append race and the crash window where Sheets accepted an append but PostgreSQL did not receive the acknowledgement. A verified existing row or successful append calls `mark_onboarding_submission_persisted` with the current fence, which changes the blocked email to pending. Its success response is `email: queued`; it does not claim Gmail acceptance or delivery.
+
+The worker claim returns only `outbox_id`, operation key, recipient, generic subject/body, digest hex, and a decimal-string fence. It never projects `firstName`. The generic template is:
+
+- Subject: `Welcome to ProjectKidCreations`
+- Body: `Welcome aboard from ProjectKidCreations.`
+
+Gmail API processing is claim → construct exact raw Gmail API JSON bytes → persist that request SHA-256 with `arm_onboarding_email_outbox` → one request attempt → provider-accepted or ambiguous. Expired transmitting rows become ambiguous and are never returned by the dispatch claim. Only the reconciliation claim can lease ambiguous rows. Provider acceptance is not inbox delivery. All PostgreSQL `bigint` fences returned to n8n are text.
+
+Every authority function is `SECURITY DEFINER` with `search_path = pg_catalog, pkc_auth`, validates `SESSION_USER`, is revoked from `PUBLIC`, and is granted only to its dedicated role. Neither dedicated role has table privileges.
+
+## Inactive n8n candidates
+
+### Phase One persistence candidate
+
+Generated by `scripts/n8n-phase-one-persistence.mjs` from the hash-pinned protected source:
+
+- name: `PKC — Onboarding Submissions — Durable Email Outbox Candidate v3`;
+- candidate ID: `pkcDurableEmailOutboxCandV3`;
+- candidate webhook path: `pkc-onboarding-durable-email-v3`;
+- inactive, MCP-off, and zero-retention;
+- server-derived request digest, PostgreSQL claim, Sheets lookup-before-append recovery, and PostgreSQL release after verified persistence;
+- no inline Gmail node and no workflow-static-data authority;
+- server/proxy remains pointed at the existing `pkc-onboarding-consent-v1` path, so cutover is staged and inactive.
+
+### Dispatcher and reconciler candidates
+
+Generated independently by `scripts/n8n-onboarding-email-outbox.mjs`:
+
+- `buildOnboardingEmailDispatcherWorkflow()` builds one-attempt raw Gmail API dispatch;
+- `buildOnboardingEmailReconcilerWorkflow()` performs Gmail Message-ID search only and never sends;
+- both are inactive, MCP-off, zero-retention, credential-name-only candidates.
+- `buildOnboardingEmailOutboxPackage()` and `writeOnboardingEmailOutboxPackage()` freeze deterministic workflow bytes with SHA-256-bound readback.
+
+The dispatcher uses `POST https://gmail.googleapis.com/gmail/v1/users/me/messages/send` with a raw JSON body. The reconciler uses `GET https://gmail.googleapis.com/gmail/v1/users/me/messages` with `labelIds=SENT`, `maxResults=2`, and exact `in:sent rfc822msgid:<...>` search; only one result with no `nextPageToken` may establish provider acceptance.
+
+## Release and rollback procedure
+
+The mandatory ordered, approval-gated Preview procedure is `docs/operations/onboarding-email-outbox-rollout.md`. It separates migration, inactive imports, native runtime/OAuth proof, worker activation, intake activation, proxy cutover, optional canary, routing-first rollback, and reconciliation-only handling of uncertain Gmail outcomes.
+
+## Proof boundary
+
+Static contracts prove generated topology, exact SQL calls, retention settings, credential-reference minimization, one-attempt/no-retry configuration, raw request hashing before arm, and reconciliation-only search. Native PostgreSQL tests prove the database state machine, race behavior, immutable digest, role boundaries, text fences, expiry-to-ambiguous transition, and reconciliation settlement.
+
+No n8n workflow was imported or executed and no Gmail request was made. Therefore the exact byte-for-byte serialization performed by n8n HTTP Request `4.2`, OAuth credential behavior, Gmail acceptance response shape, and Gmail search behavior remain runtime proof requirements before any activation. Do not infer those from static JSON.
 
 ## Focused verification
 
 ```bash
-node --test tests/contracts/n8n-phase-one-persistence.test.mjs
+node --test \
+  tests/contracts/onboarding-email-outbox-schema.test.mjs \
+  tests/contracts/n8n-onboarding-email-outbox.test.mjs \
+  tests/contracts/n8n-phase-one-persistence.test.mjs
+
+npm run test:mfa:postgres
+
+git diff --check
 ```
 
-The contract covers hostile descriptor inputs, immutable source binding, deterministic derivation, closed consent validation, legacy hash behavior, consent mapping, retry/error routing, source immutability, credential minimization, retention, and manifest hashes.
+`npm run test:mfa:postgres` requires the repository-pinned PostgreSQL 16 image to exist locally (or be explicitly pulled in an approved environment). It creates only a disposable loopback-bound local container and removes it on exit.
 
-## Package command (do not run during implementation)
+## Candidate package command
 
-The CLI requires a caller-supplied path that does not already exist:
+Packaging is local-only and requires a new caller-supplied directory:
 
 ```bash
 node scripts/n8n-phase-one-candidate.mjs build --out /approved/new/output-directory
 ```
 
-It writes `workflow.json` and `manifest.json` with directory mode `0700`, file mode `0600`, deterministic serialization, source raw/semantic hashes, and candidate raw/semantic hashes. Packaging does not import or run the workflow.
-
-## Optional disposable native rehearsal (manual only)
-
-After an approved package exists, a disposable local Docker rehearsal can import and export it using the pinned image:
-
-```bash
-node ops/n8n-phase-one-disposable/rehearse.mjs /approved/package-directory
-```
-
-The rehearsal uses an internal-only network, checks the inactive/zero-credential/zero-execution/zero-published-webhook database state, compares native readback semantics, and removes its exact Compose project, volume, network, and temporary directories. It performs no live API operation and must not be used as authorization to deploy, bind credentials, expose the webhook, execute, or activate the candidate.
+It writes deterministic `workflow.json` and `manifest.json` files with directory mode `0700` and file mode `0600`. The dispatcher/reconciler package is produced by calling `writeOnboardingEmailOutboxPackage()` with a new caller-supplied directory; it writes two workflow files and a hash-bound manifest with the same permissions. Packaging is not import, credential binding, execution, publication, proxy cutover, or activation.

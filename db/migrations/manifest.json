@@ -10,6 +10,11 @@
       "version": 2,
       "file": "002_founder_mfa_production_authority.sql",
       "sha256": "50c13f882442af7d4fa9016713265c6738132606644049449a8d2c051659696e"
+    },
+    {
+      "version": 3,
+      "file": "003_onboarding_email_outbox.sql",
+      "sha256": "3c8e8556131a436f71e7b99f868ee4c2c326b6482951e6d0b474758e14da143b"
     }
   ]
 }

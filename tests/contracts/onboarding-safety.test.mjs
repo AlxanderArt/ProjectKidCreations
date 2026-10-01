@@ -71,10 +71,28 @@ test("Phase One requires authoritative persistence before success and draft clea
   const source = read("phase-one/app.js");
   assert.match(source, /body\.ok\s*===\s*true/);
   assert.match(source, /body\.persisted === true \|\| body\.duplicate === true/);
-  assert.match(source, /render\("done"\);\s*setStatus\("\/\/ TRANSMISSION COMPLETE", "success", \{ sticky: true \}\)/);
+  assert.match(source, /body\.email !== "queued"/);
+  assert.match(source, /render\("done"\);\s*setStatus\("\/\/ EMAIL QUEUED", "success", \{ sticky: true \}\)/);
   assert.match(source, /return showSubmitError/);
   const submit = source.slice(source.indexOf("const submit ="), source.indexOf("//  Idle recovery"));
   assert.doesNotMatch(submit, /enqueue\(payload\)/);
+});
+
+test("Phase One removes obsolete automatic queue replay instead of resubmitting stale entries", () => {
+  const source = read("phase-one/app.js");
+  assert.doesNotMatch(source, /const drainQueue|fetch\(CONFIG\.ENDPOINT[^]*entry\.payload|PKC_QUEUE\.drain/);
+  assert.match(source, /sessionStorage\.removeItem\(LEGACY_QUEUE_KEY\)/);
+  assert.match(source, /const LEGACY_QUEUE_KEY\s*=\s*"pkc_queue"/);
+});
+
+test("Phase One completion copy directs users to email without transmission language", () => {
+  const html = read("phase-one/index.html");
+  assert.match(html, /Check your email to continue onboarding/i);
+  assert.match(html, /Email delivery may take a few minutes/i);
+  assert.match(html, /check your spam or junk folder/i);
+  assert.doesNotMatch(html, /TRANSMISSION RECEIVED|SECURE CHANNEL CONFIRMED/i);
+  assert.match(html, /aria-labelledby="completion-heading"/);
+  assert.match(html, /aria-describedby="confirm-line delivery-help"/);
 });
 
 test("Phase One field errors are associated, announced, and cleared deterministically", () => {

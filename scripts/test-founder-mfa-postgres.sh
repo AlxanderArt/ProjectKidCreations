@@ -5,11 +5,13 @@ name="pkc-mfa-gate0-native-$$"
 pg_auth_material="$(openssl rand -hex 24)"
 image="postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea"
 cleanup() {
+  local status=$?
   docker rm -f "$name" >/dev/null 2>&1 || true
   if docker ps -a --format '{{.Names}}' | grep -Fx "$name" >/dev/null; then
     printf '%s\n' 'native_postgres_cleanup_failed' >&2
-    exit 1
+    status=1
   fi
+  return "$status"
 }
 trap cleanup EXIT INT TERM
 
@@ -30,7 +32,9 @@ done
 psql -h 127.0.0.1 -p "$port" -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE pkc_founder_mfa' >/dev/null
 psql -h 127.0.0.1 -p "$port" -U postgres -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE pkc_founder_mfa SET pkc.environment='test'" >/dev/null
 psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/000_roles.sql >/dev/null
-psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "ALTER ROLE pkc_mfa_migrator PASSWORD '$pg_auth_material'; ALTER ROLE pkc_mfa_runtime PASSWORD '$pg_auth_material'; ALTER ROLE pkc_mfa_verifier PASSWORD '$pg_auth_material'; ALTER ROLE pkc_mfa_outbox_worker PASSWORD '$pg_auth_material';" >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/004_onboarding_roles.sql >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/004_onboarding_roles.sql >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "ALTER ROLE pkc_mfa_migrator PASSWORD '$pg_auth_material'; ALTER ROLE pkc_mfa_runtime PASSWORD '$pg_auth_material'; ALTER ROLE pkc_mfa_verifier PASSWORD '$pg_auth_material'; ALTER ROLE pkc_mfa_outbox_worker PASSWORD '$pg_auth_material'; ALTER ROLE pkc_onboarding_runtime PASSWORD '$pg_auth_material'; ALTER ROLE pkc_onboarding_email_worker PASSWORD '$pg_auth_material';" >/dev/null
 
 for caller_environment in test preview production; do
   guard_db="pkc_mfa_guard_${caller_environment}"
@@ -74,8 +78,8 @@ psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -
 psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/005_unseal_migrator.sql >/dev/null
 first="$(PGOPTIONS='-c pkc.environment=production -c pkc.expected_environment=production' node db/migrate.mjs)"
 second="$(node db/migrate.mjs)"
-[[ "$first" == '{"applied":[1,2],"currentVersion":2}' ]]
-[[ "$second" == '{"applied":[],"currentVersion":2}' ]]
+[[ "$first" == '{"applied":[1,2,3],"currentVersion":3}' ]]
+[[ "$second" == '{"applied":[],"currentVersion":3}' ]]
 
 admin_dsn="postgresql://postgres@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
 (
@@ -85,12 +89,12 @@ admin_dsn="postgresql://postgres@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable
 )
 psql -h 127.0.0.1 -p "$port" -U pkc_mfa_migrator -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c 'SET ROLE pkc_mfa_owner; SELECT 1' >/dev/null
 
-psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "INSERT INTO pkc_auth.migration_ledger(version,filename,sha256,environment) VALUES(3,'003_unknown.sql',repeat('0',64),'test')" >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "INSERT INTO pkc_auth.migration_ledger(version,filename,sha256,environment) VALUES(4,'004_unknown.sql',repeat('0',64),'test')" >/dev/null
 if node db/migrate.mjs >/dev/null 2>&1; then
   echo "unknown_migration_ledger_guard_failed" >&2
   exit 1
 fi
-psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "DELETE FROM pkc_auth.migration_ledger WHERE version=3" >/dev/null
+psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "DELETE FROM pkc_auth.migration_ledger WHERE version=4" >/dev/null
 psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/010_seal_migrator.sql >/dev/null
 PGOPTIONS='-c client_min_messages=error' psql -h 127.0.0.1 -p "$port" -U postgres -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f db/roles/010_seal_migrator.sql >/dev/null
 
@@ -155,9 +159,13 @@ done
 
 native_test_dsn="postgresql://postgres@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
 worker_test_dsn="postgresql://pkc_mfa_outbox_worker@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
+onboarding_runtime_test_dsn="postgresql://pkc_onboarding_runtime@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
+onboarding_worker_test_dsn="postgresql://pkc_onboarding_email_worker@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
 export PKC_MFA_TEST_DATABASE_URL="$native_test_dsn"
 export PKC_MFA_WORKER_TEST_DATABASE_URL="$worker_test_dsn"
-node --test --test-concurrency=1 tests/contracts/founder-mfa-store.test.mjs tests/contracts/founder-mfa-outbox-native.test.mjs tests/contracts/founder-mfa-readiness-native.test.mjs
+export PKC_ONBOARDING_RUNTIME_TEST_DATABASE_URL="$onboarding_runtime_test_dsn"
+export PKC_ONBOARDING_EMAIL_WORKER_TEST_DATABASE_URL="$onboarding_worker_test_dsn"
+node --test --test-concurrency=1 tests/contracts/founder-mfa-store.test.mjs tests/contracts/founder-mfa-outbox-native.test.mjs tests/contracts/founder-mfa-readiness-native.test.mjs tests/contracts/onboarding-email-outbox-native.test.mjs
 
 runtime_dsn="postgresql://pkc_mfa_runtime@127.0.0.1:$port/pkc_founder_mfa?sslmode=disable"
 (

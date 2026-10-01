@@ -12,9 +12,10 @@ const nativeHarness = readFileSync(new URL("../../scripts/test-founder-mfa-postg
 
 test("ordered migration authority is checksum-ledgered, target-guarded, locked, and replay safe", () => {
   assert.deepEqual(manifest.schemaVersion, 1);
-  assert.equal(manifest.migrations.length, 2);
+  assert.equal(manifest.migrations.length, 3);
   assert.equal(manifest.migrations[0].file, "001_founder_mfa.sql");
   assert.equal(manifest.migrations[1].file, "002_founder_mfa_production_authority.sql");
+  assert.equal(manifest.migrations[2].file, "003_onboarding_email_outbox.sql");
   for (const entry of manifest.migrations) assert.match(entry.sha256, /^[a-f0-9]{64}$/);
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /migration_ledger/);
@@ -35,7 +36,7 @@ test("ordered migration authority is checksum-ledgered, target-guarded, locked, 
 
 test("roles and defaults are closed around a dedicated NOLOGIN owner", () => {
   assert.match(roles, /pkc_mfa_owner NOLOGIN/);
-  for (const role of ["pkc_mfa_migrator", "pkc_mfa_runtime", "pkc_mfa_verifier", "pkc_mfa_outbox_worker"]) {
+  for (const role of ["pkc_mfa_migrator", "pkc_mfa_runtime", "pkc_mfa_verifier", "pkc_mfa_outbox_worker", "pkc_onboarding_runtime", "pkc_onboarding_email_worker"]) {
     assert.match(roles, new RegExp(`${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`));
   }
   assert.match(roles, /GRANT pkc_mfa_owner TO pkc_mfa_migrator/);

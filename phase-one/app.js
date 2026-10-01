@@ -8,7 +8,7 @@
  *  [ ] window.PKC_ENDPOINT set to real prod endpoint
  *  [ ] window.PKC_DISABLED unset
  *  [ ] Rate limiter exercised — 6th attempt in 60s blocked
- *  [ ] Retry queue tested — offline submit → online drain
+ *  [ ] Stale legacy retry queue cleared without network replay
  *  [ ] Hash deterministic across two identical submits
  *  [ ] submissionId unique per attempt
  *  [ ] Completion guard tested
@@ -43,8 +43,7 @@
     RATE_LIMIT:        5,
     RATE_WINDOW:       60_000,
     EXPIRY_MS:         60 * 60 * 1000,
-    QUEUE_MAX:         10,
-    QUEUE_TTL:         7 * 24 * 60 * 60 * 1000,
+
     IDLE_MS:           60_000,
     DEBOUNCE_MS:       300,
     LIVE_DEBOUNCE_MS:  200,
@@ -96,7 +95,7 @@
 
   const STORAGE_KEY  = "pkc_onboarding";
   const ATTEMPTS_KEY = "pkc_attempts";
-  const QUEUE_KEY    = "pkc_queue";
+  const LEGACY_QUEUE_KEY = "pkc_queue";
 
   const DISPOSABLE_DOMAINS = new Set([
     "mailinator.com", "guerrillamail.com", "10minutemail.com",
@@ -276,79 +275,7 @@
     } catch (e) { warn("[PKC] pushAttempt failed", e); }
   };
 
-  // Retry queue
-  const getQueue = () => {
-    try {
-      const raw = sessionStorage.getItem(QUEUE_KEY);
-      const arr = raw ? JSON.parse(raw) : [];
-      const cutoff = Date.now() - CONFIG.QUEUE_TTL;
-      const fresh = arr.filter((entry) => (entry?.ts || 0) > cutoff);
-      if (fresh.length !== arr.length) {
-        sessionStorage.setItem(QUEUE_KEY, JSON.stringify(fresh));
-      }
-      return fresh;
-    } catch { return []; }
-  };
-
-  const writeQueue = (q) => {
-    try {
-      const trimmed = q.slice(-CONFIG.QUEUE_MAX);
-      sessionStorage.setItem(QUEUE_KEY, JSON.stringify(trimmed));
-    } catch (e) { warn("[PKC] writeQueue failed", e); }
-  };
-
-  const enqueue = (payload) => {
-    const q = getQueue();
-    const exists = q.some((entry) =>
-      entry?.payload?.data?.email === payload?.data?.email ||
-      entry?.payload?.submissionId === payload?.submissionId,
-    );
-    if (exists) {
-      log("[PKC] enqueue skipped — duplicate");
-      return;
-    }
-    q.push({ payload, ts: Date.now() });
-    writeQueue(q);
-    log("[PKC] enqueued", payload.submissionId);
-  };
-
   const authHeaders = () => ({ "Content-Type": "application/json" });
-
-  const drainQueue = safeAsync(async () => {
-    if (!CONFIG.ENDPOINT) return;
-    if (CONFIG.MODE === "dev") return;
-    if (!navigator.onLine) return;
-
-    const q = getQueue();
-    if (q.length === 0) return;
-
-    const remaining = [];
-    for (const entry of q) {
-      try {
-        const res = await fetch(CONFIG.ENDPOINT, {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify(entry.payload),
-        });
-        if (res.status === 413) {
-          // Payload won't shrink on retry — drop it
-          track("payload_too_large", { submissionId: entry.payload.submissionId });
-          continue;
-        }
-        if (res.status === 503) {
-          // Server overloaded — keep in queue
-          track("server_overload_retry", { submissionId: entry.payload.submissionId });
-          remaining.push(entry);
-          continue;
-        }
-        track("submit_retried", { submissionId: entry.payload.submissionId, status: res.status });
-      } catch (e) {
-        warn("[PKC] retry failed", e);
-        remaining.push(entry);
-      }
-    }
-    writeQueue(remaining);
-  }, "drainQueue");
 
   // ════════════════════════════════════════════════════════════════════
   //  Event tracking + batching (#8 #35 #44)
@@ -848,15 +775,23 @@
       track("submit_failed", { submissionId, reason: "unconfirmed_persistence" });
       return showSubmitError("// SAVE NOT CONFIRMED — TRY AGAIN");
     }
+    if (body.email !== "queued") {
+      track("email_queue_failed", { submissionId, status: String(body.email || "unknown") });
+      return showSubmitError("// DETAILS SAVED — EMAIL COULD NOT BE QUEUED; CONTACT SUPPORT");
+    }
     if (body.executionId) track("ack", { submissionId, executionId: body.executionId });
     if (body.duplicate) track("duplicate_ack", { submissionId, dedupSource: body.dedupSource });
     render("done");
-    setStatus("// TRANSMISSION COMPLETE", "success", { sticky: true });
+    setStatus("// EMAIL QUEUED", "success", { sticky: true });
 
     // Render thank-you reveal
     const confirmEl = document.getElementById("confirm-line");
     confirmEl.removeAttribute("data-revealed");
-    requestAnimationFrame(() => confirmEl.dataset.revealed = "true");
+    const completionHeading = document.getElementById("completion-heading");
+    requestAnimationFrame(() => {
+      confirmEl.dataset.revealed = "true";
+      try { completionHeading.focus({ preventScroll: true }); } catch { completionHeading.focus(); }
+    });
 
     // Submission ID reveal (debug only)
     if (CONFIG.DEBUG) {
@@ -904,7 +839,6 @@
       setStatus("");
     }
     track("online");
-    drainQueue();
   }, "onOnline");
 
   const onOffline = safe(() => {
@@ -924,7 +858,7 @@
     reduceMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
     step:         state.currentStep,
     answeredKeys: Object.keys(state.answers).filter((k) => state.answers[k]),
-    queueLen:     getQueue().length,
+
     attemptsLen:  getAttempts().length,
     startMs:      state.startTime,
     uptimeMs:     state.perf.start ? performance.now() - state.perf.start : 0,
@@ -940,12 +874,6 @@
     return submit();
   };
 
-  window.PKC_QUEUE = () => getQueue();
-  window.PKC_QUEUE.clear = () => {
-    try { sessionStorage.removeItem(QUEUE_KEY); log("[PKC] queue cleared"); }
-    catch (e) { warn("[PKC] queue clear failed", e); }
-  };
-  window.PKC_QUEUE.drain = () => drainQueue();
 
   // ════════════════════════════════════════════════════════════════════
   //  Boot (#46 #47)
@@ -975,8 +903,9 @@
     policy.addEventListener("change", () => clearEligibilityField(policy));
     window.addEventListener("pkc:boot-complete", focusCurrentControl);
 
-    // Drain queue (best-effort, non-blocking)
-    drainQueue();
+    // Never replay entries created by the obsolete automatic retry contract.
+    try { sessionStorage.removeItem(LEGACY_QUEUE_KEY); }
+    catch (e) { warn("[PKC] legacy queue removal failed", e); }
 
     // Fast-forward (#24)
     const hash = (location.hash || "").replace(/^#/, "");

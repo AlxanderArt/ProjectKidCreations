@@ -25,7 +25,7 @@ const workflowLoaded = readJsonDescriptorSafe(workflowFile, { protectedInput: tr
 const manifestLoaded = readJsonDescriptorSafe(manifestFile, { protectedInput: true });
 const workflow = workflowLoaded.value;
 const manifest = manifestLoaded.value;
-if (manifest?.schema !== "pkc-n8n-phase-one-consent-persistence-candidate-v1") throw new Error("candidate manifest schema drift");
+if (manifest?.schema !== "pkc-n8n-phase-one-durable-email-outbox-candidate-v3") throw new Error("candidate manifest schema drift");
 if (manifest?.n8n?.version !== N8N_IMAGE.version
     || manifest?.n8n?.repoDigest !== N8N_IMAGE.repoDigest
     || manifest?.n8n?.reference !== N8N_IMAGE.reference) throw new Error("candidate n8n image authority drift");

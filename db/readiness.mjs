@@ -5,8 +5,8 @@ import pg from "pg";
 
 import { loadMigrationPlan } from "./migrate.mjs";
 
-const EXPECTED_ROLES = Object.freeze(["pkc_mfa_owner","pkc_mfa_migrator","pkc_mfa_runtime","pkc_mfa_verifier","pkc_mfa_outbox_worker"]);
-const EXPECTED_TABLES = Object.freeze(["founder_mfa_audit_events","founder_mfa_challenges","founder_mfa_enrollment_authorizations","founder_mfa_factors","founder_mfa_finalizations","founder_mfa_outbox","founder_mfa_recovery_codes","founder_mfa_recovery_operations","migration_ledger"]);
+const EXPECTED_ROLES = Object.freeze(["pkc_mfa_owner","pkc_mfa_migrator","pkc_mfa_runtime","pkc_mfa_verifier","pkc_mfa_outbox_worker","pkc_onboarding_runtime","pkc_onboarding_email_worker"]);
+const EXPECTED_TABLES = Object.freeze(["founder_mfa_audit_events","founder_mfa_challenges","founder_mfa_enrollment_authorizations","founder_mfa_factors","founder_mfa_finalizations","founder_mfa_outbox","founder_mfa_recovery_codes","founder_mfa_recovery_operations","migration_ledger","onboarding_email_outbox","onboarding_submission_claims"]);
 const EXPECTED_RELATIONS = Object.freeze([
   ["founder_mfa_audit_events", "r"], ["founder_mfa_audit_events_created", "i"], ["founder_mfa_audit_events_pkey", "i"],
   ["founder_mfa_challenges", "r"], ["founder_mfa_challenges_factor_id_challenge_id_key", "i"], ["founder_mfa_challenges_handoff_jti_key", "i"],
@@ -19,18 +19,21 @@ const EXPECTED_RELATIONS = Object.freeze([
   ["founder_mfa_recovery_codes", "r"], ["founder_mfa_recovery_codes_factor_id_code_hash_key", "i"], ["founder_mfa_recovery_codes_pkey", "i"],
   ["founder_mfa_recovery_operations", "r"], ["founder_mfa_recovery_operations_pkey", "i"],
   ["migration_ledger", "r"], ["migration_ledger_filename_key", "i"], ["migration_ledger_pkey", "i"],
+  ["onboarding_email_outbox", "r"], ["onboarding_email_outbox_dispatch", "i"], ["onboarding_email_outbox_operation_key_key", "i"], ["onboarding_email_outbox_pkey", "i"], ["onboarding_email_outbox_reconciliation", "i"], ["onboarding_email_outbox_submission_id_key", "i"],
+  ["onboarding_submission_claims", "r"], ["onboarding_submission_claims_pkey", "i"],
 ]);
 const WORKER_FUNCTIONS = Object.freeze(["claim_founder_mfa_outbox","claim_founder_mfa_outbox_reconciliation","complete_founder_mfa_outbox","defer_founder_mfa_outbox_reconciliation","founder_mfa_outbox_monitor","mark_founder_mfa_outbox_unknown","reconcile_founder_mfa_outbox"]);
-const EXPECTED_FUNCTIONS = Object.freeze([...WORKER_FUNCTIONS, "prevent_audit_mutation", "prevent_enrollment_authorization_rewrite", "prevent_recovery_operation_mutation"].sort());
+const ONBOARDING_FUNCTIONS = Object.freeze(["accept_onboarding_email_outbox","arm_onboarding_email_outbox","claim_onboarding_email_outbox","claim_onboarding_email_outbox_reconciliation","claim_onboarding_submission","defer_onboarding_email_reconciliation","mark_onboarding_email_ambiguous","mark_onboarding_submission_persisted","reconcile_onboarding_email_accepted"]);
+const EXPECTED_FUNCTIONS = Object.freeze([...WORKER_FUNCTIONS, ...ONBOARDING_FUNCTIONS, "prevent_audit_mutation", "prevent_enrollment_authorization_rewrite", "prevent_onboarding_claim_rewrite", "prevent_onboarding_email_identity_rewrite", "prevent_recovery_operation_mutation"].sort());
 const MIGRATION_LOCK = "68430745190217";
 const CATALOG_DIGESTS = Object.freeze({
-  constraints: "08b5fb63289299afae63100df75f40a4eee25f249c36de8a9b7cc908ffe866ca",
-  functions: "d2f1266ca9b144f42f7bc3ad9f36c88ff28624b0b39ad5d0174f5c6d8a716119",
-  triggers: "ecbbe61ee6fd9da41a4812a233c0d6f6c675c81487dbfa6afa02c5195dc36e2e",
-  relationAcls: "9f55472d5f4ba36d95b80a8d289f70ceba57ac0c2d4448473b9b0e51229c37b3",
-  functionAcls: "1f6b09a00a7c7eb16c051b34adfbe946e72fc3b237869be47a08ff02e3938d55",
-  indexes: "286916280e990ee751bd9c0adba7515554e6070d205a5edd58bae45744c0794e",
-  schemaAcl: "9f5f66938b5d69cbbb4acce4484a5bb0595250ce0094dd0749da74dc3fc975f5",
+  constraints: "d3b09a0086ef026ee225da7857f7bd512d08a48763e9e140672fff197e2c2065",
+  functions: "c8a82f32d39135c381c32c9f4127f191981465509d75fd218420fd138240c546",
+  triggers: "a728392de4f29bfcd0bb0ed9770071cb3b4e278d4c14c9ba5f1b7d580bf5e682",
+  relationAcls: "ff0b2dfc205f82e1c43bfeca97c3296a32acbdf055597623519beb35f668937a",
+  functionAcls: "ef57a8c2e4458b55b047e6e08b7d8d02a31412a95cc5d3a03fe08c2b6472fb48",
+  indexes: "3aed5d5a8e2594fbd78b2131bc7c73dcb10e4ba2b804cc91cc3581184024637f",
+  schemaAcl: "e3dfa2449a362954e334cbf610fd48dc3ba3cd1df7cb82f19f691fa98a6e6ac1",
   defaultAcls: "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
 });
 
@@ -68,6 +71,7 @@ export async function attestFounderMfaDatabase({ pool, expectedDatabase, expecte
       ['pkc_mfa_migrator','CONNECT'],['pkc_mfa_outbox_worker','CONNECT'],
       ['pkc_mfa_owner','CONNECT'],['pkc_mfa_owner','CREATE'],['pkc_mfa_owner','TEMPORARY'],
       ['pkc_mfa_runtime','CONNECT'],['pkc_mfa_verifier','CONNECT'],
+      ['pkc_onboarding_email_worker','CONNECT'],['pkc_onboarding_runtime','CONNECT'],
     ];
     invariant(databaseAuthority.every((row)=>row.owner==='pkc_mfa_owner' && !row.is_grantable)
       && JSON.stringify(databaseAuthority.map((row)=>[row.grantee,row.privilege_type]))===JSON.stringify(expectedDatabaseAcl), "database_owner_acl");
@@ -84,6 +88,20 @@ export async function attestFounderMfaDatabase({ pool, expectedDatabase, expecte
       const expectedLogin = role.rolname === "pkc_mfa_migrator" ? authorityState === "migration-window" : role.rolname !== "pkc_mfa_owner";
       invariant(role.rolcanlogin === expectedLogin, `role_login:${role.rolname}`);
     }
+    const roleSettings = rows(await client.query(`SELECT r.rolname,setting
+      FROM pg_catalog.pg_db_role_setting s JOIN pg_catalog.pg_roles r ON r.oid=s.setrole
+      CROSS JOIN LATERAL pg_catalog.unnest(s.setconfig) setting
+      WHERE s.setdatabase=0 AND r.rolname=ANY($1) ORDER BY r.rolname,setting`, [["pkc_mfa_outbox_worker","pkc_mfa_runtime","pkc_onboarding_email_worker","pkc_onboarding_runtime"]]));
+    const expectedRoleSettings = ["pkc_mfa_outbox_worker","pkc_mfa_runtime","pkc_onboarding_email_worker","pkc_onboarding_runtime"]
+      .flatMap((rolname)=>["idle_in_transaction_session_timeout=10s","lock_timeout=2s","statement_timeout=5s"].map((setting)=>({rolname,setting})))
+      .sort((a,b)=>a.rolname.localeCompare(b.rolname)||a.setting.localeCompare(b.setting));
+    invariant(JSON.stringify(roleSettings)===JSON.stringify(expectedRoleSettings), "role_settings");
+    const databaseSpecificRoleSettings = rows(await client.query(`SELECT r.rolname,setting
+      FROM pg_catalog.pg_db_role_setting s JOIN pg_catalog.pg_roles r ON r.oid=s.setrole
+      CROSS JOIN LATERAL pg_catalog.unnest(s.setconfig) setting
+      WHERE s.setdatabase=(SELECT oid FROM pg_catalog.pg_database WHERE datname=pg_catalog.current_database())
+        AND r.rolname=ANY($1) ORDER BY r.rolname,setting`, [["pkc_mfa_outbox_worker","pkc_mfa_runtime","pkc_onboarding_email_worker","pkc_onboarding_runtime"]]));
+    invariant(databaseSpecificRoleSettings.length===0, "database_specific_role_settings");
     const memberships = rows(await client.query("SELECT member.rolname AS member,parent.rolname AS parent,m.admin_option,m.inherit_option,m.set_option FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles member ON member.oid=m.member JOIN pg_catalog.pg_roles parent ON parent.oid=m.roleid WHERE member.rolname=ANY($1) OR parent.rolname=ANY($1) ORDER BY 1,2", [EXPECTED_ROLES]));
     const expectedMemberships = authorityState === "migration-window" ? [{ member:"pkc_mfa_migrator", parent:"pkc_mfa_owner", admin_option:false, inherit_option:false, set_option:true }] : [];
     invariant(JSON.stringify(memberships) === JSON.stringify(expectedMemberships), "role_graph");
@@ -117,8 +135,8 @@ export async function attestFounderMfaDatabase({ pool, expectedDatabase, expecte
       +(SELECT pg_catalog.count(*) FROM pg_catalog.pg_class c WHERE c.relowner=r.oid)
       +(SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p WHERE p.proowner=r.oid)
       +(SELECT pg_catalog.count(*) FROM pg_catalog.pg_type t WHERE t.typowner=r.oid AND t.typtype IN ('e','d','c','r','m')) AS count
-      FROM pg_catalog.pg_roles r WHERE r.rolname=ANY($1) ORDER BY r.rolname`, [["pkc_mfa_migrator","pkc_mfa_outbox_worker","pkc_mfa_runtime","pkc_mfa_verifier"]]));
-    invariant(forbiddenOwnership.length===4 && forbiddenOwnership.every((row)=>Number(row.count)===0), "migrator_runtime_verifier_worker_ownership_absence");
+      FROM pg_catalog.pg_roles r WHERE r.rolname=ANY($1) ORDER BY r.rolname`, [["pkc_mfa_migrator","pkc_mfa_outbox_worker","pkc_mfa_runtime","pkc_mfa_verifier","pkc_onboarding_email_worker","pkc_onboarding_runtime"]]));
+    invariant(forbiddenOwnership.length===6 && forbiddenOwnership.every((row)=>Number(row.count)===0), "migrator_runtime_verifier_worker_ownership_absence");
     if (requireZeroRows) {
       const realRows = rows(await client.query(`SELECT
         (SELECT pg_catalog.count(*) FROM pkc_auth.founder_mfa_factors)
@@ -129,6 +147,8 @@ export async function attestFounderMfaDatabase({ pool, expectedDatabase, expecte
         +(SELECT pg_catalog.count(*) FROM pkc_auth.founder_mfa_outbox)
         +(SELECT pg_catalog.count(*) FROM pkc_auth.founder_mfa_recovery_operations)
         +(SELECT pg_catalog.count(*) FROM pkc_auth.founder_mfa_audit_events) AS count`))[0];
+      realRows.count = Number(realRows.count)
+        + Number((await client.query("SELECT (SELECT pg_catalog.count(*) FROM pkc_auth.onboarding_submission_claims)+(SELECT pg_catalog.count(*) FROM pkc_auth.onboarding_email_outbox) AS count")).rows[0].count);
       invariant(Number(realRows.count)===0, "zero_real_mfa_rows");
     }
 
@@ -136,7 +156,7 @@ export async function attestFounderMfaDatabase({ pool, expectedDatabase, expecte
     invariant(JSON.stringify(functions.map((entry)=>entry.proname))===JSON.stringify(EXPECTED_FUNCTIONS), "function_inventory");
     const explicitTypes = rows(await client.query("SELECT t.typname,t.typtype,COALESCE(c.relkind::text,'') AS relkind,owner.rolname AS owner FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace JOIN pg_catalog.pg_roles owner ON owner.oid=t.typowner LEFT JOIN pg_catalog.pg_class c ON c.oid=t.typrelid WHERE n.nspname='pkc_auth' AND (t.typtype IN ('e','d','r','m') OR (t.typtype='c' AND c.relkind='c')) ORDER BY t.typname"));
     invariant(explicitTypes.length===0, "explicit_type_inventory");
-    for (const name of WORKER_FUNCTIONS) {
+    for (const name of [...WORKER_FUNCTIONS, ...ONBOARDING_FUNCTIONS]) {
       const fn = functions.find((entry)=>entry.proname===name);
       invariant(fn && fn.owner==='pkc_mfa_owner' && fn.prosecdef && Array.isArray(fn.proconfig) && fn.proconfig.includes('search_path=pg_catalog, pkc_auth') && !hasPublicAcl(fn.proacl), `functions:${name}:proacl:prosecdef:proconfig`);
     }

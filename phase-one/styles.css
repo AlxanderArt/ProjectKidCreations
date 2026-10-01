@@ -514,11 +514,28 @@ section[data-question].invalid input {
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
   color: var(--pkc-accent);
+  max-width: 56ch;
   opacity: 0;
   transform: translateY(4px);
+}
+
+#completion-heading {
+  max-width: 18ch;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.delivery-help {
+  margin: 0;
+  max-width: 56ch;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--pkc-text-muted);
 }
 
 .confirm-line[data-revealed="true"] {

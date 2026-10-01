@@ -38,14 +38,14 @@ const hostileValue = (character) => character.repeat(24);
 const singleFile = (path, content) => Object.fromEntries([[path, content]]);
 
 test("candidate admits and inventories only the exact canonical role authority SQL paths", async () => {
-  const paths = ["db/roles/000_roles.sql", "db/roles/005_unseal_migrator.sql", "db/roles/010_seal_migrator.sql"];
+  const paths = ["db/roles/000_roles.sql", "db/roles/004_onboarding_roles.sql", "db/roles/005_unseal_migrator.sql", "db/roles/010_seal_migrator.sql"];
   const repo = await disposableRepo(Object.fromEntries(paths.map((path) => [path, "SELECT 1;\n"])));
   const manifest = await buildCandidateManifest(repo);
   assert.deepEqual(manifest.files.map(({ path: candidatePath }) => candidatePath), paths);
 });
 
 test("candidate still secret-scans every exact role authority SQL path", async () => {
-  for (const path of ["db/roles/000_roles.sql", "db/roles/005_unseal_migrator.sql", "db/roles/010_seal_migrator.sql"]) {
+  for (const path of ["db/roles/000_roles.sql", "db/roles/004_onboarding_roles.sql", "db/roles/005_unseal_migrator.sql", "db/roles/010_seal_migrator.sql"]) {
     const repo = await disposableRepo(singleFile(path, `password = '${hostileValue("R")}'\n`));
     await assert.rejects(buildCandidateManifest(repo), /secret-like value policy.*candidate/i);
   }

@@ -40,6 +40,14 @@ native("readiness rejects role membership option drift", async (t) => {
   await mutatedReadiness(t, "GRANT pkc_mfa_owner TO pkc_mfa_migrator WITH ADMIN OPTION");
 });
 
+native("readiness rejects weakened onboarding runtime role timeouts", async (t) => {
+  await mutatedReadiness(t, "ALTER ROLE pkc_onboarding_runtime SET statement_timeout='0'");
+});
+
+native("readiness rejects database-specific onboarding timeout overrides", async (t) => {
+  await mutatedReadiness(t, "ALTER ROLE pkc_onboarding_email_worker IN DATABASE pkc_founder_mfa SET lock_timeout='0'");
+});
+
 native("readiness rejects same-name weakened constraints", async (t) => {
   await mutatedReadiness(t, "ALTER TABLE pkc_auth.founder_mfa_outbox DROP CONSTRAINT founder_mfa_outbox_attempts_check, ADD CONSTRAINT founder_mfa_outbox_attempts_check CHECK (true)");
 });
