@@ -4,6 +4,10 @@
   "outputDirectory": ".",
   "rewrites": [
     {
+      "source": "/api/onboarding",
+      "destination": "/api/node"
+    },
+    {
       "source": "/api/phase-two/save",
       "destination": "/api/node"
     },

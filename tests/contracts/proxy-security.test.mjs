@@ -125,13 +125,13 @@ function mockNodeResponse() {
   };
 }
 
-test("inventory preserves nine Edge wrappers and consolidates every Node URL into one rewritten function", async () => {
+test("inventory preserves eight Edge wrappers and consolidates every Node URL into one rewritten function", async () => {
   const files = routeFiles();
   const edgeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "edge");
   const nodeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "nodejs");
-  assert.equal(files.length, 10);
-  assert.equal(edgeRoutes.length, 9);
-  assert.equal(nodeRoutes.length, 14);
+  assert.equal(files.length, 9);
+  assert.equal(edgeRoutes.length, 8);
+  assert.equal(nodeRoutes.length, 15);
   assert.deepEqual(files, [
     ...edgeRoutes.map(([, route]) => route.file),
     "api/node.js",

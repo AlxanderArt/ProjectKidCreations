@@ -22,7 +22,7 @@ const route = (sourceFile, runtime, methods, upstream, allowedFields, options = 
 });
 
 export const ROUTES = Object.freeze({
-  onboarding: route("api/onboarding.js", "edge", ["POST"], "/webhook/pkc-onboarding", { POST: ["version", "submissionId", "data", "consent"] }, { founderConfigurationRequired: false, timeoutMs: 45_000 }),
+  onboarding: route("api/onboarding.js", "nodejs", ["POST"], "/webhook/pkc-onboarding", { POST: ["version", "submissionId", "data", "consent"] }, { founderConfigurationRequired: false, timeoutMs: 45_000 }),
   phaseTwoVerify: route("api/phase-two/verify.js", "edge", ["POST"], "/webhook/pkc-phase-two/verify", { POST: ["token"] }, { founderConfigurationRequired: false }),
   phaseTwoSave: route("api/phase-two/save.js", "nodejs", ["POST"], "/webhook/pkc-phase-two/save", { POST: ["token"] }, { founderConfigurationRequired: false }),
   phaseTwoEvent: route("api/phase-two/event.js", "edge", ["POST"], "/webhook/pkc-phase-two/event", { POST: ["event_type", "submissionId", "data"] }, { founderConfigurationRequired: false }),
