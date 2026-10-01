@@ -515,6 +515,7 @@ test("Phase One consented browser payload crosses the proxy in active-workflow f
   }
 
   await expect(page.locator("#end-section")).toHaveAttribute("data-active", "true");
+  await expect(page.locator("#status")).toHaveText("// TRANSMISSION COMPLETE");
   expect(browserPayload).toMatchObject({
     version: "1.6.0",
     data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test" },

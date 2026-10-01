@@ -851,6 +851,7 @@
     if (body.executionId) track("ack", { submissionId, executionId: body.executionId });
     if (body.duplicate) track("duplicate_ack", { submissionId, dedupSource: body.dedupSource });
     render("done");
+    setStatus("// TRANSMISSION COMPLETE", "success", { sticky: true });
 
     // Render thank-you reveal
     const confirmEl = document.getElementById("confirm-line");

@@ -70,7 +70,8 @@ test("Phase One rate limits only actual network submissions, never question navi
 test("Phase One requires authoritative persistence before success and draft clearing", () => {
   const source = read("phase-one/app.js");
   assert.match(source, /body\.ok\s*===\s*true/);
-  assert.match(source, /body\.persisted\s*===\s*true\s*\|\|\s*body\.duplicate\s*===\s*true/);
+  assert.match(source, /body\.persisted === true \|\| body\.duplicate === true/);
+  assert.match(source, /render\("done"\);\s*setStatus\("\/\/ TRANSMISSION COMPLETE", "success", \{ sticky: true \}\)/);
   assert.match(source, /return showSubmitError/);
   const submit = source.slice(source.indexOf("const submit ="), source.indexOf("//  Idle recovery"));
   assert.doesNotMatch(submit, /enqueue\(payload\)/);
