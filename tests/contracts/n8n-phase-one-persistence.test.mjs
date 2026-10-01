@@ -146,7 +146,8 @@ test("candidate derivation is deterministic, inactive, minimized, and source-imm
   assert.equal(first.nodes.length, 21);
   assert.equal(first.nodes.find((node) => node.type === "n8n-nodes-base.webhook").parameters.path, CANDIDATE_PATH);
   assert.equal(first.settings.availableInMCP, false);
-  assert.equal(first.settings.executionTimeout, 18);
+  assert.equal(first.settings.executionTimeout, 40);
+  assert.ok(first.settings.executionTimeout > 30 && first.settings.executionTimeout < 45);
   assert.deepEqual({
     saveDataErrorExecution: first.settings.saveDataErrorExecution,
     saveDataSuccessExecution: first.settings.saveDataSuccessExecution,

@@ -14,7 +14,7 @@ This repository derives one deterministic, **inactive** n8n workflow candidate f
 - Candidate-only workflow ID: `pkcConsentCandV1` (distinct from the protected source ID)
 - Webhook path: `pkc-onboarding-consent-v1`
 - State: `active: false`, `availableInMCP: false`
-- Timeout: 18 seconds
+- Timeout: 40 seconds (above the verified ~29-second workflow runtime and below the 45-second onboarding proxy timeout)
 - Execution retention: error/success `none`; progress/manual `false`
 - External body is closed to exactly `version`, `submissionId`, `firstName`, `lastName`, `email`, `minimumAgeConfirmed`, `termsAccepted`, `privacyAcknowledged`, `policyVersion`, and `hash`.
 - All three consent booleans must be literal `true`; `policyVersion` must equal `pkc-onboarding-14-plus-v1`.

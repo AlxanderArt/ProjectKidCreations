@@ -251,7 +251,7 @@ export function deriveConsentPersistenceCandidate(source) {
   workflow.settings = {
     ...(workflow.settings || {}),
     availableInMCP: false,
-    executionTimeout: 18,
+    executionTimeout: 40,
     saveDataErrorExecution: "none",
     saveDataSuccessExecution: "none",
     saveExecutionProgress: false,
