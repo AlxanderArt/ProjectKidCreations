@@ -513,8 +513,9 @@ export async function handleProxy(routeId, request, options = {}) {
   const dependencies = {
     fetch: options.fetch || globalThis.fetch,
     founderAuthority: options.founderAuthority,
-    timeoutMs: options.timeoutMs || DEFAULT_TIMEOUT_MS,
+    timeoutMs: options.timeoutMs ?? route.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     adminTimeoutMs: options.adminTimeoutMs || ADMIN_TIMEOUT_MS,
+    timedOperation: options.timedOperation || timedOperation,
   };
   const requiresFounderPolicy = route.admin || route.founderSensitiveMethods.includes(method)
     || (route.session && routeId !== "accountLogout");
@@ -532,7 +533,7 @@ export async function handleProxy(routeId, request, options = {}) {
 
   let result;
   try {
-    result = await timedOperation(async (signal) => {
+    result = await dependencies.timedOperation(async (signal) => {
       const upstream = await dependencies.fetch(`${config.base}${upstreamPath(route, method)}${suffix}`, { ...init, signal });
       const text = await validatedUpstream(upstream, route.responseLimit);
       return { upstream, text };

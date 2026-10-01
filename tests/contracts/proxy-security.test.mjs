@@ -200,6 +200,26 @@ test("public onboarding forwards with core proxy configuration even when founder
   assert.equal(fetches, 1);
 });
 
+test("onboarding alone receives the extended upstream timeout", async () => {
+  const observedTimeouts = [];
+  const captureTimeout = async (operation, timeoutMs) => {
+    observedTimeouts.push(timeoutMs);
+    return operation(new AbortController().signal);
+  };
+
+  const onboarding = await call("onboarding", request("/api/onboarding", {
+    body: onboardingBody(),
+  }), async () => okJson({ ok: true, persisted: true }), { timedOperation: captureTimeout });
+  assert.equal(onboarding.status, 200);
+
+  const phaseTwo = await call("phaseTwoVerify", request("/api/phase-two/verify", {
+    body: { token: tokenFixture },
+  }), async () => okJson(), { timedOperation: captureTimeout });
+  assert.equal(phaseTwo.status, 200);
+
+  assert.deepEqual(observedTimeouts, [45_000, 20_000]);
+});
+
 test("onboarding validates nested consent and emits the exact active-workflow schema", async () => {
   let forwarded;
   const response = await call("onboarding", request("/api/onboarding", { body: onboardingBody() }), async (_url, init) => {
