@@ -3,10 +3,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { loadPgClientAuthority } from "../../../db/client-authority.mjs";
+import { validateClusterReceiptBytes } from "./validate-cluster-receipt.mjs";
 
 const fail = (reason = "unknown") => { throw new Error(`restore_target_preflight_failed:${reason}`); };
 const REQUIRED = [
-  "--connection-string", "--pgpass-file", "--source-receipt",
+  "--connection-string", "--pgpass-file", "--source-receipt-base64",
   "--expected-system-identifier", "--expected-server-address", "--expected-server-port",
   "--expected-database", "--expected-user",
 ];
@@ -26,7 +27,7 @@ function parseArgs(args) {
 
 export async function attestEmptyRestoreTarget(options) {
   const {
-    connectionString, pgpassFile, sourceReceiptPath, expectedSystemIdentifier,
+    connectionString, pgpassFile, sourceReceiptPath, sourceReceiptBytes, expectedSystemIdentifier,
     expectedServerAddress, expectedServerPort, expectedDatabase, expectedUser,
   } = options;
   if (expectedDatabase !== "pkc_founder_mfa_restore_drill" || expectedUser !== "pkc_bootstrap_admin") fail("declared_authority");
@@ -41,7 +42,11 @@ export async function attestEmptyRestoreTarget(options) {
       || !["127.0.0.1", "::1", "localhost"].includes(target.hostname)) fail("target_url_identity");
 
   let sourceReceipt;
-  try { sourceReceipt = JSON.parse(readFileSync(sourceReceiptPath, "utf8")); } catch { fail("source_receipt_read"); }
+  try {
+    const bytes = Buffer.isBuffer(sourceReceiptBytes) ? sourceReceiptBytes : readFileSync(sourceReceiptPath);
+    validateClusterReceiptBytes(bytes);
+    sourceReceipt = JSON.parse(bytes.toString("utf8"));
+  } catch { fail("source_receipt_read"); }
   if (!sourceReceipt || sourceReceipt.database !== "pkc_founder_mfa"
       || !/^[1-9][0-9]{15,24}$/.test(sourceReceipt.system_identifier)
       || sourceReceipt.system_identifier === expectedSystemIdentifier) fail("source_receipt_identity");
@@ -110,10 +115,14 @@ export async function attestEmptyRestoreTarget(options) {
 
 async function main() {
   const values = parseArgs(process.argv.slice(2));
+  const encodedReceipt = values.get("--source-receipt-base64");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encodedReceipt)) fail("source_receipt_encoding");
+  const sourceReceiptBytes = Buffer.from(encodedReceipt, "base64");
+  if (sourceReceiptBytes.length < 1 || sourceReceiptBytes.length > 16384 || sourceReceiptBytes.toString("base64") !== encodedReceipt) fail("source_receipt_encoding");
   await attestEmptyRestoreTarget({
     connectionString: values.get("--connection-string"),
     pgpassFile: values.get("--pgpass-file"),
-    sourceReceiptPath: values.get("--source-receipt"),
+    sourceReceiptBytes,
     expectedSystemIdentifier: values.get("--expected-system-identifier"),
     expectedServerAddress: values.get("--expected-server-address"),
     expectedServerPort: Number(values.get("--expected-server-port")),

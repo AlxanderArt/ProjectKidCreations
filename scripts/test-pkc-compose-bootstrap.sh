@@ -49,7 +49,7 @@ docker run -d --name "$name" \
   "$image" postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf >/dev/null
 ready=false
 for _ in $(seq 1 60); do
-  if docker exec "$name" pg_isready -U pkc_bootstrap_admin >/dev/null 2>&1; then ready=true; break; fi
+  if docker exec "$name" sh -c '[ "$(cat /proc/1/comm)" = postgres ]' >/dev/null 2>&1 && docker exec "$name" pg_isready -U pkc_bootstrap_admin >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == true ]] || { printf '%s\n' 'compose_bootstrap_not_ready' >&2; exit 1; }

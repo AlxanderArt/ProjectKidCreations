@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync, chmodSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -212,6 +213,33 @@ test("cluster identity receipt validator enforces every exact identity and durab
   }
 });
 
+test("backup receipt validator rejects a two-link completion marker", () => {
+  const dir = temporaryRoot("pkc-backup-receipt-links-");
+  const artifactName = "pkc-onboarding-20261002T041500Z.dump.age";
+  const artifact = path.join(dir, artifactName);
+  const checksum = `${artifact}.sha256`;
+  const receipt = `${artifact}.receipt.json`;
+  const sourceReceipt = path.join(dir, "cluster-identity.receipt.json");
+  const artifactBytes = Buffer.from("encrypted-artifact-fixture\n");
+  const artifactSha = createHash("sha256").update(artifactBytes).digest("hex");
+  const sourceBytes = Buffer.from(`${JSON.stringify(validReceipt())}\n`);
+  const backupReceipt = Buffer.from(`${JSON.stringify({
+    artifact: artifactName,
+    artifactSha256: artifactSha,
+    createdAt: "20261002T041500Z",
+    schema: "pkc-encrypted-backup-receipt-v1",
+    sourceReceiptSha256: createHash("sha256").update(sourceBytes).digest("hex")
+  })}\n`);
+  for (const [file, bytes] of [[artifact, artifactBytes], [checksum, Buffer.from(`${artifactSha}  ${artifactName}\n`)], [receipt, backupReceipt], [sourceReceipt, sourceBytes]]) {
+    writeFileSync(file, bytes, { mode: 0o600 });
+    chmodSync(file, 0o600);
+  }
+  assert.equal(run("node", "scripts/validate-backup-receipt.mjs", [artifact, checksum, receipt, sourceReceipt]).status, 0);
+  linkSync(receipt, path.join(dir, "receipt-second-link.json"));
+  assert.equal(lstatSync(receipt).nlink, 2);
+  assert.notEqual(run("node", "scripts/validate-backup-receipt.mjs", [artifact, checksum, receipt, sourceReceipt]).status, 0);
+});
+
 test("capacity gate requires current use below 80 percent and bounded projected headroom", () => {
   const request = {
     schema_version: 2,
@@ -240,6 +268,8 @@ test("capacity gate requires current use below 80 percent and bounded projected 
 test("backup, restore drill, and exact-label cleanup scripts fail closed", async () => {
   const backup = read("scripts/backup-encrypted.sh");
   const restore = read("scripts/restore-drill.sh");
+  const decrypt = read("scripts/decrypt-validated-backup.mjs");
+  const nativeRestore = readFileSync(path.join(root, "scripts", "test-pkc-restore-postgres.sh"), "utf8");
   const cleanup = read("scripts/cleanup-exact-labels.sh");
   for (const source of [backup, restore]) {
     assert.match(source, /PGPASSFILE/);
@@ -263,10 +293,17 @@ test("backup, restore drill, and exact-label cleanup scripts fail closed", async
   assert.match(restore, /PKC_RESTORE_DRILL_ISOLATED/);
   assert.match(restore, /pg_restore major 16 required/);
   assert.match(restore, /pkc_founder_mfa_restore_drill/);
-  assert.match(restore, /age --decrypt --identity/);
-  assert.match(restore, /validate-backup-receipt\.mjs/);
+  assert.match(restore, /decrypt-validated-backup\.mjs/);
+  assert.match(decrypt, /spawnSync\("age"/);
+  assert.match(decrypt, /O_NOFOLLOW/);
+  assert.match(decrypt, /stdio: \[artifact\.fd, "inherit"/);
+  assert.match(decrypt, /expected-set-proof/);
+  assert.match(decrypt, /validateBackupReceiptBytes/);
+  assert.doesNotMatch(restore, /mktemp|backup\.dump|rm -rf/);
+  assert.match(nativeRestore, /docker exec -i .* pg_restore/);
+  assert.doesNotMatch(nativeRestore, /pkc-restore\.dump|docker cp \"\$archive\"|dd of=\"\$archive\"/);
   assert.match(restore, /preflight-restore-target\.mjs/);
-  assert.ok(restore.indexOf("preflight-restore-target.mjs") < restore.indexOf("age --decrypt"));
+  assert.ok(restore.indexOf("decrypt-validated-backup.mjs") < restore.indexOf("preflight-restore-target.mjs"));
   assert.ok(restore.indexOf("preflight-restore-target.mjs") < restore.indexOf("pg_restore --exit-on-error"));
   assert.match(restore, /--expected-user pkc_bootstrap_admin/);
   assert.match(restore, /--role=pkc_mfa_owner/);
@@ -311,6 +348,156 @@ test("backup, restore drill, and exact-label cleanup scripts fail closed", async
   assert.match(readFileSync(dockerLog, "utf8"), /com\.docker\.compose\.network=pkc_private/);
 });
 
+test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collision closed", () => {
+  const wrapper = read("scripts/publish-a1of1-backup.sh");
+  const publisher = read("scripts/publish-a1of1-backup.mjs");
+  const remote = read("scripts/publish-a1of1-remote.py");
+  assert.match(wrapper, /exec node .*publish-a1of1-backup\.mjs/);
+  for (const token of ["const REMOTE_ALIAS = \"a1of1\"", "const REMOTE_OWNER = \"aiel\"", "/Users/aiel/Desktop/PROJECTKIDCREATIONS/recovery/exports/vps-onboarding-postgres", "O_NOFOLLOW", "process.geteuid", "validateBackupReceiptBytes", "validateClusterReceiptBytes"])
+    assert.match(publisher, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  for (const option of ["BatchMode=yes", "StrictHostKeyChecking=yes", "IdentitiesOnly=yes", "ClearAllForwardings=yes", "ForwardAgent=no", "ForwardX11=no"])
+    assert.match(publisher, new RegExp(option));
+  assert.match(publisher, /stdio: \[inputFd === null \? "ignore" : inputFd/);
+  assert.doesNotMatch(publisher, /--host|--remote-root|--destination|\bscp\b|\brsync\b|pg_dump|pg_restore|psql|PGPASSFILE|age --decrypt/);
+  for (const token of ["dir_fd=", "os.O_NOFOLLOW", "os.fstat", "revalidate_chain", "FileVault is On.", "follow_symlinks=False"])
+    assert.match(remote, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.ok(remote.lastIndexOf("cleanup_stage(staging_fd, receipts_fd, nonce, uid)") < remote.lastIndexOf("publish_receipt_no_replace(receipts_fd"));
+  assert.match(remote, /publish_receipt_no_replace\(receipts_fd, temp_read, temp_name, custody_name\)/);
+  const commitFunction = remote.slice(remote.indexOf("def publish_receipt_no_replace"), remote.indexOf("def main"));
+  assert.doesNotMatch(commitFunction, /os\.open\(temp_name/);
+  assert.match(remote, /fclonefileat/);
+  assert.match(remote, /AT_EMPTY_PATH|0x1000/);
+  assert.doesNotMatch(remote, /renameatx_np|os\.rename\(temp_name/);
+  assert.doesNotMatch(remote, /pg_dump|pg_restore|psql|age --decrypt|PGPASSFILE/);
+  assert.notEqual(run("bash", "scripts/publish-a1of1-backup.sh").status, 0);
+
+  const directory = temporaryRoot("pkc-a1of1-remote-test-");
+  for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(directory, name), { mode: 0o700 });
+  chmodSync(directory, 0o700);
+  const owner = spawnSync("id", ["-un"], { encoding: "utf8" }).stdout.trim();
+  assert.notEqual(owner, "aiel");
+  const artifactName = "pkc-onboarding-20261002T031700Z.dump.age";
+  const artifactBytes = Buffer.from("ciphertext-only-fixture\n");
+  const artifactSha = createHash("sha256").update(artifactBytes).digest("hex");
+  const checksumBytes = Buffer.from(`${artifactSha}  ${artifactName}\n`);
+  const receiptBytes = Buffer.from('{"schema":"pkc-encrypted-backup-receipt-v1"}\n');
+  const sourceReceiptBytes = Buffer.from('{"schema":"pkc-postgres-cluster-identity-v1"}\n');
+  const checksumSha = createHash("sha256").update(checksumBytes).digest("hex");
+  const receiptSha = createHash("sha256").update(receiptBytes).digest("hex");
+  const sourceReceiptSha = createHash("sha256").update(sourceReceiptBytes).digest("hex");
+  const helper = path.join(scope, "scripts", "publish-a1of1-remote.py");
+  const env = { ...process.env, PKC_A1OF1_REMOTE_TEST_MODE: "1" };
+  const invoke = (root, nonce, mode, args = [], input) => spawnSync("python3", [helper, mode, root, owner, artifactName, artifactSha, nonce, ...args], { encoding: "utf8", env, input });
+  const stage = (root, nonce) => {
+    const preflight = invoke(root, nonce, "preflight", [String(artifactBytes.length)]);
+    assert.equal(preflight.status, 0, preflight.stderr);
+    const layout = /layout_proof=([a-f0-9]{64})/.exec(preflight.stdout)?.[1];
+    const staged = /stage_proof=([a-f0-9]{64})/.exec(preflight.stdout)?.[1];
+    assert.ok(layout && staged);
+    const tokens = [layout, staged];
+    for (const [name, bytes, sha] of [["artifact", artifactBytes, artifactSha], ["checksum", checksumBytes, checksumSha], ["backup-receipt", receiptBytes, receiptSha], ["source-receipt", sourceReceiptBytes, sourceReceiptSha]]) {
+      const received = invoke(root, nonce, "receive", [...tokens, name, sha], bytes);
+      assert.equal(received.status, 0, received.stderr);
+    }
+    return { target: path.join(root, "staging", nonce), tokens };
+  };
+  const finalize = (root, nonce, tokens) => invoke(root, nonce, "finalize", [...tokens, checksumSha, receiptSha, sourceReceiptSha]);
+  const cleanup = (root, nonce, tokens) => invoke(root, nonce, "cleanup", tokens);
+
+  const firstNonce = "1".repeat(32);
+  const firstStage = stage(directory, firstNonce);
+  const first = finalize(directory, firstNonce, firstStage.tokens);
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /a1of1_backup_published=true/);
+  assert.match(first.stdout, /a1of1_idempotent=false/);
+  const bundle = path.join(directory, "bundles", artifactSha);
+  const receipt = path.join(directory, "receipts", `${artifactSha}.custody-receipt.json`);
+  assert.deepEqual(readdirSync(bundle).sort(), [artifactName, `${artifactName}.sha256`].sort());
+  assert.equal(createHash("sha256").update(readFileSync(path.join(bundle, artifactName))).digest("hex"), artifactSha);
+  const custody = JSON.parse(readFileSync(receipt, "utf8"));
+  assert.equal(custody.schema, "pkc-a1of1-custody-receipt-v1");
+  assert.equal(custody.artifactSha256, artifactSha);
+  assert.equal(custody.backupReceiptSha256, receiptSha);
+  assert.equal(custody.sourceReceiptSha256, sourceReceiptSha);
+  assert.equal(custody.remoteHostAlias, "a1of1");
+  assert.equal(custody.destinationRoot, directory);
+  const publishedBackupReceipt = path.join(directory, "receipts", `${artifactSha}.backup-receipt.json`);
+  assert.equal(createHash("sha256").update(readFileSync(publishedBackupReceipt)).digest("hex"), receiptSha);
+  assert.equal(lstatSync(publishedBackupReceipt).nlink, 1);
+  const publishedSourceReceipt = path.join(directory, "receipts", `${artifactSha}.source-receipt.json`);
+  assert.equal(createHash("sha256").update(readFileSync(publishedSourceReceipt)).digest("hex"), sourceReceiptSha);
+  assert.equal(lstatSync(publishedSourceReceipt).nlink, 1);
+  assert.equal(lstatSync(path.join(bundle, artifactName)).nlink, 1);
+  assert.equal(existsSync(path.join(directory, "staging", firstNonce)), false);
+
+  const secondNonce = "2".repeat(32);
+  const secondStage = stage(directory, secondNonce);
+  const second = finalize(directory, secondNonce, secondStage.tokens);
+  assert.equal(second.status, 0, second.stderr);
+  assert.match(second.stdout, /a1of1_idempotent=true/);
+  assert.equal(existsSync(path.join(directory, "staging", secondNonce)), false);
+
+  const hostileDirectory = temporaryRoot("pkc-a1of1-remote-test-");
+  for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(hostileDirectory, name), { mode: 0o700 });
+  chmodSync(hostileDirectory, 0o700);
+  const hostileNonce = "3".repeat(32);
+  const hostileStage = stage(hostileDirectory, hostileNonce);
+  writeFileSync(path.join(hostileDirectory, "receipts", `${artifactSha}.custody-receipt.json`), receiptBytes, { mode: 0o600 });
+  const hostile = finalize(hostileDirectory, hostileNonce, hostileStage.tokens);
+  assert.notEqual(hostile.status, 0);
+  assert.equal(existsSync(path.join(hostileDirectory, "bundles", artifactSha)), false);
+  const cleaned = cleanup(hostileDirectory, hostileNonce, hostileStage.tokens);
+  assert.equal(cleaned.status, 0, cleaned.stderr);
+  assert.equal(existsSync(hostileStage.target), false);
+
+  const faultDirectory = temporaryRoot("pkc-a1of1-remote-test-fault-");
+  for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(faultDirectory, name), { mode: 0o700 });
+  chmodSync(faultDirectory, 0o700);
+  const faultNonce = "7".repeat(32);
+  const faultStage = stage(faultDirectory, faultNonce);
+  const fault = spawnSync("python3", [helper, "finalize", faultDirectory, owner, artifactName, artifactSha, faultNonce, ...faultStage.tokens, checksumSha, receiptSha, sourceReceiptSha], { encoding: "utf8", env: { ...env, PKC_A1OF1_REMOTE_TEST_FAIL_BEFORE_COMMIT: "1" } });
+  assert.notEqual(fault.status, 0);
+  assert.equal(existsSync(path.join(faultDirectory, "receipts", `${artifactSha}.custody-receipt.json`)), false);
+
+  const abaDirectory = temporaryRoot("pkc-a1of1-remote-test-aba-");
+  for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(abaDirectory, name), { mode: 0o700 });
+  chmodSync(abaDirectory, 0o700);
+  const abaNonce = "6".repeat(32);
+  const abaStage = stage(abaDirectory, abaNonce);
+  const abaAway = `${abaDirectory}-away`;
+  renameSync(abaDirectory, abaAway);
+  renameSync(abaAway, abaDirectory);
+  const abaFinalize = finalize(abaDirectory, abaNonce, abaStage.tokens);
+  assert.notEqual(abaFinalize.status, 0);
+  assert.equal(existsSync(path.join(abaDirectory, "receipts", `${artifactSha}.custody-receipt.json`)), false);
+
+  const collisionDirectory = temporaryRoot("pkc-a1of1-remote-test-");
+  for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(collisionDirectory, name), { mode: 0o700 });
+  chmodSync(collisionDirectory, 0o700);
+  const collisionNonce = "5".repeat(32);
+  const collisionStage = stage(collisionDirectory, collisionNonce);
+  const tokenMismatch = finalize(collisionDirectory, collisionNonce, ["0".repeat(64), collisionStage.tokens[1]]);
+  assert.notEqual(tokenMismatch.status, 0);
+  assert.equal(existsSync(path.join(collisionDirectory, "receipts", `${artifactSha}.custody-receipt.json`)), false);
+  const collisionBundle = path.join(collisionDirectory, "bundles", artifactSha);
+  mkdirSync(collisionBundle, { mode: 0o700 });
+  writeFileSync(path.join(collisionBundle, "unexpected"), "collision", { mode: 0o600 });
+  const collision = finalize(collisionDirectory, collisionNonce, collisionStage.tokens);
+  assert.notEqual(collision.status, 0);
+  assert.equal(existsSync(path.join(collisionDirectory, "receipts", `${artifactSha}.custody-receipt.json`)), false);
+  const collisionCleanup = cleanup(collisionDirectory, collisionNonce, collisionStage.tokens);
+  assert.equal(collisionCleanup.status, 0, collisionCleanup.stderr);
+
+  const unsafeDirectory = temporaryRoot("pkc-a1of1-remote-test-");
+  for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(unsafeDirectory, name), { mode: 0o700 });
+  chmodSync(unsafeDirectory, 0o700);
+  const unsafeNonce = "4".repeat(32);
+  writeFileSync(path.join(unsafeDirectory, "staging", unsafeNonce), "unsafe-path", { mode: 0o600 });
+  const unsafeCleanup = invoke(unsafeDirectory, unsafeNonce, "cleanup", ["0".repeat(64), "1".repeat(64)]);
+  assert.notEqual(unsafeCleanup.status, 0);
+  assert.equal(existsSync(path.join(unsafeDirectory, "staging", unsafeNonce)), true);
+});
+
 test("cleanup manifest validator requires the exact closed 215-volume schema and never deletes", () => {
   const source = read("scripts/validate-cleanup-manifest.mjs");
   assert.doesNotMatch(source, /docker\s+volume\s+(?:rm|prune)|rmSync|unlinkSync/);
@@ -335,7 +522,8 @@ test("runbook defines provisioning gates, isolated recovery, rollback, and prohi
   for (const marker of [
     "capacity below 80%", "rendered Compose", "cluster identity receipt", "encrypted backup",
     "isolated restore drill", "volume preservation", "SQLite remains authoritative", "no host port",
-    "Rollback", "Do not edit /root/docker-compose.yml", "Do not delete volumes"
+    "Rollback", "Do not edit /root/docker-compose.yml", "Do not delete volumes", "A1of1",
+    "/Users/aiel/Desktop/PROJECTKIDCREATIONS/recovery/exports/vps-onboarding-postgres", "No recurring schedule is authorized"
   ]) assert.match(runbook, new RegExp(marker, "i"));
   const ordered = ["000_roles.sql", "004_onboarding_roles.sql", "006_backup_reader.sql", "migrations `001`, `002`, `003`, and `004`", "010_seal_migrator.sql", "020_seal_bootstrap.sql"];
   let cursor = -1;

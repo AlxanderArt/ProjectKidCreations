@@ -13,6 +13,9 @@ This directory is an isolated, repository-only infrastructure and recovery contr
 - Database: `pkc_founder_mfa`
 - No host port
 - PostgreSQL never joins `root_default`
+- Encrypted off-host recovery destination: fixed SSH alias `a1of1` at `/Users/aiel/Desktop/PROJECTKIDCREATIONS/recovery/exports/vps-onboarding-postgres`
+
+The A1of1 PostgreSQL 17 cluster remains the canonical local ProjectKidCreations universe database. A VPS PostgreSQL 16 onboarding backup is an encrypted exported recovery artifact only; the publisher has no decryption, database connection, import, or scheduling capability.
 
 The root n8n project may join `pkc_onboarding_private` as an external network only. Its `/home/node/.n8n` volume and SQLite database authority remain unchanged. `root-compose.network.override.example.yaml` is an operator-reviewed example; never apply it by editing `/root/docker-compose.yml` from this repository workflow.
 
@@ -44,8 +47,12 @@ The committed TLS files are non-cryptographic fixtures only. Real certificates a
 node --test tests/contracts/pkc-onboarding-postgres-infra.test.mjs
 scripts/test-pkc-compose-bootstrap.sh
 scripts/test-pkc-restore-postgres.sh
-python3 -m py_compile ops/pkc-onboarding-postgres/scripts/validate-secrets.py
+python3 -m py_compile ops/pkc-onboarding-postgres/scripts/validate-secrets.py \
+  ops/pkc-onboarding-postgres/scripts/publish-a1of1-remote.py
+node --check ops/pkc-onboarding-postgres/scripts/publish-a1of1-backup.mjs \
+  ops/pkc-onboarding-postgres/scripts/decrypt-validated-backup.mjs
 bash -n ops/pkc-onboarding-postgres/scripts/backup-encrypted.sh \
+  ops/pkc-onboarding-postgres/scripts/publish-a1of1-backup.sh \
   ops/pkc-onboarding-postgres/scripts/restore-drill.sh \
   ops/pkc-onboarding-postgres/scripts/cleanup-exact-labels.sh
 ```

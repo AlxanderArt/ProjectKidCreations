@@ -43,26 +43,37 @@ script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 project_root="$(CDPATH= cd -- "$script_dir/../../.." && pwd -P)"
 for command_name in node age pg_restore psql; do command -v "$command_name" >/dev/null || { printf 'restore rejected: missing command %s\n' "$command_name" >&2; exit 1; }; done
 [[ "$(pg_restore --version)" =~ ^pg_restore\ \(PostgreSQL\)\ 16\. ]] || { printf '%s\n' 'restore rejected: pg_restore major 16 required' >&2; exit 1; }
-node "$script_dir/validate-cluster-receipt.mjs" "$SOURCE_RECEIPT" >/dev/null
-node "$script_dir/validate-backup-receipt.mjs" "$BACKUP" "$CHECKSUM" "$BACKUP_RECEIPT" "$SOURCE_RECEIPT" >/dev/null
+validation_result="$(node "$script_dir/decrypt-validated-backup.mjs" --validate-only \
+  --artifact "$BACKUP" \
+  --checksum "$CHECKSUM" \
+  --backup-receipt "$BACKUP_RECEIPT" \
+  --source-receipt "$SOURCE_RECEIPT")"
+validation_first="${validation_result%%$'\n'*}"
+validation_second="${validation_result#*$'\n'}"
+[[ "$validation_first" =~ ^set_proof=([a-f0-9]{64})$ && "$validation_second" =~ ^source_receipt_base64=([A-Za-z0-9+/]+={0,2})$ ]] || { printf '%s\n' 'restore rejected: validated set handoff invalid' >&2; exit 1; }
+set_proof="${validation_first#set_proof=}"
+source_receipt_base64="${validation_second#source_receipt_base64=}"
 node "$project_root/db/validate-client-authority.mjs" --connection-string "$TARGET_BOOTSTRAP_DSN" --pgpass-file "$TARGET_BOOTSTRAP_PGPASS" --expected-user pkc_bootstrap_admin >/dev/null
 node "$project_root/db/validate-client-authority.mjs" --connection-string "$TARGET_VERIFIER_DSN" --pgpass-file "$TARGET_VERIFIER_PGPASS" --expected-user pkc_mfa_verifier >/dev/null
 node "$script_dir/preflight-restore-target.mjs" \
   --connection-string "$TARGET_BOOTSTRAP_DSN" \
   --pgpass-file "$TARGET_BOOTSTRAP_PGPASS" \
-  --source-receipt "$SOURCE_RECEIPT" \
+  --source-receipt-base64 "$source_receipt_base64" \
   --expected-system-identifier "$TARGET_SYSTEM_IDENTIFIER" \
   --expected-server-address "$TARGET_ADDRESS" \
   --expected-server-port "$TARGET_PORT" \
   --expected-database pkc_founder_mfa_restore_drill \
   --expected-user pkc_bootstrap_admin >/dev/null
 
-plain="$(mktemp)"
-trap 'rm -f -- "$plain"' EXIT
-age --decrypt --identity "$IDENTITY_FILE" --output "$plain" "$BACKUP"
-[[ -s "$plain" ]] || { printf '%s\n' 'restore rejected: decrypted backup is empty' >&2; exit 1; }
 export PGPASSFILE="$TARGET_BOOTSTRAP_PGPASS"
-pg_restore --exit-on-error --single-transaction --no-owner --role=pkc_mfa_owner --dbname="$TARGET_BOOTSTRAP_DSN" "$plain"
+node "$script_dir/decrypt-validated-backup.mjs" --decrypt-stdout \
+  --artifact "$BACKUP" \
+  --checksum "$CHECKSUM" \
+  --backup-receipt "$BACKUP_RECEIPT" \
+  --source-receipt "$SOURCE_RECEIPT" \
+  --identity-file "$IDENTITY_FILE" \
+  --expected-set-proof "$set_proof" | \
+  pg_restore --exit-on-error --single-transaction --no-owner --role=pkc_mfa_owner --dbname="$TARGET_BOOTSTRAP_DSN"
 psql "$TARGET_BOOTSTRAP_DSN" -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa_restore_drill -f "$project_root/db/roles/004_onboarding_roles.sql" >/dev/null
 psql "$TARGET_BOOTSTRAP_DSN" -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa_restore_drill -f "$project_root/db/roles/006_backup_reader.sql" >/dev/null
 psql "$TARGET_BOOTSTRAP_DSN" -v ON_ERROR_STOP=1 -c "ALTER DATABASE pkc_founder_mfa_restore_drill SET pkc.environment='production'" >/dev/null
