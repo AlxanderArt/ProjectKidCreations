@@ -78,7 +78,7 @@ export function createNodeRouter(options = {}) {
   for (const [path, routeName] of Object.entries(MFA_PATHS)) handlers.set(path, mfaHandlerFactory(routeName));
   handlers.set("/api/account/entry-state", entryStateHandler);
 
-  if (handlers.size !== 19) throw new TypeError("invalid Node route inventory");
+  if (handlers.size !== 20) throw new TypeError("invalid Node route inventory");
 
   return async function nodeRouter(req, res) {
     const handler = handlers.get(exactPath(req.url));

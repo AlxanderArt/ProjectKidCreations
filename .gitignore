@@ -12,6 +12,9 @@
 
 # Node
 node_modules/
+__pycache__/
+*.py[cod]
+ops/pkc-onboarding-postgres/secrets/
 npm-debug.log
 yarn-error.log
 playwright-report/

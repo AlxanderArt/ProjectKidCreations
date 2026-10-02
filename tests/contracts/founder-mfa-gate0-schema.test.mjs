@@ -12,9 +12,11 @@ const nativeHarness = readFileSync(new URL("../../scripts/test-founder-mfa-postg
 
 test("ordered migration authority is checksum-ledgered, target-guarded, locked, and replay safe", () => {
   assert.deepEqual(manifest.schemaVersion, 1);
-  assert.equal(manifest.migrations.length, 2);
+  assert.equal(manifest.migrations.length, 4);
   assert.equal(manifest.migrations[0].file, "001_founder_mfa.sql");
   assert.equal(manifest.migrations[1].file, "002_founder_mfa_production_authority.sql");
+  assert.equal(manifest.migrations[2].file, "003_onboarding_email_outbox.sql");
+  assert.equal(manifest.migrations[3].file, "004_backup_read_authority.sql");
   for (const entry of manifest.migrations) assert.match(entry.sha256, /^[a-f0-9]{64}$/);
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /migration_ledger/);
@@ -35,12 +37,13 @@ test("ordered migration authority is checksum-ledgered, target-guarded, locked, 
 
 test("roles and defaults are closed around a dedicated NOLOGIN owner", () => {
   assert.match(roles, /pkc_mfa_owner NOLOGIN/);
-  for (const role of ["pkc_mfa_migrator", "pkc_mfa_runtime", "pkc_mfa_verifier", "pkc_mfa_outbox_worker"]) {
+  for (const role of ["pkc_mfa_migrator", "pkc_mfa_runtime", "pkc_mfa_verifier", "pkc_mfa_outbox_worker", "pkc_onboarding_runtime", "pkc_onboarding_email_worker", "pkc_onboarding_email_reconciler"]) {
     assert.match(roles, new RegExp(`${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`));
   }
   assert.match(roles, /GRANT pkc_mfa_owner TO pkc_mfa_migrator/);
   assert.match(roles, /1 \/ \(pg_catalog\.current_database\(\) = :'expected_database'\)::integer/);
   assert.match(roles, /\\set ON_ERROR_STOP on/);
+  assert.match(roles, /expected_empty_cluster/);
   assert.doesNotMatch(roles, /GRANT pkc_mfa_owner TO pkc_mfa_runtime/);
   assert.match(roles, /REVOKE (?:CONNECT, TEMPORARY|ALL)[^;]*FROM PUBLIC/);
   assert.match(migration, /ALTER DEFAULT PRIVILEGES FOR ROLE pkc_mfa_owner/);
@@ -88,4 +91,16 @@ test("readiness attests exact database, version, roles, owners, ACLs, functions 
 test("native PostgreSQL harness uses the reviewed immutable image reference", () => {
   assert.match(nativeHarness, /postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea/);
   assert.doesNotMatch(nativeHarness, /docker (?:run|image inspect)[^\n]*postgres:16-alpine(?:\s|$)/);
+});
+
+test("native PostgreSQL fixture ownership is prepared and scrubbed in least-privilege offline containers", () => {
+  assert.doesNotMatch(nativeHarness, /^chown\s+-R\s+70:70/m);
+  assert.match(nativeHarness, /--name \"\$setup_name\" --pull=never --network none --read-only/);
+  assert.match(nativeHarness, /--cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER/);
+  assert.match(nativeHarness, /--name \"\$scrub_name\" --pull=never --network none --read-only/);
+  assert.match(nativeHarness, /--cap-drop ALL --cap-add DAC_OVERRIDE --cap-add FOWNER/);
+  assert.doesNotMatch(nativeHarness, /--privileged|chmod\s+(?:0777|0755)/);
+  for (const command of nativeHarness.matchAll(/^docker run ([^\n]+)/gm)) {
+    assert.match(command[1], /--pull=never/);
+  }
 });

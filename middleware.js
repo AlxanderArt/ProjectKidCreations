@@ -1,4 +1,5 @@
 import { next } from "@vercel/functions";
+import { isProtectedBrowsePath } from "./server/auth/browse-paths.mjs";
 import { resolveEntryState } from "./server/auth/entry-state.mjs";
 
 const PRIVATE_HEADERS = Object.freeze({
@@ -9,7 +10,9 @@ const PRIVATE_HEADERS = Object.freeze({
 
 export const config = {
   runtime: "nodejs",
-  matcher: ["/landing.html", "/landing", "/landing/", "/dist/landing.js", "/dist/landing.js.map"],
+  matcher: [
+    "/((?!api/).*)",
+  ],
 };
 
 export function createBrowseGateMiddleware(dependencies = {}) {
@@ -18,6 +21,9 @@ export function createBrowseGateMiddleware(dependencies = {}) {
   const nextImpl = dependencies.next || next;
 
   return async function browseGateMiddleware(request) {
+    if (!isProtectedBrowsePath(new URL(request.url).pathname)) {
+      return nextImpl();
+    }
     const method = String(request.method || "GET").toUpperCase();
     if (method !== "GET" && method !== "HEAD") {
       return new Response(null, {

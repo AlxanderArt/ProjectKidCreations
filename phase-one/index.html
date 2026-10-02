@@ -8,7 +8,7 @@
   <meta name="description" content="ProjectKidCreations onboarding — engineered rebellion.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M0 0h24l8 8v24H0z' fill='%23FF5F1F'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/tokens.css">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/phase-one/styles.css">
   <link rel="stylesheet" href="/assets/pkc-motion/tokens.css">
   <link rel="stylesheet" href="/assets/pkc-motion/interaction.css">
   <link rel="stylesheet" href="/assets/pkc-motion/boot/pkc-boot.css">
@@ -48,8 +48,35 @@
     <a href="#" class="back" id="back" hidden>← BACK</a>
   </header>
 
-  <main id="form" aria-live="polite">
+  <main id="form">
     <h1 class="sr-only">PROJECTKIDCREATIONS ONBOARDING</h1>
+    <section
+      class="eligibility"
+      id="eligibility-section"
+      data-question="eligibility"
+      data-active="false"
+      aria-hidden="true"
+      aria-labelledby="eligibility-heading"
+    >
+      <p class="step-label">ELIGIBILITY &amp; NOTICES</p>
+      <h2 class="prompt" id="eligibility-heading" tabindex="-1">BEFORE WE BEGIN</h2>
+      <p class="eligibility-copy">Account onboarding is available only to people age 14 or older.</p>
+      <div class="consent-item">
+        <input id="minimum-age-confirm-input" type="checkbox" required aria-describedby="minimum-age-confirm-hint eligibility-error">
+        <label for="minimum-age-confirm-input">I confirm I am at least 14 years old.</label>
+      </div>
+      <p class="error-hint" id="minimum-age-confirm-hint">// REQUIRED FOR ACCOUNT ACCESS</p>
+      <div class="consent-item">
+        <input id="policy-consent-input" type="checkbox" required aria-describedby="policy-consent-hint eligibility-error">
+        <label for="policy-consent-input">I agree to the Terms and acknowledge the Privacy Notice.</label>
+      </div>
+      <p class="error-hint legal-links" id="policy-consent-hint">
+        Review <a href="/terms/" target="_blank" rel="noopener">Terms (opens in a new tab)</a>
+        and <a href="/privacy/" target="_blank" rel="noopener">Privacy Notice (opens in a new tab)</a>.
+      </p>
+      <p class="error-msg eligibility-error" id="eligibility-error" role="alert" hidden></p>
+      <button type="button" class="cta" id="eligibility-continue">CONTINUE →</button>
+    </section>
   </main>
 
   <section
@@ -57,14 +84,17 @@
     data-question="end"
     data-active="false"
     aria-hidden="true"
+    aria-labelledby="completion-heading"
+    aria-describedby="confirm-line delivery-help"
     id="end-section"
   >
-    <h1>TRANSMISSION RECEIVED</h1>
-    <p class="confirm-line" id="confirm-line">// SECURE CHANNEL CONFIRMED</p>
+    <h1 id="completion-heading" tabindex="-1">Check your email to continue onboarding</h1>
+    <p class="confirm-line" id="confirm-line">Your information is saved. Email delivery may take a few minutes.</p>
+    <p class="delivery-help" id="delivery-help">If you don’t see the email, check your spam or junk folder.</p>
     <p class="submission-id" id="submission-id" hidden></p>
   </section>
 
   <script src="/phase-one/config.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="/phase-one/app.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,10 @@
+REVOKE ALL ON SCHEMA pkc_auth FROM pkc_backup_reader;
+GRANT USAGE ON SCHEMA pkc_auth TO pkc_backup_reader;
+REVOKE ALL ON ALL TABLES IN SCHEMA pkc_auth FROM pkc_backup_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA pkc_auth TO pkc_backup_reader;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA pkc_auth FROM pkc_backup_reader;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA pkc_auth TO pkc_backup_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE pkc_mfa_owner IN SCHEMA pkc_auth REVOKE ALL ON TABLES FROM pkc_backup_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE pkc_mfa_owner IN SCHEMA pkc_auth GRANT SELECT ON TABLES TO pkc_backup_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE pkc_mfa_owner IN SCHEMA pkc_auth REVOKE ALL ON SEQUENCES FROM pkc_backup_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE pkc_mfa_owner IN SCHEMA pkc_auth GRANT SELECT ON SEQUENCES TO pkc_backup_reader;

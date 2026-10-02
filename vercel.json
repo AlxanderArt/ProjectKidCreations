@@ -4,6 +4,10 @@
   "outputDirectory": ".",
   "rewrites": [
     {
+      "source": "/api/onboarding",
+      "destination": "/api/node"
+    },
+    {
       "source": "/api/phase-two/save",
       "destination": "/api/node"
     },
@@ -93,6 +97,11 @@
     }
   ],
   "redirects": [
+    {
+      "source": "/onboarding/",
+      "destination": "/onboarding",
+      "permanent": false
+    },
     {
       "source": "/phase-four",
       "destination": "/",

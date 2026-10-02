@@ -5,7 +5,7 @@
       SAVE_URL:           "/api/phase-three/save",
       EVENT_URL:          "/api/phase-three/event",
       CHECK_USERNAME_URL: "/api/phase-three/check-username",
-      EXPECTED_API_VERSION: "1.0.0",
+      EXPECTED_API_VERSION: "1.1.0",
       LOADING_TIMEOUT_MS: 12000,
       AUTO_RETRY_DELAY_MS: 1500,
       ABANDON_AFTER_MS: 120000,

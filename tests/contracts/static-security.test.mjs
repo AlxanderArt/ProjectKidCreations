@@ -160,22 +160,24 @@ test("frontend account routes match deployed flat serverless files", () => {
 test("public mock Phase Four is quarantined from production routing", () => {
   const config = JSON.parse(read("vercel.json"));
   const redirects = config.redirects || [];
+  assert.ok(redirects.some((item) => item.source === "/onboarding/" && item.destination === "/onboarding" && item.permanent === false));
   assert.ok(redirects.some((item) => item.source === "/phase-four" && item.destination === "/"));
   assert.ok(redirects.some((item) => item.source === "/phase-four/" && item.destination === "/"));
   assert.ok(redirects.some((item) => item.source === "/phase-four/:path*" && item.destination === "/"));
 });
 
-test("catalog rewrites, middleware matchers, and local harness share the full browse gate", () => {
+test("catalog rewrites, broad middleware matcher, and local harness share the default-deny gate", () => {
   const config = JSON.parse(read("vercel.json"));
   const middleware = read("middleware.js");
   const localServer = read("scripts/playwright-local-server.mjs");
+  const classifier = read("server/auth/browse-paths.mjs");
   const rewrites = new Map((config.rewrites || []).map((item) => [item.source, item.destination]));
   assert.equal(rewrites.get("/landing"), "/landing.html");
   assert.equal(rewrites.get("/landing/"), "/landing.html");
-  for (const route of ["/landing.html", "/landing", "/landing/", "/dist/landing.js", "/dist/landing.js.map"]) {
-    assert.ok(middleware.includes(JSON.stringify(route)), route);
-    assert.ok(localServer.includes(JSON.stringify(route)), route);
-  }
+  assert.ok(middleware.includes(JSON.stringify("/((?!api/).*)")));
+  assert.match(classifier, /EXACT_PUBLIC_PATHS/);
+  assert.match(classifier, /!isPublicAnonymousPath\(pathname\)/);
+  assert.match(localServer, /isProtectedBrowsePath\(pathname\)/);
   for (const source of [middleware, localServer]) {
     assert.match(source, /result\.status === 200/);
     assert.match(source, /result\.body\?\.ok === true/);

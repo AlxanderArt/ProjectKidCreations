@@ -10,6 +10,16 @@
       "version": 2,
       "file": "002_founder_mfa_production_authority.sql",
       "sha256": "50c13f882442af7d4fa9016713265c6738132606644049449a8d2c051659696e"
+    },
+    {
+      "version": 3,
+      "file": "003_onboarding_email_outbox.sql",
+      "sha256": "702bee07a4f27a4d41e2a1e56b50d8be030444779bb8f9b9ff826342cdd87e33"
+    },
+    {
+      "version": 4,
+      "file": "004_backup_read_authority.sql",
+      "sha256": "d6b010c036733a19d02608475ef9011fbf7f5656d5f2b8f5a519f475543dc1a4"
     }
   ]
 }

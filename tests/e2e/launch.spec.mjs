@@ -1,4 +1,6 @@
 import { expect, test } from "./fixtures.mjs";
+import { createHash } from "node:crypto";
+import { handleProxy } from "../../server/proxy/core.mjs";
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([{ name: "pkc_session", value: "e2e-customer", url: "http://127.0.0.1:4173" }]);
@@ -113,6 +115,18 @@ test("anonymous catalog requests always return to onboarding or sign-in", async 
     await expect(page.locator("#public-state .actions").getByRole("link", { name: /sign-in/i })).toHaveAttribute("href", "/account/login/");
     await expect(page.getByRole("link", { name: /browse projects/i })).toHaveCount(0);
   }
+
+  for (const path of [
+    "/dist/landing.js", "/dist/landing.css", "/dist/landing.meta.json",
+    "/dist/chunk-FW4363Y4.js", "/dist/hero3d-DNDWLFDQ.js",
+    "/assets/models/splatrball-400.glb", "/src/data/products.js", "/src/components/Products.jsx",
+  ]) {
+    const response = await context.request.get(path, { maxRedirects: 0 });
+    expect(response.status(), path).toBe(307);
+    expect(new URL(response.headers().location, "http://127.0.0.1").pathname, path).toBe("/");
+  }
+  expect((await context.request.get("/phase-one/app.js", { maxRedirects: 0 })).status()).toBe(200);
+  expect((await context.request.get("/dist/pkc-motion.js", { maxRedirects: 0 })).status()).toBe(200);
 });
 
 test("customer and Founder states are server-routed without identity inference", async ({ page }) => {
@@ -440,6 +454,186 @@ test("root onboarding action has a visible keyboard focus indicator", async ({ p
   });
   expect(focus.outlineStyle).not.toBe("none");
   expect(Number.parseFloat(focus.outlineWidth)).toBeGreaterThanOrEqual(2);
+});
+
+test("canonical onboarding route boots eligibility before PII instead of exposing completion copy", async ({ page }) => {
+  await page.goto("/onboarding");
+  await expect.poll(() => page.evaluate(() => document.body.classList.contains("ready"))).toBe(true);
+  await expect(page.locator("#eligibility-section")).toHaveAttribute("data-active", "true");
+  await expect(page.locator(".back")).toBeHidden();
+  await expect(page.getByLabel("FIRST NAME // LET'S START")).toBeHidden();
+  await expect(page.locator("#eligibility-continue")).toBeVisible();
+  await expect(page.locator("#end-section")).toBeHidden();
+  await expect.poll(() => page.evaluate(() => typeof window.PKC_HEALTH === "function")).toBe(true);
+});
+
+test("Phase One consented browser payload crosses the proxy in active-workflow format", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => { window.PKC_MODE = "prod"; });
+  let browserPayload;
+  await page.route("**/api/onboarding", async (route) => {
+    browserPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, persisted: true, email: "queued" }),
+    });
+  });
+
+  await page.goto("/onboarding#3");
+  await waitForBootHandoff(page);
+  const eligibility = page.locator("#eligibility-section");
+  const minimumAge = page.locator("#minimum-age-confirm-input");
+  const policy = page.locator("#policy-consent-input");
+  await expect(eligibility).toHaveAttribute("data-active", "true");
+  await expect(page.getByLabel("FIRST NAME // LET'S START")).toBeHidden();
+
+  await page.locator("#eligibility-continue").click();
+  await expect(minimumAge).toBeFocused();
+  await expect(minimumAge).toHaveAttribute("aria-invalid", "true");
+  await expect(policy).toHaveAttribute("aria-invalid", "true");
+
+  await minimumAge.check();
+  const policyBeforeLegal = await policy.isChecked();
+  await expect(page.getByRole("link", { name: /Terms \(opens in a new tab\)/ })).toHaveAttribute("href", "/terms/");
+  await expect(page.getByRole("link", { name: /Privacy Notice \(opens in a new tab\)/ })).toHaveAttribute("href", "/privacy/");
+  expect(await policy.isChecked()).toBe(policyBeforeLegal);
+  await policy.check();
+  await page.locator("#eligibility-continue").click();
+  const firstName = page.getByLabel("FIRST NAME // LET'S START");
+  await expect(firstName).toBeVisible();
+  await expect(firstName).toBeFocused();
+
+  for (const [label, value] of [
+    ["FIRST NAME // LET'S START", "Sample"],
+    ["LAST NAME // ALMOST THERE", "Maker"],
+    ["EMAIL // WHERE WE REACH YOU", "sample@example.test"],
+  ]) {
+    const input = page.getByLabel(label);
+    await input.fill(value);
+    await input.locator("xpath=ancestor::section").locator(".cta").click();
+  }
+
+  await expect(page.locator("#end-section")).toHaveAttribute("data-active", "true");
+  await expect(page.locator("#status")).toHaveText("// EMAIL QUEUED");
+  await expect(page.getByRole("heading", { name: "Check your email to continue onboarding" })).toBeVisible();
+  await expect(page.locator("#confirm-line")).toHaveText("Your information is saved. Email delivery may take a few minutes.");
+  await expect(page.locator("#delivery-help")).toHaveText("If you don’t see the email, check your spam or junk folder.");
+  expect(browserPayload).toMatchObject({
+    version: "1.6.0",
+    data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test" },
+    consent: {
+      minimumAgeConfirmed: true,
+      termsAccepted: true,
+      privacyAcknowledged: true,
+      policyVersion: "pkc-onboarding-14-plus-v1",
+    },
+  });
+  expect(Object.keys(browserPayload).sort()).toEqual(["consent", "data", "submissionId", "version"]);
+
+  let upstream;
+  const proxyResponse = await handleProxy("onboarding", new Request("https://app.example.test/api/onboarding", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://app.example.test" },
+    body: JSON.stringify(browserPayload),
+  }), {
+    env: {
+      PKC_N8N_BASE_URL: "https://n8n.example.test",
+      PKC_AUTH_KEY: "server-secret",
+      PKC_N8N_ALLOWED_ORIGINS: "https://n8n.example.test",
+      PKC_PUBLIC_ALLOWED_ORIGINS: "https://app.example.test",
+    },
+    fetch: async (_url, init) => {
+      upstream = JSON.parse(init.body);
+      return new Response(JSON.stringify({ ok: true, persisted: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+  expect(proxyResponse.status).toBe(200);
+  expect(upstream.hash).toBe(createHash("sha256").update([
+    upstream.firstName,
+    upstream.lastName,
+    upstream.email,
+    upstream.submissionId,
+    upstream.version,
+  ].join("|"), "utf8").digest("hex"));
+  expect(upstream).toMatchObject({
+    firstName: "Sample",
+    lastName: "Maker",
+    email: "sample@example.test",
+    minimumAgeConfirmed: true,
+    termsAccepted: true,
+    privacyAcknowledged: true,
+    policyVersion: "pkc-onboarding-14-plus-v1",
+  });
+});
+
+test("Phase One never shows email-continuation success when queueing fails", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => { window.PKC_MODE = "prod"; });
+  await page.route("**/api/onboarding", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ ok: true, persisted: true, email: "not_queued" }),
+  }));
+
+  await page.goto("/onboarding");
+  await waitForBootHandoff(page);
+  await page.locator("#minimum-age-confirm-input").check();
+  await page.locator("#policy-consent-input").check();
+  await page.locator("#eligibility-continue").click();
+  for (const [label, value] of [
+    ["FIRST NAME // LET'S START", "Sample"],
+    ["LAST NAME // ALMOST THERE", "Maker"],
+    ["EMAIL // WHERE WE REACH YOU", "sample@example.test"],
+  ]) {
+    const input = page.getByLabel(label);
+    await input.fill(value);
+    await input.locator("xpath=ancestor::section").locator(".cta").click();
+  }
+
+  await expect(page.locator("#end-section")).toHaveAttribute("data-active", "false");
+  await expect(page.getByRole("heading", { name: "Check your email to continue onboarding" })).toBeHidden();
+  await expect(page.locator("#status")).toHaveText("// DETAILS SAVED — EMAIL COULD NOT BE QUEUED; CONTACT SUPPORT");
+});
+
+test("Phase One navigation never consumes or triggers the network submission limit", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    window.PKC_MODE = "prod";
+    sessionStorage.setItem("pkc_attempts", JSON.stringify(Array.from({ length: 5 }, (_, index) => Date.now() - index)));
+  });
+  let requests = 0;
+  await page.route("**/api/onboarding", async (route) => {
+    requests += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, persisted: true }) });
+  });
+
+  await page.goto("/onboarding");
+  await waitForBootHandoff(page);
+  await page.locator("#minimum-age-confirm-input").check();
+  await page.locator("#policy-consent-input").check();
+  await page.locator("#eligibility-continue").click();
+
+  for (const [label, value, expectedHash] of [
+    ["FIRST NAME // LET'S START", "Sample", "#2"],
+    ["LAST NAME // ALMOST THERE", "Maker", "#3"],
+  ]) {
+    const input = page.getByLabel(label);
+    await input.fill(value);
+    await input.locator("xpath=ancestor::section").locator(".cta").click();
+    await expect.poll(() => new URL(page.url()).hash).toBe(expectedHash);
+  }
+
+  const email = page.getByLabel("EMAIL // WHERE WE REACH YOU");
+  await email.fill("sample@example.test");
+  await email.locator("xpath=ancestor::section").locator(".cta").click();
+
+  await expect.poll(() => new URL(page.url()).hash).toBe("#3");
+  await expect(page.locator("#status")).toHaveText("// TOO MANY SUBMISSION ATTEMPTS — TRY AGAIN IN 60S");
+  expect(requests).toBe(0);
 });
 
 test("Phase One questions use heading semantics", async ({ page }) => {

@@ -40,7 +40,7 @@ test("every nested Node API route rewrites to the consolidated function without 
   const expected = expectedRoutes.map(([source]) => ({ source, destination: "/api/node" }));
   const actual = vercel.rewrites.filter((rewrite) => expected.some(({ source }) => source === rewrite.source));
 
-  assert.equal(expected.length, 19);
+  assert.equal(expected.length, 20);
   assert.deepEqual(actual, expected);
   assert.equal(new Set(actual.map((rewrite) => rewrite.source)).size, expected.length);
   assert.equal(fs.existsSync("api/node.js"), true);

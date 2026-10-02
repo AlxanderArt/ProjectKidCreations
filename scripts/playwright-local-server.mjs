@@ -1,6 +1,7 @@
 import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import { isProtectedBrowsePath } from "../server/auth/browse-paths.mjs";
 import { resolveEntryState } from "../server/auth/entry-state.mjs";
 
 const root = resolve(process.cwd());
@@ -27,6 +28,16 @@ const testEnv = Object.freeze({
   PKC_FOUNDER_SUBJECT: "11111111-1111-4111-8111-111111111111",
 });
 const testFetch = async (_url, init) => {
+  if (init?.headers?.Cookie === "pkc_session=e2e-founder") {
+    return new Response(JSON.stringify({
+      account: {
+        account_id: testEnv.PKC_FOUNDER_SUBJECT,
+        username: "PK Blick",
+        display_name: "PK Blick",
+        is_admin: true,
+      },
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  }
   if (init?.headers?.Cookie !== "pkc_session=e2e-customer") return new Response(null, { status: 401 });
   return new Response(JSON.stringify({
     account: {
@@ -58,12 +69,16 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url, "http://127.0.0.1");
   let pathname;
   try { pathname = decodeURIComponent(url.pathname); } catch { response.writeHead(400); return response.end(); }
+  if (pathname === "/onboarding/") {
+    response.writeHead(307, { Location: "/onboarding", ...headers(pathname) });
+    return response.end();
+  }
   if (pathname === "/onboarding") pathname = "/phase-one/";
   if (pathname === "/phase-four" || pathname === "/phase-four/" || pathname.startsWith("/phase-four/")) {
     response.writeHead(307, { Location: "/", ...headers(pathname) });
     return response.end();
   }
-  if (["/landing.html", "/landing", "/landing/", "/dist/landing.js", "/dist/landing.js.map"].includes(pathname)) {
+  if (isProtectedBrowsePath(pathname)) {
     const result = await resolveEntryState({ cookieHeader: request.headers.cookie, env: testEnv, fetchImpl: testFetch });
     const authorized = result.status === 200 && result.body?.ok === true && result.body?.authenticated === true &&
       (result.body.state === "customer_active" || result.body.state === "owner_active");

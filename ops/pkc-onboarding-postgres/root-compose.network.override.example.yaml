@@ -1,0 +1,10 @@
+services:
+  n8n:
+    networks:
+      - root_default
+      - pkc_onboarding_private
+
+networks:
+  pkc_onboarding_private:
+    name: pkc_onboarding_private
+    external: true
