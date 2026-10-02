@@ -12,18 +12,21 @@ async function mutatedReadiness(t, mutation) {
   t.after(async () => pool.end());
   const client = await pool.connect();
   try {
+    assert.equal((await client.query("SELECT ssl FROM pg_catalog.pg_stat_ssl WHERE pid=pg_catalog.pg_backend_pid()")).rows[0]?.ssl, true);
     await client.query("BEGIN");
+    const target = (await client.query("SELECT (pg_catalog.pg_control_system()).system_identifier::text AS system_identifier,pg_catalog.inet_server_addr()::text AS server_address,pg_catalog.inet_server_port() AS server_port")).rows[0];
     await client.query("SET LOCAL ROLE pkc_mfa_verifier");
     const rolePool = { connect: async () => ({
       query: (text, values) => /^(?:BEGIN|ROLLBACK)\b/.test(text) ? Promise.resolve({ rows: [] }) : client.query(text, values),
       release() {},
     }) };
-    assert.equal((await attestFounderMfaDatabase({ pool: rolePool, expectedDatabase: "pkc_founder_mfa", expectedUser: "pkc_mfa_verifier", expectedEnvironment: "test", expectedTls: false })).ready, true);
+    const authority = { pool: rolePool, expectedDatabase: "pkc_founder_mfa", expectedUser: "pkc_mfa_verifier", expectedEnvironment: "test", expectedSystemIdentifier: target.system_identifier, expectedServerAddress: target.server_address, expectedServerPort: Number(target.server_port), expectedTls: false, authorityState: "migrator-sealed" };
+    assert.equal((await attestFounderMfaDatabase(authority)).ready, true);
     await client.query("RESET ROLE");
     await client.query(mutation);
     await client.query("SET LOCAL ROLE pkc_mfa_verifier");
     await assert.rejects(
-      () => attestFounderMfaDatabase({ pool: rolePool, expectedDatabase: "pkc_founder_mfa", expectedUser: "pkc_mfa_verifier", expectedEnvironment: "test", expectedTls: false }),
+      () => attestFounderMfaDatabase(authority),
       /readiness_failed:/,
     );
   } finally {

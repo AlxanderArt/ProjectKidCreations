@@ -10,7 +10,7 @@ This procedure is an approval-gated release plan. It does not authorize a databa
 - Sender OAuth principal must read back exactly `projectkidcreations@gmail.com`.
 - Gmail API acceptance is not inbox delivery.
 - No step may describe an email as sent or delivered based only on PostgreSQL, Sheets, queueing, or Gmail API acceptance.
-- Ambiguous transmissions are reconciliation-only and must never be reset to pending or blindly resent.
+- An expired unarmed claim (`request_sha256 IS NULL`) may be fenced back to `pending` and claimed again. Armed transmissions are ambiguous, reconciliation-only, and must never be reset to pending or blindly resent.
 
 ## Required artifacts
 
@@ -28,9 +28,9 @@ Recompute hashes immediately before each gated action. If bytes differ from the 
 
 This gate requires separate database/credential authorization and runs before migration `003`. Do not reapply the broader `db/roles/000_roles.sql` to an existing predecessor environment.
 
-1. Read back whether `pkc_onboarding_runtime` and `pkc_onboarding_email_worker` exist, their exact attributes, memberships in both directions, database `CONNECT`, global role settings, and database-specific role-setting rows.
-2. If either role is absent or drifted, open only the approved administrative role-provisioning window and execute `db/roles/004_onboarding_roles.sql` with `expected_database` bound to the exact target database. The script is additive, target-guarded, does not mention `pkc_mfa_migrator` or `pkc_mfa_owner`, and clears target-database setting overrides.
-3. Establish or rotate each LOGIN credential through the protected secret mechanism. Do not place passwords in SQL files, command-line arguments, logs, n8n exports, or chat.
+1. Read back whether `pkc_onboarding_runtime`, `pkc_onboarding_email_worker`, and `pkc_onboarding_email_reconciler` exist, their exact attributes, memberships in both directions, database `CONNECT`, global role settings, and database-specific role-setting rows.
+2. If any onboarding role is absent or drifted, open only the approved bootstrap administrative window and execute `db/roles/004_onboarding_roles.sql` with `expected_database` bound to the exact target database. The script is additive and target-guarded; it does not grant owner membership or create/alter the migrator, but it does repair the narrow `pg_control_system()` EXECUTE grants for migrator and verifier. It also clears target-database setting overrides.
+3. Establish or rotate each LOGIN credential through the protected secret mechanism. The dispatcher credential name is `PKC Onboarding Email Dispatcher`; the reconciliation-only credential name is `PKC Onboarding Email Reconciler`. Do not place passwords in SQL files, URLs, `PGPASSWORD`, command-line arguments, logs, n8n exports, or chat; migration/readiness clients use an owner-only descriptor-validated `PGPASSFILE`.
 4. Read back exact hardened attributes (`LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION`, `NOINHERIT`), no memberships, target-database `CONNECT`, global `statement_timeout=5s`, `lock_timeout=2s`, and `idle_in_transaction_session_timeout=10s`, and zero target-database role-setting overrides.
 5. Open one real LOGIN connection as each role without printing credentials; require the expected database identity and require direct table access and unrelated MFA-function access to remain denied.
 6. Confirm the migrator remains sealed before proceeding. Stop on any unexpected membership, privilege, setting, login, or target mismatch.
@@ -119,7 +119,8 @@ If authorized, use exactly one synthetic non-customer submission and reconcile a
 6. Classify retained rows before changing worker state:
    - `blocked`: no Gmail request is authorized; retain.
    - `pending`: no Gmail request has been armed; either allow the reviewed worker to process it or pause before claim according to the incident decision.
-   - `transmitting`: never resend; leave evidence intact and allow lease expiry to move it to `ambiguous`.
+   - `transmitting` and unarmed: if `request_sha256 IS NULL`, lease expiry may fence the row back to `pending` because no Gmail request was authorized.
+   - `transmitting` and armed: if `request_sha256 IS NOT NULL`, never resend; leave evidence intact and allow lease expiry to move it to `ambiguous`.
    - `ambiguous`: reconciliation-only; never return to `pending`.
    - `accepted`: terminal Gmail API acceptance evidence; never redispatch and never call it inbox delivery.
 7. If the incident concerns the sender or HTTP serialization, deactivate the dispatcher after routing rollback and preserve all rows. Keep or separately pause the reconciler according to the incident boundary.

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { TextDecoder } from "node:util";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { loadPgClientAuthority } from "./client-authority.mjs";
 
 const MIGRATION_LOCK = "68430745190217";
 const migrationsRoot = new URL("./migrations/", import.meta.url);
@@ -80,14 +81,27 @@ export async function loadMigrationPlan() {
   return Object.freeze(plan);
 }
 
-export async function migrate({ pool, expectedDatabase, expectedEnvironment }) {
-  if (!pool || typeof pool.connect !== "function" || !/^[a-zA-Z0-9_-]{1,63}$/.test(expectedDatabase || "") || !["development","test","preview","production"].includes(expectedEnvironment)) throw new TypeError("invalid_migration_target");
+export async function migrate({ pool, expectedDatabase, expectedEnvironment, expectedSystemIdentifier, expectedServerAddress, expectedServerPort }) {
+  if (!pool || typeof pool.connect !== "function" || !/^[a-zA-Z0-9_-]{1,63}$/.test(expectedDatabase || "")
+      || !["development","test","preview","production"].includes(expectedEnvironment)
+      || !/^[1-9][0-9]{0,19}$/.test(expectedSystemIdentifier || "")
+      || typeof expectedServerAddress !== "string" || !expectedServerAddress
+      || !Number.isInteger(expectedServerPort) || expectedServerPort < 1 || expectedServerPort > 65535) throw new TypeError("invalid_migration_target");
   const plan = await loadMigrationPlan();
   const client = await pool.connect();
   const applied = [];
   try {
-    const identity = (await client.query("SELECT current_database() AS database, current_user AS role")).rows[0];
-    if (identity.database !== expectedDatabase || identity.role !== "pkc_mfa_migrator") throw new Error("migration_target_guard_failed");
+    const identity = (await client.query(`SELECT current_database() AS database,current_user AS role,
+      current_setting('server_version_num')::integer AS server_version_num,
+      pg_catalog.inet_server_addr()::text AS server_address,pg_catalog.inet_server_port() AS server_port,
+      (pg_catalog.pg_control_system()).system_identifier::text AS system_identifier,
+      current_setting('fsync') AS fsync,current_setting('full_page_writes') AS full_page_writes,
+      current_setting('synchronous_commit') AS synchronous_commit`)).rows[0];
+    if (identity.database !== expectedDatabase || identity.role !== "pkc_mfa_migrator"
+        || identity.system_identifier !== expectedSystemIdentifier || identity.server_address !== expectedServerAddress
+        || Number(identity.server_port) !== expectedServerPort || Number(identity.server_version_num) < 160000
+        || Number(identity.server_version_num) >= 170000 || identity.fsync !== "on"
+        || identity.full_page_writes !== "on" || identity.synchronous_commit !== "on") throw new Error("migration_target_guard_failed");
     const binding = (await client.query(`SELECT pg_catalog.count(*)::integer AS count,pg_catalog.min(pg_catalog.substr(setting,17)) AS environment
       FROM pg_catalog.pg_db_role_setting s CROSS JOIN LATERAL pg_catalog.unnest(s.setconfig) setting
       WHERE s.setdatabase=(SELECT oid FROM pg_catalog.pg_database WHERE datname=pg_catalog.current_database())
@@ -132,15 +146,21 @@ export async function migrate({ pool, expectedDatabase, expectedEnvironment }) {
 async function main() {
   const expectedDatabase = process.env.PKC_DATABASE_NAME;
   const expectedEnvironment = process.env.PKC_DATABASE_ENVIRONMENT;
+  const expectedSystemIdentifier = process.env.PKC_DATABASE_SYSTEM_IDENTIFIER;
+  const expectedServerAddress = process.env.PKC_DATABASE_SERVER_ADDRESS;
+  const expectedServerPort = Number(process.env.PKC_DATABASE_SERVER_PORT);
+  if (process.env.PGPASSWORD) throw new Error("descriptor_safe_pgpassfile_required");
+  const clientAuthority = await loadPgClientAuthority({ connectionString: process.env.PKC_MIGRATOR_DATABASE_URL, pgpassFile: process.env.PGPASSFILE });
   const pool = new pg.Pool({
-    connectionString: process.env.PKC_MIGRATOR_DATABASE_URL,
+    ...clientAuthority,
+    ssl: { ...clientAuthority.ssl },
     max: 1,
     connectionTimeoutMillis: 5000,
     query_timeout: 6000,
     statement_timeout: 5000,
     idle_in_transaction_session_timeout: 10000,
   });
-  try { console.log(JSON.stringify(await migrate({ pool, expectedDatabase, expectedEnvironment }))); } finally { await pool.end(); }
+  try { console.log(JSON.stringify(await migrate({ pool, expectedDatabase, expectedEnvironment, expectedSystemIdentifier, expectedServerAddress, expectedServerPort }))); } finally { await pool.end(); }
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) main().catch((error) => {
   console.error(JSON.stringify({ error: "migration_failed", code: typeof error?.code === "string" ? error.code : "unknown", position: typeof error?.position === "string" ? error.position : null }));

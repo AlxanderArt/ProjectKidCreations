@@ -132,15 +132,20 @@ export function deriveConsentPersistenceCandidate(source) {
   const connections = {
     Webhook: { main: [[edge("Size Check")]] }, "Size Check": { main: [[edge("Auth Check")]] }, "Auth Check": { main: [[edge("Circuit Check")]] },
     "Circuit Check": { main: [[edge("Schema Validate")]] }, "Schema Validate": { main: [[edge("Hash Verify")]] }, "Hash Verify": { main: [[edge("Enrich")]] },
-    Enrich: { main: [[edge(claim.name)]] }, [claim.name]: { main: [[edge(needsSheets.name)]] },
-    [needsSheets.name]: { main: [[edge(lookupSheet.name)], [edge(alreadyPersisted.name)]] },
-    [lookupSheet.name]: { main: [[edge(classifySheet.name)]] }, [classifySheet.name]: { main: [[edge(existingExact.name)]] },
-    [existingExact.name]: { main: [[edge(release.name)], [edge(sheets.name)]] },
-    [sheets.name]: { main: [[edge(release.name)], [edge(failed.name)]] }, [release.name]: { main: [[edge(aggregate.name)]] },
-    [alreadyPersisted.name]: { main: [[edge(duplicate.name)], [edge(failed.name)]] },
-    [duplicate.name]: { main: [[edge(aggregate.name)]] }, [failed.name]: { main: [[edge(failedResponse.name)]] },
-    [aggregate.name]: { main: [[edge(response.name)]] }, [response.name]: { main: [[edge("Respond Webhook")]] },
+    Enrich: { main: [[edge(claim.name)]] },
   };
+  connections[claim.name] = { main: [[edge(needsSheets.name)]] };
+  connections[needsSheets.name] = { main: [[edge(lookupSheet.name)], [edge(alreadyPersisted.name)]] };
+  connections[lookupSheet.name] = { main: [[edge(classifySheet.name)]] };
+  connections[classifySheet.name] = { main: [[edge(existingExact.name)]] };
+  connections[existingExact.name] = { main: [[edge(release.name)], [edge(sheets.name)]] };
+  connections[sheets.name] = { main: [[edge(release.name)], [edge(failed.name)]] };
+  connections[release.name] = { main: [[edge(aggregate.name)]] };
+  connections[alreadyPersisted.name] = { main: [[edge(duplicate.name)], [edge(failed.name)]] };
+  connections[duplicate.name] = { main: [[edge(aggregate.name)]] };
+  connections[failed.name] = { main: [[edge(failedResponse.name)]] };
+  connections[aggregate.name] = { main: [[edge(response.name)]] };
+  connections[response.name] = { main: [[edge("Respond Webhook")]] };
   return { id: CANDIDATE_ID, name: CANDIDATE_NAME, active: false, settings: { ...(source.settings || {}), ...RETENTION }, nodes, connections };
 }
 

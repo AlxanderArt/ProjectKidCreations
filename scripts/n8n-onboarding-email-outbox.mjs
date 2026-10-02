@@ -12,13 +12,14 @@ const RETENTION = Object.freeze({
   saveExecutionProgress: false,
   saveManualExecutions: false,
 });
-const WORKER_CREDENTIAL = Object.freeze({ postgres: { name: "PKC Onboarding Email Worker" } });
+const DISPATCHER_CREDENTIAL = Object.freeze({ postgres: { name: "PKC Onboarding Email Dispatcher" } });
+const RECONCILER_CREDENTIAL = Object.freeze({ postgres: { name: "PKC Onboarding Email Reconciler" } });
 const GMAIL_CREDENTIAL = Object.freeze({ googleOAuth2Api: { name: "PKC Gmail — projectkidcreations@gmail.com" } });
 const edge = (node) => ({ node, type: "main", index: 0 });
 const schedule = (name, seconds) => ({ name, type: "n8n-nodes-base.scheduleTrigger", typeVersion: 1.3, position: [0, 0], parameters: { rule: { interval: [{ field: "seconds", secondsInterval: seconds }] } } });
 const code = (name, jsCode) => ({ name, type: "n8n-nodes-base.code", typeVersion: 2, position: [0, 0], parameters: { language: "javaScript", jsCode } });
-const postgres = (name, query, queryReplacement) => ({
-  name, type: "n8n-nodes-base.postgres", typeVersion: 2.6, position: [0, 0], credentials: structuredClone(WORKER_CREDENTIAL),
+const postgres = (name, query, queryReplacement, credential) => ({
+  name, type: "n8n-nodes-base.postgres", typeVersion: 2.6, position: [0, 0], credentials: structuredClone(credential),
   parameters: { operation: "executeQuery", query, options: { queryBatching: "single", queryReplacement } },
 });
 const gmailRequest = (name, parameters) => ({
@@ -34,13 +35,13 @@ const BUILD_ACCEPTED = "const sent=$input.first()?.json||{};const built=$('Build
 export function buildOnboardingEmailDispatcherWorkflow() {
   const nodes = [
     schedule("Dispatch Schedule", 60), workerIdentity("Dispatcher Worker Identity"),
-    postgres("Claim Pending Email", "SELECT * FROM pkc_auth.claim_onboarding_email_outbox($1::uuid,$2::integer);", ["={{ $json.worker_id }}", "={{ $json.batch_size }}"]),
+    postgres("Claim Pending Email", "SELECT * FROM pkc_auth.claim_onboarding_email_outbox($1::uuid,$2::integer);", ["={{ $json.worker_id }}", "={{ $json.batch_size }}"], DISPATCHER_CREDENTIAL),
     code("Build Exact Raw Gmail Request", BUILD_RAW_REQUEST),
-    postgres("Arm Exact Gmail Request", "SELECT * FROM pkc_auth.arm_onboarding_email_outbox($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'));", ["={{ $('Build Exact Raw Gmail Request').first().json.outbox_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.worker_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.lease_fence }}", "={{ $('Build Exact Raw Gmail Request').first().json.request_sha256 }}"]),
+    postgres("Arm Exact Gmail Request", "SELECT * FROM pkc_auth.arm_onboarding_email_outbox($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'));", ["={{ $('Build Exact Raw Gmail Request').first().json.outbox_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.worker_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.lease_fence }}", "={{ $('Build Exact Raw Gmail Request').first().json.request_sha256 }}"], DISPATCHER_CREDENTIAL),
     gmailRequest("Send Exact Raw Gmail Request", { method: "POST", url: "https://gmail.googleapis.com/gmail/v1/users/me/messages/send", sendBody: true, contentType: "raw", rawContentType: "application/json", body: "={{ $('Build Exact Raw Gmail Request').first().json.request_body }}", options: { timeout: 10000, response: { response: { neverError: false, responseFormat: "json" } } } }),
     code("Validate Gmail Acceptance", BUILD_ACCEPTED),
-    postgres("Record Gmail API Acceptance", "SELECT * FROM pkc_auth.accept_onboarding_email_outbox($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'),$5::text);", ["={{ $json.outbox_id }}", "={{ $json.worker_id }}", "={{ $json.lease_fence }}", "={{ $json.request_sha256 }}", "={{ $json.provider_message_id }}"]),
-    postgres("Mark Gmail API Acceptance Ambiguous", "SELECT * FROM pkc_auth.mark_onboarding_email_ambiguous($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'));", ["={{ $('Build Exact Raw Gmail Request').first().json.outbox_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.worker_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.lease_fence }}", "={{ $('Build Exact Raw Gmail Request').first().json.request_sha256 }}"]),
+    postgres("Record Gmail API Acceptance", "SELECT * FROM pkc_auth.accept_onboarding_email_outbox($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'),$5::text);", ["={{ $json.outbox_id }}", "={{ $json.worker_id }}", "={{ $json.lease_fence }}", "={{ $json.request_sha256 }}", "={{ $json.provider_message_id }}"], DISPATCHER_CREDENTIAL),
+    postgres("Mark Gmail API Acceptance Ambiguous", "SELECT * FROM pkc_auth.mark_onboarding_email_ambiguous($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'));", ["={{ $('Build Exact Raw Gmail Request').first().json.outbox_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.worker_id }}", "={{ $('Build Exact Raw Gmail Request').first().json.lease_fence }}", "={{ $('Build Exact Raw Gmail Request').first().json.request_sha256 }}"], DISPATCHER_CREDENTIAL),
   ];
   const send = nodes.find(({ name }) => name === "Send Exact Raw Gmail Request");
   send.onError = "continueErrorOutput";
@@ -62,14 +63,14 @@ const BUILD_DEFERRED = "return [{json:$('Build Gmail Reconciliation Query').firs
 export function buildOnboardingEmailReconcilerWorkflow() {
   const nodes = [
     schedule("Reconciliation Schedule", 300), workerIdentity("Reconciliation Worker Identity"),
-    postgres("Claim Ambiguous Email", "SELECT * FROM pkc_auth.claim_onboarding_email_outbox_reconciliation($1::uuid,$2::integer);", ["={{ $json.worker_id }}", "={{ $json.batch_size }}"]),
+    postgres("Claim Ambiguous Email", "SELECT * FROM pkc_auth.claim_onboarding_email_outbox_reconciliation($1::uuid,$2::integer);", ["={{ $json.worker_id }}", "={{ $json.batch_size }}"], RECONCILER_CREDENTIAL),
     code("Build Gmail Reconciliation Query", BUILD_RECONCILIATION),
     gmailRequest("Search Gmail By Message-ID", { method: "GET", url: "https://gmail.googleapis.com/gmail/v1/users/me/messages", sendQuery: true, queryParameters: { parameters: [{ name: "q", value: "={{ $('Build Gmail Reconciliation Query').first().json.gmail_query }}" }, { name: "labelIds", value: "SENT" }, { name: "maxResults", value: "2" }] }, options: { timeout: 10000, response: { response: { neverError: false, responseFormat: "json" } } } }),
     route("Gmail Message Found", "={{ Array.isArray($json.messages) && $json.messages.length===1 && !Object.prototype.hasOwnProperty.call($json,'nextPageToken') ? 1 : 0 }}", 0),
     code("Build Reconciled Acceptance", BUILD_RECONCILED),
-    postgres("Reconcile Gmail Accepted", "SELECT * FROM pkc_auth.reconcile_onboarding_email_accepted($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'),$5::text);", ["={{ $json.outbox_id }}", "={{ $json.worker_id }}", "={{ $json.reconciliation_lease_fence }}", "={{ $json.request_sha256_hex }}", "={{ $json.provider_message_id }}"]),
+    postgres("Reconcile Gmail Accepted", "SELECT * FROM pkc_auth.reconcile_onboarding_email_accepted($1::uuid,$2::uuid,$3::bigint,pg_catalog.decode($4::text,'hex'),$5::text);", ["={{ $json.outbox_id }}", "={{ $json.worker_id }}", "={{ $json.reconciliation_lease_fence }}", "={{ $json.request_sha256_hex }}", "={{ $json.provider_message_id }}"], RECONCILER_CREDENTIAL),
     code("Build Deferred Reconciliation", BUILD_DEFERRED),
-    postgres("Defer Gmail Reconciliation", "SELECT * FROM pkc_auth.defer_onboarding_email_reconciliation($1::uuid,$2::uuid,$3::bigint);", ["={{ $json.outbox_id }}", "={{ $json.worker_id }}", "={{ $json.reconciliation_lease_fence }}"]),
+    postgres("Defer Gmail Reconciliation", "SELECT * FROM pkc_auth.defer_onboarding_email_reconciliation($1::uuid,$2::uuid,$3::bigint);", ["={{ $json.outbox_id }}", "={{ $json.worker_id }}", "={{ $json.reconciliation_lease_fence }}"], RECONCILER_CREDENTIAL),
   ];
   return { name: "PKC — Onboarding Email Outbox Reconciler v1 (Inactive Candidate)", active: false, settings: { ...RETENTION }, nodes, connections: {
     "Reconciliation Schedule": { main: [[edge("Reconciliation Worker Identity")]] },

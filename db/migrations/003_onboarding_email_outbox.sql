@@ -162,12 +162,16 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pkc_auth AS $$
 BEGIN
   IF SESSION_USER IS DISTINCT FROM 'pkc_onboarding_email_worker' THEN RAISE EXCEPTION 'invalid_onboarding_email_worker'; END IF;
   IF p_worker_id IS NULL OR p_batch_size IS NULL OR p_batch_size<1 OR p_batch_size>25 THEN RAISE EXCEPTION 'invalid_onboarding_email_claim_arguments'; END IF;
+  UPDATE pkc_auth.onboarding_email_outbox o
+    SET state='pending',lease_owner=NULL,lease_expires_at=NULL
+    WHERE o.state='transmitting' AND o.lease_expires_at<=pg_catalog.clock_timestamp()
+      AND o.request_sha256 IS NULL;
+  UPDATE pkc_auth.onboarding_email_outbox o
+    SET state='ambiguous',lease_owner=NULL,lease_expires_at=NULL,next_reconcile_at=pg_catalog.clock_timestamp()
+    WHERE o.state='transmitting' AND o.lease_expires_at<=pg_catalog.clock_timestamp()
+      AND o.request_sha256 IS NOT NULL;
   RETURN QUERY
-  WITH expired AS (
-    UPDATE pkc_auth.onboarding_email_outbox o SET state='ambiguous',lease_owner=NULL,lease_expires_at=NULL,next_reconcile_at=pg_catalog.clock_timestamp()
-      WHERE o.state='transmitting' AND o.lease_expires_at<=pg_catalog.clock_timestamp()
-      RETURNING o.outbox_id
-  ), candidates AS (
+  WITH candidates AS (
     SELECT o.outbox_id FROM pkc_auth.onboarding_email_outbox o
       WHERE o.state='pending'
       ORDER BY o.created_at,o.outbox_id FOR UPDATE SKIP LOCKED LIMIT p_batch_size
@@ -224,7 +228,7 @@ CREATE FUNCTION pkc_auth.claim_onboarding_email_outbox_reconciliation(p_worker_i
 RETURNS TABLE(outbox_id uuid,operation_key text,request_sha256_hex text,reconciliation_lease_fence text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pkc_auth AS $$
 BEGIN
-  IF SESSION_USER IS DISTINCT FROM 'pkc_onboarding_email_worker' THEN RAISE EXCEPTION 'invalid_onboarding_email_worker'; END IF;
+  IF SESSION_USER IS DISTINCT FROM 'pkc_onboarding_email_reconciler' THEN RAISE EXCEPTION 'invalid_onboarding_email_reconciler'; END IF;
   IF p_worker_id IS NULL OR p_batch_size IS NULL OR p_batch_size<1 OR p_batch_size>25 THEN RAISE EXCEPTION 'invalid_onboarding_reconciliation_claim_arguments'; END IF;
   RETURN QUERY WITH candidates AS (
     SELECT o.outbox_id FROM pkc_auth.onboarding_email_outbox o
@@ -244,7 +248,7 @@ CREATE FUNCTION pkc_auth.reconcile_onboarding_email_accepted(p_outbox_id uuid,p_
 RETURNS TABLE(state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pkc_auth AS $$
 BEGIN
-  IF SESSION_USER IS DISTINCT FROM 'pkc_onboarding_email_worker' THEN RAISE EXCEPTION 'invalid_onboarding_email_worker'; END IF;
+  IF SESSION_USER IS DISTINCT FROM 'pkc_onboarding_email_reconciler' THEN RAISE EXCEPTION 'invalid_onboarding_email_reconciler'; END IF;
   RETURN QUERY UPDATE pkc_auth.onboarding_email_outbox o SET state='accepted',provider_message_id=p_provider_message_id,
       accepted_at=pg_catalog.clock_timestamp(),reconciliation_lease_owner=NULL,reconciliation_lease_expires_at=NULL
     WHERE o.outbox_id=p_outbox_id AND o.state='ambiguous'
@@ -261,7 +265,7 @@ CREATE FUNCTION pkc_auth.defer_onboarding_email_reconciliation(p_outbox_id uuid,
 RETURNS TABLE(state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pkc_auth AS $$
 BEGIN
-  IF SESSION_USER IS DISTINCT FROM 'pkc_onboarding_email_worker' THEN RAISE EXCEPTION 'invalid_onboarding_email_worker'; END IF;
+  IF SESSION_USER IS DISTINCT FROM 'pkc_onboarding_email_reconciler' THEN RAISE EXCEPTION 'invalid_onboarding_email_reconciler'; END IF;
   RETURN QUERY UPDATE pkc_auth.onboarding_email_outbox o SET reconciliation_attempts=o.reconciliation_attempts+1,
       next_reconcile_at=pg_catalog.clock_timestamp()+pg_catalog.make_interval(secs=>LEAST(3600,pg_catalog.power(2,LEAST(11,o.reconciliation_attempts+1))::integer)),
       reconciliation_lease_owner=NULL,reconciliation_lease_expires_at=NULL
@@ -273,10 +277,11 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'stale_onboarding_reconciliation_fence'; END IF;
 END $$;
 
-GRANT USAGE ON SCHEMA pkc_auth TO pkc_onboarding_runtime,pkc_onboarding_email_worker;
+GRANT USAGE ON SCHEMA pkc_auth TO pkc_onboarding_runtime,pkc_onboarding_email_worker,pkc_onboarding_email_reconciler;
 REVOKE ALL ON pkc_auth.onboarding_submission_claims, pkc_auth.onboarding_email_outbox FROM PUBLIC;
 REVOKE ALL ON FUNCTION pkc_auth.prevent_onboarding_claim_rewrite(),pkc_auth.prevent_onboarding_email_identity_rewrite() FROM PUBLIC;
 REVOKE ALL ON FUNCTION pkc_auth.claim_onboarding_submission(text,bytea,text,uuid),pkc_auth.mark_onboarding_submission_persisted(text,bytea,uuid,bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION pkc_auth.claim_onboarding_email_outbox(uuid,integer),pkc_auth.arm_onboarding_email_outbox(uuid,uuid,bigint,bytea),pkc_auth.accept_onboarding_email_outbox(uuid,uuid,bigint,bytea,text),pkc_auth.mark_onboarding_email_ambiguous(uuid,uuid,bigint,bytea),pkc_auth.claim_onboarding_email_outbox_reconciliation(uuid,integer),pkc_auth.reconcile_onboarding_email_accepted(uuid,uuid,bigint,bytea,text),pkc_auth.defer_onboarding_email_reconciliation(uuid,uuid,bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pkc_auth.claim_onboarding_submission(text,bytea,text,uuid),pkc_auth.mark_onboarding_submission_persisted(text,bytea,uuid,bigint) TO pkc_onboarding_runtime;
-GRANT EXECUTE ON FUNCTION pkc_auth.claim_onboarding_email_outbox(uuid,integer),pkc_auth.arm_onboarding_email_outbox(uuid,uuid,bigint,bytea),pkc_auth.accept_onboarding_email_outbox(uuid,uuid,bigint,bytea,text),pkc_auth.mark_onboarding_email_ambiguous(uuid,uuid,bigint,bytea),pkc_auth.claim_onboarding_email_outbox_reconciliation(uuid,integer),pkc_auth.reconcile_onboarding_email_accepted(uuid,uuid,bigint,bytea,text),pkc_auth.defer_onboarding_email_reconciliation(uuid,uuid,bigint) TO pkc_onboarding_email_worker;
+GRANT EXECUTE ON FUNCTION pkc_auth.claim_onboarding_email_outbox(uuid,integer),pkc_auth.arm_onboarding_email_outbox(uuid,uuid,bigint,bytea),pkc_auth.accept_onboarding_email_outbox(uuid,uuid,bigint,bytea,text),pkc_auth.mark_onboarding_email_ambiguous(uuid,uuid,bigint,bytea) TO pkc_onboarding_email_worker;
+GRANT EXECUTE ON FUNCTION pkc_auth.claim_onboarding_email_outbox_reconciliation(uuid,integer),pkc_auth.reconcile_onboarding_email_accepted(uuid,uuid,bigint,bytea,text),pkc_auth.defer_onboarding_email_reconciliation(uuid,uuid,bigint) TO pkc_onboarding_email_reconciler;

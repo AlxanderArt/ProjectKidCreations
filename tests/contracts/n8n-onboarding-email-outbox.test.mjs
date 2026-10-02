@@ -90,6 +90,8 @@ test("reconciler searches Gmail by immutable Message-ID and never sends", () => 
   assert.ok(postgres(workflow, "Claim Ambiguous Email"));
   assert.ok(postgres(workflow, "Reconcile Gmail Accepted"));
   assert.ok(postgres(workflow, "Defer Gmail Reconciliation"));
+  assert.equal(postgres(workflow, "Claim Ambiguous Email").credentials.postgres.name, "PKC Onboarding Email Reconciler");
+  assert.equal(postgres(buildOnboardingEmailDispatcherWorkflow(), "Claim Pending Email").credentials.postgres.name, "PKC Onboarding Email Dispatcher");
 });
 
 test("dispatcher and reconciler freeze into deterministic hash-bound package bytes", () => {

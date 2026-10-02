@@ -46,7 +46,8 @@ test("delivery is claim then exact-request arm then accepted or ambiguous with n
   const accepted = functionBlock("accept_onboarding_email_outbox");
   const ambiguous = functionBlock("mark_onboarding_email_ambiguous");
   assert.match(claim, /state='transmitting'/i);
-  assert.match(claim, /state='ambiguous'[^;]+lease_expires_at/is);
+  assert.match(claim, /state='pending'[^;]+request_sha256 IS NULL/is);
+  assert.match(claim, /state='ambiguous'[^;]+request_sha256 IS NOT NULL/is);
   assert.match(claim, /lease_fence::text/i);
   assert.match(arm, /request_sha256/i);
   assert.match(arm, /state='transmitting'/i);
@@ -67,7 +68,7 @@ test("ambiguous rows are reconciliation-only and all bigint fences cross as text
 });
 
 test("dedicated onboarding roles are function-only, session-bound, and public is closed", () => {
-  for (const role of ["pkc_onboarding_runtime", "pkc_onboarding_email_worker"]) {
+  for (const role of ["pkc_onboarding_runtime", "pkc_onboarding_email_worker", "pkc_onboarding_email_reconciler"]) {
     assert.match(roles, new RegExp(`CREATE ROLE ${role} LOGIN`));
     assert.match(readiness, new RegExp(role));
     assert.match(migration, new RegExp(`SESSION_USER IS DISTINCT FROM '${role}'`));
@@ -77,6 +78,8 @@ test("dedicated onboarding roles are function-only, session-bound, and public is
   assert.doesNotMatch(migration, /GRANT (?:SELECT|INSERT|UPDATE|DELETE) ON pkc_auth\.onboarding_/i);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION pkc_auth\.claim_onboarding_submission[^;]+TO pkc_onboarding_runtime/i);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION pkc_auth\.claim_onboarding_email_outbox[^;]+TO pkc_onboarding_email_worker/i);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION pkc_auth\.claim_onboarding_email_outbox_reconciliation[^;]+TO pkc_onboarding_email_reconciler/i);
+  assert.doesNotMatch(migration, /GRANT EXECUTE ON FUNCTION pkc_auth\.claim_onboarding_email_outbox_reconciliation[^;]+TO pkc_onboarding_email_worker/i);
   assert.match(readiness, /role_settings/);
   for (const setting of ["statement_timeout=5s", "lock_timeout=2s", "idle_in_transaction_session_timeout=10s"]) {
     assert.match(readiness, new RegExp(setting));
@@ -85,12 +88,13 @@ test("dedicated onboarding roles are function-only, session-bound, and public is
 
 test("additive onboarding role provisioning is target-guarded and cannot open migrator authority", () => {
   assert.match(onboardingRoles, /current_database\(\) = :'expected_database'/);
-  for (const role of ["pkc_onboarding_runtime", "pkc_onboarding_email_worker"]) {
+  for (const role of ["pkc_onboarding_runtime", "pkc_onboarding_email_worker", "pkc_onboarding_email_reconciler"]) {
     assert.match(onboardingRoles, new RegExp(`CREATE ROLE ${role} LOGIN`));
     assert.match(onboardingRoles, new RegExp(`ALTER ROLE ${role} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT`));
     assert.match(onboardingRoles, new RegExp(`ALTER ROLE ${role} IN DATABASE :"expected_database" RESET ALL`));
   }
-  assert.doesNotMatch(onboardingRoles, /pkc_mfa_migrator|GRANT pkc_mfa_owner/);
+  assert.doesNotMatch(onboardingRoles, /CREATE ROLE pkc_mfa_migrator|ALTER ROLE pkc_mfa_migrator|GRANT pkc_mfa_owner/);
+  assert.match(onboardingRoles, /GRANT EXECUTE ON FUNCTION pg_catalog\.pg_control_system\(\) TO pkc_mfa_migrator, pkc_mfa_verifier/);
 });
 
 test("worker projection is generic and excludes firstName", () => {

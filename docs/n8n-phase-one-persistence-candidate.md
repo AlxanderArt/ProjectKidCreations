@@ -9,7 +9,8 @@ Migration `003_onboarding_email_outbox.sql` adds:
 - `onboarding_submission_claims`: one immutable SHA-256 request digest per `submission_id`;
 - `onboarding_email_outbox`: exactly one generic blocked email per claim;
 - `pkc_onboarding_runtime`: function-only claim and Sheets-persistence transition authority;
-- `pkc_onboarding_email_worker`: function-only dispatch and reconciliation authority.
+- `pkc_onboarding_email_worker`: function-only claim/arm/send-result authority for the dispatcher.
+- `pkc_onboarding_email_reconciler`: separate function-only ambiguous-row reconciliation authority with no dispatch grants.
 
 The Phase One candidate derives a server-side SHA-256 over the complete closed onboarding payload and calls `claim_onboarding_submission` before Sheets. PostgreSQL grants one fenced persistence lease; concurrent exact replays receive `in_progress` and cannot append. A resumed lease reads Sheets by `submissionId`: an exact existing row is acknowledged without appending, no row is appended once, and mismatched or duplicate rows fail closed. This closes both the concurrent-append race and the crash window where Sheets accepted an append but PostgreSQL did not receive the acknowledgement. A verified existing row or successful append calls `mark_onboarding_submission_persisted` with the current fence, which changes the blocked email to pending. Its success response is `email: queued`; it does not claim Gmail acceptance or delivery.
 
