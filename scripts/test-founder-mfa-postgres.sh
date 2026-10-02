@@ -3,6 +3,8 @@ set -euo pipefail
 umask 077
 
 name="pkc-mfa-gate0-native-$$"
+setup_name="${name}-setup"
+scrub_name="${name}-scrub"
 pg_auth_material="$(openssl rand -hex 24)"
 pgpass_file="$(mktemp)"
 tls_root="$(mktemp -d)"
@@ -13,10 +15,17 @@ install -d -m 0700 "$ca_dir" "$server_tls_dir" "$client_tls_dir"
 image="postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea"
 cleanup() {
   local status=$?
-  docker rm -f "$name" >/dev/null 2>&1 || true
+  docker rm -f "$name" "$setup_name" >/dev/null 2>&1 || true
   rm -f "$pgpass_file"
+  docker rm -f "$scrub_name" >/dev/null 2>&1 || true
+  docker run --rm --name "$scrub_name" --pull=never --network none --read-only \
+    --cap-drop ALL --cap-add DAC_OVERRIDE --cap-add FOWNER \
+    --security-opt no-new-privileges \
+    -v "$tls_root:/fixture:rw" --entrypoint /bin/sh "$image" \
+    -c 'rm -rf -- /fixture/ca /fixture/server /fixture/client' >/dev/null 2>&1 || true
+  docker rm -f "$scrub_name" >/dev/null 2>&1 || true
   rm -rf -- "$tls_root"
-  if docker ps -a --format '{{.Names}}' | grep -Fx "$name" >/dev/null; then
+  if docker ps -a --format '{{.Names}}' | grep -E "^(${name}|${setup_name}|${scrub_name})$" >/dev/null; then
     printf '%s\n' 'native_postgres_cleanup_failed' >&2
     status=1
   fi
@@ -39,12 +48,15 @@ cp "$ca_dir/ca.crt" "$server_tls_dir/ca.crt"
 cp "$ca_dir/ca.crt" "$client_tls_dir/ca.crt"
 printf '%s\n' 'local all all trust' 'hostssl all all 0.0.0.0/0 scram-sha-256 clientcert=verify-full' >"$server_tls_dir/pg_hba.conf"
 chmod 0600 "$server_tls_dir/server.key" "$server_tls_dir/server.crt" "$server_tls_dir/ca.crt" "$server_tls_dir/pg_hba.conf" "$client_tls_dir/ca.crt"
-chown -R 70:70 "$server_tls_dir"
-chmod 0700 "$server_tls_dir"
-
 docker image inspect "$image" >/dev/null
+docker run --rm --name "$setup_name" --pull=never --network none --read-only \
+  --cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
+  --security-opt no-new-privileges \
+  -v "$tls_root:/fixture:rw" --entrypoint /bin/sh "$image" \
+  -c 'chown -R 70:70 /fixture/server && chmod 0700 /fixture/server' >/dev/null
+
 export POSTGRES_PASSWORD="$pg_auth_material"
-docker run -d --name "$name" -e POSTGRES_PASSWORD -e POSTGRES_USER=pkc_bootstrap_admin -v "$server_tls_dir:/tls:ro" -p 127.0.0.1::5432 "$image" postgres -c ssl=on -c ssl_min_protocol_version=TLSv1.3 -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key -c ssl_ca_file=/tls/ca.crt -c hba_file=/tls/pg_hba.conf >/dev/null
+docker run --pull=never -d --name "$name" -e POSTGRES_PASSWORD -e POSTGRES_USER=pkc_bootstrap_admin -v "$server_tls_dir:/tls:ro" -p 127.0.0.1::5432 "$image" postgres -c ssl=on -c ssl_min_protocol_version=TLSv1.3 -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key -c ssl_ca_file=/tls/ca.crt -c hba_file=/tls/pg_hba.conf >/dev/null
 unset POSTGRES_PASSWORD
 ready=false
 for _ in $(seq 1 60); do

@@ -92,3 +92,15 @@ test("native PostgreSQL harness uses the reviewed immutable image reference", ()
   assert.match(nativeHarness, /postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea/);
   assert.doesNotMatch(nativeHarness, /docker (?:run|image inspect)[^\n]*postgres:16-alpine(?:\s|$)/);
 });
+
+test("native PostgreSQL fixture ownership is prepared and scrubbed in least-privilege offline containers", () => {
+  assert.doesNotMatch(nativeHarness, /^chown\s+-R\s+70:70/m);
+  assert.match(nativeHarness, /--name \"\$setup_name\" --pull=never --network none --read-only/);
+  assert.match(nativeHarness, /--cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER/);
+  assert.match(nativeHarness, /--name \"\$scrub_name\" --pull=never --network none --read-only/);
+  assert.match(nativeHarness, /--cap-drop ALL --cap-add DAC_OVERRIDE --cap-add FOWNER/);
+  assert.doesNotMatch(nativeHarness, /--privileged|chmod\s+(?:0777|0755)/);
+  for (const command of nativeHarness.matchAll(/^docker run ([^\n]+)/gm)) {
+    assert.match(command[1], /--pull=never/);
+  }
+});
