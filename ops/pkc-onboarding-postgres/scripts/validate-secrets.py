@@ -18,22 +18,38 @@ def fail(message):
     raise SystemExit(f"secret validation failed: {message}")
 
 
-def run_openssl(arguments, descriptors):
-    result = subprocess.run(
-        ["openssl", *arguments],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        pass_fds=tuple(descriptors),
-        check=False,
-    )
+def run_openssl(arguments, descriptors, stdin_payload=None):
+    for descriptor in descriptors:
+        os.lseek(descriptor, 0, os.SEEK_SET)
+    command = ["openssl", *arguments]
+    if stdin_payload is None:
+        result = subprocess.run(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            pass_fds=tuple(descriptors),
+            check=False,
+        )
+    else:
+        result = subprocess.run(
+            command,
+            input=stdin_payload,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            pass_fds=tuple(descriptors),
+            check=False,
+        )
     if result.returncode != 0:
         fail("cryptographic material invalid")
     return result.stdout
 
 
 def descriptor_path(descriptor):
-    return f"/proc/self/fd/{descriptor}"
+    for descriptor_root in ("/proc/self/fd", "/dev/fd"):
+        if os.path.isdir(descriptor_root):
+            return f"{descriptor_root}/{descriptor}"
+    fail("descriptor filesystem unavailable")
 
 
 def main():
@@ -93,7 +109,7 @@ def main():
         client_ca_descriptor = descriptors["postgres_client_ca"]
         run_openssl(["pkey", "-in", descriptor_path(key_descriptor), "-noout", "-check"], [key_descriptor])
         run_openssl(["verify", "-CAfile", descriptor_path(server_ca_descriptor), descriptor_path(cert_descriptor)], [server_ca_descriptor, cert_descriptor])
-        run_openssl(["verify", "-CAfile", descriptor_path(client_ca_descriptor), descriptor_path(client_ca_descriptor)], [client_ca_descriptor])
+        run_openssl(["verify", "-CAfile", descriptor_path(0), descriptor_path(client_ca_descriptor)], [client_ca_descriptor], values["postgres_client_ca"])
         cert_public = run_openssl(["x509", "-in", descriptor_path(cert_descriptor), "-pubkey", "-noout"], [cert_descriptor])
         key_public = run_openssl(["pkey", "-in", descriptor_path(key_descriptor), "-pubout"], [key_descriptor])
         if cert_public != key_public:

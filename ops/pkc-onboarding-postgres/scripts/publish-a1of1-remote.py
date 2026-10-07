@@ -16,7 +16,8 @@ PRODUCTION_ROOT = "/Users/aiel/Desktop/PROJECTKIDCREATIONS/recovery/exports/vps-
 ARTIFACT_RE = re.compile(r"^pkc-onboarding-[0-9]{8}T[0-9]{6}Z\.dump\.age$")
 HEX64_RE = re.compile(r"^[a-f0-9]{64}$")
 NONCE_RE = re.compile(r"^[a-f0-9]{32}$")
-TEST_ROOT_RE = re.compile(r"^/tmp/pkc-a1of1-remote-test-[A-Za-z0-9._-]+$")
+TEST_ROOT_PREFIX = "/private/tmp" if sys.platform == "darwin" else "/tmp"
+TEST_ROOT_RE = re.compile(rf"^{re.escape(TEST_ROOT_PREFIX)}/pkc-a1of1-remote-test-[A-Za-z0-9._-]+$")
 FLAGS_DIR = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 FLAGS_FILE = os.O_RDONLY | os.O_NOFOLLOW
 
@@ -138,7 +139,7 @@ def require_authority_tokens(expected_layout, expected_stage, records, layout, s
 
 def open_layout(root, owner):
     uid = pwd.getpwnam(owner).pw_uid
-    test_mode = os.environ.get("PKC_A1OF1_REMOTE_TEST_MODE") == "1" and owner != "aiel" and TEST_ROOT_RE.fullmatch(root)
+    test_mode = os.environ.get("PKC_A1OF1_REMOTE_TEST_MODE") == "1" and TEST_ROOT_RE.fullmatch(root)
     if not ((root == PRODUCTION_ROOT and owner == "aiel") or test_mode):
         fail()
     if uid != os.geteuid():

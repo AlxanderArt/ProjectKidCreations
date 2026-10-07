@@ -151,6 +151,7 @@ test("secret validator uses one no-follow descriptor and rejects hostile schema 
   const source = read("scripts/validate-secrets.py");
   assert.match(source, /os\.O_NOFOLLOW/);
   assert.match(source, /os\.fstat/);
+  assert.match(source, /\/dev\/fd/);
   assert.doesNotMatch(source, /Path\([^)]*\)\.read_text|open\([^)]*path/);
 
   const dir = temporaryRoot("pkc-secrets-");
@@ -168,6 +169,36 @@ test("secret validator uses one no-follow descriptor and rejects hostile schema 
   for (const residue of ["server-ca.key", "client-ca.key", "server.csr", "postgres_server_ca.srl"])
     rmSync(path.join(dir, residue), { force: true });
   assert.equal(run("python3", "scripts/validate-secrets.py", [dir]).status, 0);
+  const descriptorProbe = path.join(dir, "descriptor-probe.crt");
+  writeFileSync(descriptorProbe, readFileSync(path.join(dir, "postgres_server_cert")), { mode: 0o600 });
+  const descriptorFallback = spawnSync("python3", ["-c", `
+import importlib.util
+import os
+import sys
+
+module_path, certificate_path = sys.argv[1:3]
+spec = importlib.util.spec_from_file_location("pkc_validate_secrets", module_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+descriptor = os.open(certificate_path, os.O_RDONLY | os.O_NOFOLLOW)
+os.unlink(certificate_path)
+while os.read(descriptor, 65536):
+    pass
+original_isdir = module.os.path.isdir
+module.os.path.isdir = lambda candidate: candidate == "/dev/fd"
+try:
+    selected = module.descriptor_path(descriptor)
+    if selected != f"/dev/fd/{descriptor}":
+        raise RuntimeError("unexpected_descriptor_path")
+    module.run_openssl(["x509", "-in", selected, "-noout"], [descriptor])
+finally:
+    module.os.path.isdir = original_isdir
+    os.close(descriptor)
+print("dev_fd_inherited_descriptor_valid=true")
+`, path.join(scope, "scripts", "validate-secrets.py"), descriptorProbe], { cwd: root, encoding: "utf8" });
+  assert.equal(descriptorFallback.status, 0, descriptorFallback.stderr);
+  assert.match(descriptorFallback.stdout, /dev_fd_inherited_descriptor_valid=true/);
+  assert.equal(existsSync(descriptorProbe), false);
   writeFileSync(path.join(dir, "unexpected"), "x\n", { mode: 0o600 });
   const extra = run("python3", "scripts/validate-secrets.py", [dir]);
   assert.notEqual(extra.status, 0);
@@ -361,6 +392,7 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   assert.doesNotMatch(publisher, /--host|--remote-root|--destination|\bscp\b|\brsync\b|pg_dump|pg_restore|psql|PGPASSFILE|age --decrypt/);
   for (const token of ["dir_fd=", "os.O_NOFOLLOW", "os.fstat", "revalidate_chain", "FileVault is On.", "follow_symlinks=False"])
     assert.match(remote, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(remote, /test_mode\s*=.*owner\s*!=\s*["']aiel["']/);
   assert.ok(remote.lastIndexOf("cleanup_stage(staging_fd, receipts_fd, nonce, uid)") < remote.lastIndexOf("publish_receipt_no_replace(receipts_fd"));
   assert.match(remote, /publish_receipt_no_replace\(receipts_fd, temp_read, temp_name, custody_name\)/);
   const commitFunction = remote.slice(remote.indexOf("def publish_receipt_no_replace"), remote.indexOf("def main"));
@@ -371,11 +403,17 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   assert.doesNotMatch(remote, /pg_dump|pg_restore|psql|age --decrypt|PGPASSFILE/);
   assert.notEqual(run("bash", "scripts/publish-a1of1-backup.sh").status, 0);
 
-  const directory = temporaryRoot("pkc-a1of1-remote-test-");
+  const a1of1TestRoot = (prefix) => {
+    const base = process.platform === "darwin" ? "/private/tmp" : "/tmp";
+    const candidate = mkdtempSync(path.join(base, prefix));
+    temporaryRoots.add(candidate);
+    return candidate;
+  };
+  const directory = a1of1TestRoot("pkc-a1of1-remote-test-");
   for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(directory, name), { mode: 0o700 });
   chmodSync(directory, 0o700);
   const owner = spawnSync("id", ["-un"], { encoding: "utf8" }).stdout.trim();
-  assert.notEqual(owner, "aiel");
+  assert.ok(owner.length > 0);
   const artifactName = "pkc-onboarding-20261002T031700Z.dump.age";
   const artifactBytes = Buffer.from("ciphertext-only-fixture\n");
   const artifactSha = createHash("sha256").update(artifactBytes).digest("hex");
@@ -388,6 +426,52 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   const helper = path.join(scope, "scripts", "publish-a1of1-remote.py");
   const env = { ...process.env, PKC_A1OF1_REMOTE_TEST_MODE: "1" };
   const invoke = (root, nonce, mode, args = [], input) => spawnSync("python3", [helper, mode, root, owner, artifactName, artifactSha, nonce, ...args], { encoding: "utf8", env, input });
+  const invokeAs = (root, nonce, requestedOwner, requestedEnv) => spawnSync("python3", [helper, "preflight", root, requestedOwner, artifactName, artifactSha, nonce, String(artifactBytes.length)], { encoding: "utf8", env: requestedEnv });
+
+  const noTestModeEnv = { ...process.env };
+  delete noTestModeEnv.PKC_A1OF1_REMOTE_TEST_MODE;
+  const missingTestModeNonce = "8".repeat(32);
+  assert.notEqual(invokeAs(directory, missingTestModeNonce, owner, noTestModeEnv).status, 0);
+  assert.equal(existsSync(path.join(directory, "staging", missingTestModeNonce)), false);
+  const directMissingFlag = spawnSync("python3", ["-c", `
+import importlib.util
+import os
+import sys
+
+module_path, test_root, owner = sys.argv[1:4]
+spec = importlib.util.spec_from_file_location("pkc_publish_a1of1_remote", module_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+os.environ.pop("PKC_A1OF1_REMOTE_TEST_MODE", None)
+try:
+    _uid, descriptors, _records, _root_fd, _layout = module.open_layout(test_root, owner)
+except RuntimeError:
+    print("missing_test_mode_rejected=true")
+else:
+    for descriptor in reversed(descriptors):
+        os.close(descriptor)
+    raise RuntimeError("missing_test_mode_accepted")
+`, helper, directory, owner], { encoding: "utf8", env: noTestModeEnv });
+  assert.equal(directMissingFlag.status, 0, directMissingFlag.stderr);
+  assert.match(directMissingFlag.stdout, /missing_test_mode_rejected=true/);
+
+  const nonmatchingRoot = a1of1TestRoot("pkc-a1of1-invalid-root-");
+  for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(nonmatchingRoot, name), { mode: 0o700 });
+  chmodSync(nonmatchingRoot, 0o700);
+  const nonmatchingNonce = "9".repeat(32);
+  assert.notEqual(invokeAs(nonmatchingRoot, nonmatchingNonce, owner, env).status, 0);
+  assert.equal(existsSync(path.join(nonmatchingRoot, "staging", nonmatchingNonce)), false);
+
+  const alternateOwnerResult = spawnSync("python3", ["-c", "import os,pwd; print(next(entry.pw_name for entry in pwd.getpwall() if entry.pw_uid != os.geteuid()))"], { encoding: "utf8" });
+  assert.equal(alternateOwnerResult.status, 0, alternateOwnerResult.stderr);
+  const alternateOwner = alternateOwnerResult.stdout.trim();
+  assert.ok(alternateOwner.length > 0 && alternateOwner !== owner);
+  const mismatchedOwnerNonce = "a".repeat(32);
+  assert.notEqual(invokeAs(directory, mismatchedOwnerNonce, alternateOwner, env).status, 0);
+  assert.equal(existsSync(path.join(directory, "staging", mismatchedOwnerNonce)), false);
+
+  const productionOwnerMismatch = owner === "aiel" ? alternateOwner : owner;
+  assert.notEqual(invokeAs("/Users/aiel/Desktop/PROJECTKIDCREATIONS/recovery/exports/vps-onboarding-postgres", "b".repeat(32), productionOwnerMismatch, env).status, 0);
   const stage = (root, nonce) => {
     const preflight = invoke(root, nonce, "preflight", [String(artifactBytes.length)]);
     assert.equal(preflight.status, 0, preflight.stderr);
@@ -437,7 +521,7 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   assert.match(second.stdout, /a1of1_idempotent=true/);
   assert.equal(existsSync(path.join(directory, "staging", secondNonce)), false);
 
-  const hostileDirectory = temporaryRoot("pkc-a1of1-remote-test-");
+  const hostileDirectory = a1of1TestRoot("pkc-a1of1-remote-test-");
   for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(hostileDirectory, name), { mode: 0o700 });
   chmodSync(hostileDirectory, 0o700);
   const hostileNonce = "3".repeat(32);
@@ -450,7 +534,7 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   assert.equal(cleaned.status, 0, cleaned.stderr);
   assert.equal(existsSync(hostileStage.target), false);
 
-  const faultDirectory = temporaryRoot("pkc-a1of1-remote-test-fault-");
+  const faultDirectory = a1of1TestRoot("pkc-a1of1-remote-test-fault-");
   for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(faultDirectory, name), { mode: 0o700 });
   chmodSync(faultDirectory, 0o700);
   const faultNonce = "7".repeat(32);
@@ -459,7 +543,7 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   assert.notEqual(fault.status, 0);
   assert.equal(existsSync(path.join(faultDirectory, "receipts", `${artifactSha}.custody-receipt.json`)), false);
 
-  const abaDirectory = temporaryRoot("pkc-a1of1-remote-test-aba-");
+  const abaDirectory = a1of1TestRoot("pkc-a1of1-remote-test-aba-");
   for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(abaDirectory, name), { mode: 0o700 });
   chmodSync(abaDirectory, 0o700);
   const abaNonce = "6".repeat(32);
@@ -471,7 +555,7 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   assert.notEqual(abaFinalize.status, 0);
   assert.equal(existsSync(path.join(abaDirectory, "receipts", `${artifactSha}.custody-receipt.json`)), false);
 
-  const collisionDirectory = temporaryRoot("pkc-a1of1-remote-test-");
+  const collisionDirectory = a1of1TestRoot("pkc-a1of1-remote-test-");
   for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(collisionDirectory, name), { mode: 0o700 });
   chmodSync(collisionDirectory, 0o700);
   const collisionNonce = "5".repeat(32);
@@ -488,7 +572,7 @@ test("A1of1 publisher is descriptor-bound, receipt-last, idempotent, and collisi
   const collisionCleanup = cleanup(collisionDirectory, collisionNonce, collisionStage.tokens);
   assert.equal(collisionCleanup.status, 0, collisionCleanup.stderr);
 
-  const unsafeDirectory = temporaryRoot("pkc-a1of1-remote-test-");
+  const unsafeDirectory = a1of1TestRoot("pkc-a1of1-remote-test-");
   for (const name of ["staging", "bundles", "receipts"]) mkdirSync(path.join(unsafeDirectory, name), { mode: 0o700 });
   chmodSync(unsafeDirectory, 0o700);
   const unsafeNonce = "4".repeat(32);
