@@ -296,6 +296,37 @@ test("capacity gate requires current use below 80 percent and bounded projected 
   assert.equal(evaluateCapacity(request, busyButSufficient).oneMinuteLoad, 99);
 });
 
+test("native PostgreSQL harnesses preserve Bash 3.2 and Node 26 macOS portability", () => {
+  const composeBootstrap = readFileSync(path.join(root, "scripts", "test-pkc-compose-bootstrap.sh"), "utf8");
+  const nativeGate = readFileSync(path.join(root, "scripts", "test-founder-mfa-postgres.sh"), "utf8");
+  const nativeRestore = readFileSync(path.join(root, "scripts", "test-pkc-restore-postgres.sh"), "utf8");
+  const decrypt = read("scripts/decrypt-validated-backup.mjs");
+
+  for (const source of [composeBootstrap, nativeGate]) {
+    assert.doesNotMatch(source, /<\s*<\(/);
+    assert.match(source, /parsed_binding="\$\(python3/);
+    assert.match(source, /read -r host_ip port <<<"\$parsed_binding"/);
+  }
+
+  assert.doesNotMatch(nativeRestore, /\bextra=\(\)|\$\{extra\[@\]\}/);
+  assert.match(nativeRestore, /if \[\[ "\$sql" == 000_roles\.sql \]\]; then/);
+  assert.match(nativeRestore, /-v expected_empty_cluster=true/);
+
+  for (const source of [nativeGate, nativeRestore]) {
+    assert.match(source, /postgresql:\/\/%s@localhost:%s\/%s\?sslmode=verify-full/);
+    assert.match(source, /-h 127\.0\.0\.1/);
+    assert.match(source, /localhost:%s:\*:/);
+  }
+  assert.match(nativeGate, /PKC_DATABASE_SERVER_ADDRESS="\$\(psql -h 127\.0\.0\.1/);
+  assert.match(nativeRestore, /source_address="\$\(run_psql .* -h 127\.0\.0\.1/);
+  assert.match(nativeRestore, /target_address="\$\(run_psql .* -h 127\.0\.0\.1/);
+
+  assert.match(decrypt, /const identityDescriptorPath = process\.platform === "darwin" \? "\/dev\/fd\/3" : "\/proc\/self\/fd\/3"/);
+  assert.match(decrypt, /\["--decrypt", "--identity", identityDescriptorPath, "-"\]/);
+  assert.match(nativeRestore, /'mode=""' 'identity=""'/);
+  assert.match(nativeRestore, /dd if="\$identity" of=\/dev\/null bs=1 count=1/);
+});
+
 test("backup, restore drill, and exact-label cleanup scripts fail closed", async () => {
   const backup = read("scripts/backup-encrypted.sh");
   const restore = read("scripts/restore-drill.sh");

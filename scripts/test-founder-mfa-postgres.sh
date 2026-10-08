@@ -65,16 +65,17 @@ for _ in $(seq 1 60); do
 done
 [[ "$ready" == true ]] || { printf '%s\n' 'native_postgres_not_ready' >&2; exit 1; }
 binding="$(docker container inspect "$name" --format '{{json (index (index .NetworkSettings.Ports "5432/tcp") 0)}}')"
-read -r host_ip port < <(python3 - "$binding" <<'PY'
+parsed_binding="$(python3 - "$binding" <<'PY'
 import json, sys
 value=json.loads(sys.argv[1])
 if set(value)!={'HostIp','HostPort'} or value['HostIp']!='127.0.0.1' or not value['HostPort'].isdigit():
     raise SystemExit('native loopback port binding invalid')
 print(value['HostIp'], value['HostPort'])
 PY
-)
+)"
+read -r host_ip port <<<"$parsed_binding"
 [[ "$host_ip" == '127.0.0.1' && "$port" =~ ^[0-9]+$ ]]
-printf '127.0.0.1:%s:*:*:%s\n' "$port" "$pg_auth_material" >"$pgpass_file"
+printf '127.0.0.1:%s:*:*:%s\nlocalhost:%s:*:*:%s\n' "$port" "$pg_auth_material" "$port" "$pg_auth_material" >"$pgpass_file"
 chmod 600 "$pgpass_file"
 export PGPASSFILE="$pgpass_file"
 export PGSSLMODE=verify-full PGSSLROOTCERT="$client_tls_dir/ca.crt"
@@ -90,7 +91,7 @@ psql() {
 }
 dsn_for() {
   local role="$1" database="$2"
-  printf 'postgresql://%s@127.0.0.1:%s/%s?sslmode=verify-full&sslrootcert=%s&sslcert=%s&sslkey=%s&application_name=pkc-native-test\n' "$role" "$port" "$database" "$client_tls_dir/ca.crt" "$client_tls_dir/$role.crt" "$client_tls_dir/$role.key"
+  printf 'postgresql://%s@localhost:%s/%s?sslmode=verify-full&sslrootcert=%s&sslcert=%s&sslkey=%s&application_name=pkc-native-test\n' "$role" "$port" "$database" "$client_tls_dir/ca.crt" "$client_tls_dir/$role.crt" "$client_tls_dir/$role.key"
 }
 run_readiness() {
   local authority_state="$1" expected_user="$2" readiness_label="$3" require_zero_rows="$4"

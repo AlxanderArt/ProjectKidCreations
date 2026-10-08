@@ -54,14 +54,15 @@ for _ in $(seq 1 60); do
 done
 [[ "$ready" == true ]] || { printf '%s\n' 'compose_bootstrap_not_ready' >&2; exit 1; }
 binding="$(docker container inspect "$name" --format '{{json (index (index .NetworkSettings.Ports "5432/tcp") 0)}}')"
-read -r host_ip port < <(python3 - "$binding" <<'PY'
+parsed_binding="$(python3 - "$binding" <<'PY'
 import json, sys
 value=json.loads(sys.argv[1])
 if set(value)!={'HostIp','HostPort'} or value['HostIp']!='127.0.0.1' or not value['HostPort'].isdigit():
     raise SystemExit('compose bootstrap loopback binding invalid')
 print(value['HostIp'], value['HostPort'])
 PY
-)
+)"
+read -r host_ip port <<<"$parsed_binding"
 pgpass="$temporary/client/pgpass"
 printf '127.0.0.1:%s:postgres:pkc_bootstrap_admin:%s\n' "$port" "$auth_material" >"$pgpass"
 chmod 0600 "$pgpass"

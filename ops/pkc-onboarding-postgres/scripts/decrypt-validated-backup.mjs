@@ -85,7 +85,8 @@ try {
     const identity = openAuthority(values.get("--identity-file"), 64 * 1024);
     opened.push(identity);
     const identityHash = hashAuthority(identity);
-    const result = spawnSync("age", ["--decrypt", "--identity", "/proc/self/fd/3", "-"], {
+    const identityDescriptorPath = process.platform === "darwin" ? "/dev/fd/3" : "/proc/self/fd/3";
+    const result = spawnSync("age", ["--decrypt", "--identity", identityDescriptorPath, "-"], {
       stdio: [artifact.fd, "inherit", "pipe", identity.fd], timeout: 30 * 60 * 1000, maxBuffer: 1024 * 1024,
     });
     if (result.status !== 0 || result.signal || result.error) fail();

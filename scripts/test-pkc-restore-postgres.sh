@@ -78,7 +78,7 @@ PY
 
 dsn_for() {
   local destination="$1" port="$2" role="$3" database="$4"
-  printf 'postgresql://%s@127.0.0.1:%s/%s?sslmode=verify-full&sslrootcert=%s&sslcert=%s&sslkey=%s&application_name=pkc-restore-native\n' \
+  printf 'postgresql://%s@localhost:%s/%s?sslmode=verify-full&sslrootcert=%s&sslcert=%s&sslkey=%s&application_name=pkc-restore-native\n' \
     "$role" "$port" "$database" "$destination/client/ca.crt" "$destination/client/$role.crt" "$destination/client/$role.key"
 }
 
@@ -96,16 +96,18 @@ target_port="$(start_cluster "$target_name" "$temporary/target" "$target_bootstr
 source_pgpass="$temporary/source/client/bootstrap.pgpass"
 target_bootstrap_pgpass="$temporary/target/client/bootstrap.pgpass"
 target_verifier_pgpass="$temporary/target/client/verifier.pgpass"
-printf '127.0.0.1:%s:*:pkc_bootstrap_admin:%s\n127.0.0.1:%s:*:pkc_mfa_migrator:%s\n127.0.0.1:%s:*:pkc_backup_reader:%s\n' "$source_port" "$source_auth" "$source_port" "$source_auth" "$source_port" "$source_auth" >"$source_pgpass"
-printf '127.0.0.1:%s:*:pkc_bootstrap_admin:%s\n' "$target_port" "$target_bootstrap_auth" >"$target_bootstrap_pgpass"
-printf '127.0.0.1:%s:*:pkc_mfa_verifier:%s\n' "$target_port" "$target_verifier_auth" >"$target_verifier_pgpass"
+printf '127.0.0.1:%s:*:pkc_bootstrap_admin:%s\nlocalhost:%s:*:pkc_bootstrap_admin:%s\n127.0.0.1:%s:*:pkc_mfa_migrator:%s\nlocalhost:%s:*:pkc_mfa_migrator:%s\n127.0.0.1:%s:*:pkc_backup_reader:%s\nlocalhost:%s:*:pkc_backup_reader:%s\n' "$source_port" "$source_auth" "$source_port" "$source_auth" "$source_port" "$source_auth" "$source_port" "$source_auth" "$source_port" "$source_auth" "$source_port" "$source_auth" >"$source_pgpass"
+printf '127.0.0.1:%s:*:pkc_bootstrap_admin:%s\nlocalhost:%s:*:pkc_bootstrap_admin:%s\n' "$target_port" "$target_bootstrap_auth" "$target_port" "$target_bootstrap_auth" >"$target_bootstrap_pgpass"
+printf '127.0.0.1:%s:*:pkc_mfa_verifier:%s\nlocalhost:%s:*:pkc_mfa_verifier:%s\n' "$target_port" "$target_verifier_auth" "$target_port" "$target_verifier_auth" >"$target_verifier_pgpass"
 chmod 0600 "$source_pgpass" "$target_bootstrap_pgpass" "$target_verifier_pgpass"
 
 run_psql "$temporary/source" "$source_pgpass" -h 127.0.0.1 -p "$source_port" -U pkc_bootstrap_admin -d pkc_founder_mfa -v ON_ERROR_STOP=1 -c "ALTER DATABASE pkc_founder_mfa SET pkc.environment='production'" >/dev/null
 for sql in 000_roles.sql 004_onboarding_roles.sql 006_backup_reader.sql; do
-  extra=()
-  [[ "$sql" == 000_roles.sql ]] && extra=(-v expected_empty_cluster=true)
-  run_psql "$temporary/source" "$source_pgpass" -h 127.0.0.1 -p "$source_port" -U pkc_bootstrap_admin -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa "${extra[@]}" -f "$root/db/roles/$sql" >/dev/null
+  if [[ "$sql" == 000_roles.sql ]]; then
+    run_psql "$temporary/source" "$source_pgpass" -h 127.0.0.1 -p "$source_port" -U pkc_bootstrap_admin -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -v expected_empty_cluster=true -f "$root/db/roles/$sql" >/dev/null
+  else
+    run_psql "$temporary/source" "$source_pgpass" -h 127.0.0.1 -p "$source_port" -U pkc_bootstrap_admin -d pkc_founder_mfa -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa -f "$root/db/roles/$sql" >/dev/null
+  fi
 done
 export PKC_NATIVE_SOURCE_AUTH="$source_auth"
 run_psql "$temporary/source" "$source_pgpass" -h 127.0.0.1 -p "$source_port" -U pkc_bootstrap_admin -d pkc_founder_mfa -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
@@ -138,8 +140,8 @@ NODE
 
 source_backup_pgpass="$temporary/source/client/backup.pgpass"
 source_verifier_pgpass="$temporary/source/client/verifier.pgpass"
-printf '127.0.0.1:%s:*:pkc_backup_reader:%s\n' "$source_port" "$source_auth" >"$source_backup_pgpass"
-printf '127.0.0.1:%s:*:pkc_mfa_verifier:%s\n' "$source_port" "$source_auth" >"$source_verifier_pgpass"
+printf '127.0.0.1:%s:*:pkc_backup_reader:%s\nlocalhost:%s:*:pkc_backup_reader:%s\n' "$source_port" "$source_auth" "$source_port" "$source_auth" >"$source_backup_pgpass"
+printf '127.0.0.1:%s:*:pkc_mfa_verifier:%s\nlocalhost:%s:*:pkc_mfa_verifier:%s\n' "$source_port" "$source_auth" "$source_port" "$source_auth" >"$source_verifier_pgpass"
 chmod 0600 "$source_backup_pgpass" "$source_verifier_pgpass"
 source_dump_pgpass="$temporary/source/client/dump.pgpass"
 printf 'localhost:5432:*:pkc_backup_reader:%s\n' "$source_auth" >"$source_dump_pgpass"
@@ -148,7 +150,7 @@ docker cp "$source_dump_pgpass" "$source_name:/tmp/pkc-dump.pgpass" >/dev/null
 fake_bin="$temporary/fake-bin"
 mkdir "$fake_bin"
 printf '%s\n' '#!/bin/sh' 'set -eu' 'if [ "${1-}" = "--version" ]; then printf "%s\\n" "pg_dump (PostgreSQL) 16.15"; exit 0; fi' 'docker exec -e PGPASSFILE=/tmp/pkc-dump.pgpass "$PKC_TEST_SOURCE_NAME" pg_dump -U pkc_backup_reader -d pkc_founder_mfa --format=custom --no-owner --schema=pkc_auth' >"$fake_bin/pg_dump"
-printf '%s\n' '#!/bin/sh' 'set -eu' 'output=""' 'input=""' 'while [ "$#" -gt 0 ]; do case "$1" in --encrypt|--decrypt) shift ;; --identity|--recipients-file) shift 2 ;; --output) output="$2"; shift 2 ;; *) input="$1"; shift ;; esac; done' 'if [ "$input" = "-" ] || [ -z "$input" ]; then if [ -n "$output" ]; then dd of="$output" status=none; else dd status=none; fi; else cp -- "$input" "$output"; fi' >"$fake_bin/age"
+printf '%s\n' '#!/bin/sh' 'set -eu' 'mode=""' 'identity=""' 'output=""' 'input=""' 'while [ "$#" -gt 0 ]; do case "$1" in --encrypt) mode=encrypt; shift ;; --decrypt) mode=decrypt; shift ;; --identity) identity="$2"; shift 2 ;; --recipients-file) shift 2 ;; --output) output="$2"; shift 2 ;; *) input="$1"; shift ;; esac; done' 'if [ "$mode" = decrypt ]; then [ -n "$identity" ]; dd if="$identity" of=/dev/null bs=1 count=1 2>/dev/null; fi' 'if [ "$input" = "-" ] || [ -z "$input" ]; then if [ -n "$output" ]; then dd of="$output" status=none; else dd status=none; fi; else cp -- "$input" "$output"; fi' >"$fake_bin/age"
 chmod 0700 "$fake_bin/pg_dump" "$fake_bin/age"
 recipients="$temporary/test-recipients"
 identity="$temporary/test-identity"
@@ -173,9 +175,11 @@ docker exec "$source_name" rm -f -- /tmp/pkc-dump.pgpass
 
 run_psql "$temporary/target" "$target_bootstrap_pgpass" -h 127.0.0.1 -p "$target_port" -U pkc_bootstrap_admin -d pkc_founder_mfa_restore_drill -v ON_ERROR_STOP=1 -c "ALTER DATABASE pkc_founder_mfa_restore_drill SET pkc.environment='production'" >/dev/null
 for sql in 000_roles.sql 004_onboarding_roles.sql 006_backup_reader.sql; do
-  extra=()
-  [[ "$sql" == 000_roles.sql ]] && extra=(-v expected_empty_cluster=true)
-  run_psql "$temporary/target" "$target_bootstrap_pgpass" -h 127.0.0.1 -p "$target_port" -U pkc_bootstrap_admin -d pkc_founder_mfa_restore_drill -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa_restore_drill "${extra[@]}" -f "$root/db/roles/$sql" >/dev/null
+  if [[ "$sql" == 000_roles.sql ]]; then
+    run_psql "$temporary/target" "$target_bootstrap_pgpass" -h 127.0.0.1 -p "$target_port" -U pkc_bootstrap_admin -d pkc_founder_mfa_restore_drill -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa_restore_drill -v expected_empty_cluster=true -f "$root/db/roles/$sql" >/dev/null
+  else
+    run_psql "$temporary/target" "$target_bootstrap_pgpass" -h 127.0.0.1 -p "$target_port" -U pkc_bootstrap_admin -d pkc_founder_mfa_restore_drill -v ON_ERROR_STOP=1 -v expected_database=pkc_founder_mfa_restore_drill -f "$root/db/roles/$sql" >/dev/null
+  fi
 done
 export PKC_NATIVE_TARGET_VERIFIER_AUTH="$target_verifier_auth"
 run_psql "$temporary/target" "$target_bootstrap_pgpass" -h 127.0.0.1 -p "$target_port" -U pkc_bootstrap_admin -d pkc_founder_mfa_restore_drill -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
