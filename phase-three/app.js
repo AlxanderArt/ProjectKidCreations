@@ -377,7 +377,7 @@
       if (!v.skill_level) errs.skill_level = "Pick a skill level.";
     }
     if (name === "contact") {
-      if (!v.age_confirmed) errs.age_confirmed = "You must confirm that you are at least 18 years old.";
+      if (!v.age_confirmed) errs.age_confirmed = "You must confirm that you are at least 14 years old.";
       if (!v.terms_accepted) errs.terms_accepted = "Accept the Privacy Notice and Terms to continue.";
     }
     return errs;
@@ -535,7 +535,7 @@
     cells.push(reviewRow("SKILL", v.skill_level ? v.skill_level.toUpperCase() : "—", "maker", "skill_level"));
     cells.push(reviewRow("BLASTERS", v.blasters_owned.length ? v.blasters_owned.join(", ") : "—", "maker", "blasters_owned"));
     cells.push(reviewRow("INTERESTS", v.accessory_interests.length ? v.accessory_interests.join(", ") : "—", "maker", "accessory_interests"));
-    cells.push(reviewRow("AGE ELIGIBILITY", v.age_confirmed ? "18+ CONFIRMED" : "NOT CONFIRMED", "contact", "age_confirmed"));
+    cells.push(reviewRow("AGE ELIGIBILITY", v.age_confirmed ? "14+ CONFIRMED" : "NOT CONFIRMED", "contact", "age_confirmed"));
     cells.push(reviewRow("PRIVACY + TERMS", v.terms_accepted ? "ACCEPTED" : "NOT ACCEPTED", "contact", "terms_accepted"));
 
     grid.innerHTML = cells.join("");
@@ -586,7 +586,7 @@
       if (res.code === "UNDER_AGE") {
         setState("FORM");
         setSection("contact");
-        showFieldError("age_confirmed", "Account onboarding requires age 18 or older.");
+        showFieldError("age_confirmed", "Account onboarding requires age 14 or older.");
         return;
       }
       if (res.code === "USERNAME_TAKEN") {

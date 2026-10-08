@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pkc-legacy-cleanup-manifest-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "expected_volume_count", "deletion_enabled", "volumes"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "expected_volume_count": { "const": 215 },
+    "deletion_enabled": { "const": false },
+    "volumes": {
+      "type": "array",
+      "minItems": 215,
+      "maxItems": 215,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "name", "labels", "expected_mounted", "action"],
+        "properties": {
+          "ordinal": { "type": "integer", "minimum": 1, "maximum": 215 },
+          "name": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}$" },
+          "labels": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["com.docker.compose.project", "com.docker.compose.volume"],
+            "properties": {
+              "com.docker.compose.project": { "type": "string", "minLength": 1 },
+              "com.docker.compose.volume": { "type": "string", "minLength": 1 }
+            }
+          },
+          "expected_mounted": { "const": false },
+          "action": { "const": "review_only" }
+        }
+      }
+    }
+  }
+}

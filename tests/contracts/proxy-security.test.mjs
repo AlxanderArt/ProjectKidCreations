@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { test } from "node:test";
@@ -50,6 +50,21 @@ function request(path, options = {}) {
     headers: merged,
     body: body === undefined || method === "GET" ? undefined : (typeof body === "string" ? body : JSON.stringify(body)),
   });
+}
+
+function onboardingBody(overrides = {}) {
+  return {
+    version: "1.6.0",
+    submissionId: "33333333-3333-4333-8333-333333333333",
+    data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test" },
+    consent: {
+      minimumAgeConfirmed: true,
+      termsAccepted: true,
+      privacyAcknowledged: true,
+      policyVersion: "pkc-onboarding-14-plus-v1",
+    },
+    ...overrides,
+  };
 }
 
 async function call(routeId, req, fetchImpl = async () => okJson(), extra = {}) {
@@ -110,13 +125,13 @@ function mockNodeResponse() {
   };
 }
 
-test("inventory preserves nine Edge wrappers and consolidates every Node URL into one rewritten function", async () => {
+test("inventory preserves eight Edge wrappers and consolidates every Node URL into one rewritten function", async () => {
   const files = routeFiles();
   const edgeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "edge");
   const nodeRoutes = Object.entries(ROUTES).filter(([, route]) => route.runtime === "nodejs");
-  assert.equal(files.length, 10);
-  assert.equal(edgeRoutes.length, 9);
-  assert.equal(nodeRoutes.length, 14);
+  assert.equal(files.length, 9);
+  assert.equal(edgeRoutes.length, 8);
+  assert.equal(nodeRoutes.length, 15);
   assert.deepEqual(files, [
     ...edgeRoutes.map(([, route]) => route.file),
     "api/node.js",
@@ -133,12 +148,12 @@ test("inventory preserves nine Edge wrappers and consolidates every Node URL int
 
 test("manifest preserves every upstream endpoint and exact method set", () => {
   const expected = {
-    onboarding: ["POST", "/webhook/pkc-onboarding"],
+    onboarding: ["POST", "/webhook/pkc-onboarding-consent-v1"],
     phaseTwoVerify: ["POST", "/webhook/pkc-phase-two/verify"],
     phaseTwoSave: ["POST", "/webhook/pkc-phase-two/save"],
     phaseTwoEvent: ["POST", "/webhook/pkc-phase-two/event"],
     phaseThreeVerify: ["POST", "/webhook/pkc-phase-three/verify"],
-    phaseThreeSave: ["POST", "/webhook/pkc-phase-three/save"],
+    phaseThreeSave: ["POST", "/webhook/pkc-phase-three/save-14-plus-v1"],
     phaseThreeEvent: ["POST", "/webhook/pkc-phase-three/event"],
     phaseThreeCheckUsername: ["POST", "/webhook/pkc-phase-three/check-username"],
     accountLogin: ["POST", "/webhook/pkc-accounts/login"],
@@ -162,15 +177,115 @@ test("manifest preserves every upstream endpoint and exact method set", () => {
     assert.deepEqual(ROUTES[id].methods, Array.isArray(methods) ? methods : [methods], id);
     assert.deepEqual(ROUTES[id].upstream, upstream, id);
   }
+  for (const id of ["onboarding", "phaseTwoVerify", "phaseTwoSave", "phaseTwoEvent", "phaseThreeVerify", "phaseThreeSave", "phaseThreeEvent", "phaseThreeCheckUsername"]) {
+    assert.equal(ROUTES[id].founderConfigurationRequired, false, id);
+  }
+  for (const [id, route] of Object.entries(ROUTES).filter(([routeId]) => routeId.startsWith("account"))) {
+    assert.equal(route.founderConfigurationRequired, true, id);
+  }
 });
 
-test("configuration fails closed before fetch for every missing or blank required value", async () => {
-  for (const key of Object.keys(GOOD_ENV)) {
+test("public onboarding forwards with core proxy configuration even when founder authority is absent", async () => {
+  const env = { ...GOOD_ENV };
+  delete env.PKC_FOUNDER_SUBJECT;
+  delete env.PKC_FOUNDER_MFA_MODE;
+  let fetches = 0;
+  const response = await handleProxy("onboarding", request("/api/onboarding", {
+    body: onboardingBody(),
+  }), {
+    env,
+    fetch: async () => { fetches += 1; return okJson({ ok: true, persisted: true }); },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(fetches, 1);
+});
+
+test("onboarding alone receives the extended upstream timeout", async () => {
+  const observedTimeouts = [];
+  const captureTimeout = async (operation, timeoutMs) => {
+    observedTimeouts.push(timeoutMs);
+    return operation(new AbortController().signal);
+  };
+
+  const onboarding = await call("onboarding", request("/api/onboarding", {
+    body: onboardingBody(),
+  }), async () => okJson({ ok: true, persisted: true }), { timedOperation: captureTimeout });
+  assert.equal(onboarding.status, 200);
+
+  const phaseTwo = await call("phaseTwoVerify", request("/api/phase-two/verify", {
+    body: { token: tokenFixture },
+  }), async () => okJson(), { timedOperation: captureTimeout });
+  assert.equal(phaseTwo.status, 200);
+
+  assert.deepEqual(observedTimeouts, [45_000, 20_000]);
+});
+
+test("onboarding validates nested consent and emits the exact active-workflow schema", async () => {
+  let forwarded;
+  const response = await call("onboarding", request("/api/onboarding", { body: onboardingBody() }), async (_url, init) => {
+    forwarded = JSON.parse(init.body);
+    return okJson({ ok: true, persisted: true });
+  });
+  assert.equal(response.status, 200);
+  const expectedHash = createHash("sha256")
+    .update(["Sample", "Maker", "sample@example.test", "33333333-3333-4333-8333-333333333333", "1.6.0"].join("|"), "utf8")
+    .digest("hex");
+  assert.deepEqual(forwarded, {
+    version: "1.6.0",
+    submissionId: "33333333-3333-4333-8333-333333333333",
+    firstName: "Sample",
+    lastName: "Maker",
+    email: "sample@example.test",
+    minimumAgeConfirmed: true,
+    termsAccepted: true,
+    privacyAcknowledged: true,
+    policyVersion: "pkc-onboarding-14-plus-v1",
+    hash: expectedHash,
+  });
+
+  const hostile = [
+    onboardingBody({ data: { firstName: "Sample", lastName: "Maker", email: "sample@example.test", role: "admin" } }),
+    onboardingBody({ data: { firstName: "<Sample>", lastName: "Maker", email: "sample@example.test" } }),
+    onboardingBody({ data: { firstName: "Sample", lastName: "Maker", email: "SAMPLE@example.test" } }),
+    onboardingBody({ consent: { minimumAgeConfirmed: false, termsAccepted: true, privacyAcknowledged: true, policyVersion: "pkc-onboarding-14-plus-v1" } }),
+    onboardingBody({ consent: { minimumAgeConfirmed: true, termsAccepted: true, privacyAcknowledged: true, policyVersion: "other" } }),
+    { ...onboardingBody(), mode: "prod" },
+    { ...onboardingBody(), perf: {} },
+  ];
+  for (const candidate of hostile) {
+    let fetches = 0;
+    const denied = await call("onboarding", request("/api/onboarding", { body: candidate }), async () => { fetches += 1; return okJson(); });
+    assert.equal(denied.status, 422);
+    assert.equal(fetches, 0);
+  }
+});
+
+test("every account proxy route remains founder-configuration-bound", async () => {
+  const env = { ...GOOD_ENV };
+  delete env.PKC_FOUNDER_SUBJECT;
+  delete env.PKC_FOUNDER_MFA_MODE;
+  for (const [routeId, route] of Object.entries(ROUTES).filter(([id]) => id.startsWith("account"))) {
+    let fetches = 0;
+    const method = route.methods[0];
+    const response = await handleProxy(routeId, request(route.publicPath, {
+      method,
+      body: method === "GET" ? undefined : {},
+    }), {
+      env,
+      fetch: async () => { fetches += 1; return okJson(); },
+    });
+    assert.equal(response.status, 503, routeId);
+    assert.equal(fetches, 0, routeId);
+  }
+});
+
+test("public configuration fails closed before fetch for every missing or blank core value", async () => {
+  for (const key of ["PKC_N8N_BASE_URL", "PKC_AUTH_KEY", "PKC_N8N_ALLOWED_ORIGINS", "PKC_PUBLIC_ALLOWED_ORIGINS"]) {
     for (const value of [undefined, "", "   "]) {
       let fetches = 0;
       const env = { ...GOOD_ENV };
       env[key] = value;
-      const response = await handleProxy("onboarding", request("/api/onboarding", { body: { version: "1", submissionId: "s", timestamp: "t", env: "prod", mode: "prod", data: {}, confidence: {}, perf: {}, hash: "h" } }), {
+      const response = await handleProxy("onboarding", request("/api/onboarding", { body: onboardingBody() }), {
         env,
         fetch: async () => { fetches += 1; return okJson(); },
       });
@@ -184,7 +299,7 @@ test("configuration fails closed before fetch for every missing or blank require
 test("proxy configuration rejects noncanonical founder UUID text before fetch", async () => {
   for (const value of ["AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA", ` ${FOUNDER_SUBJECT}`, `${FOUNDER_SUBJECT} `, "not-a-uuid"]) {
     let fetches = 0;
-    const response = await handleProxy("onboarding", request("/api/onboarding", { body: { submissionId: "s", data: {} } }), {
+    const response = await handleProxy("accountLogin", request("/api/account/login", { body: { username: "sampleuser", password: samplePasswordFixture } }), {
       env: { ...GOOD_ENV, PKC_FOUNDER_SUBJECT: value },
       fetch: async () => { fetches += 1; return okJson(); },
     });
@@ -250,13 +365,18 @@ test("Sec-Fetch-Site cross-site fails even with a forged allowed Origin", async 
 });
 
 test("JSON bodies must be objects with route-specific fields and reject unknown keys", async () => {
-  for (const raw of ["[]", "null", "{bad", JSON.stringify({ token: tokenFixture, smuggled: true })]) {
+  for (const [raw, expected] of [
+    ["[]", 400],
+    ["null", 400],
+    ["{bad", 400],
+    [JSON.stringify({ token: tokenFixture, smuggled: true }), 422],
+  ]) {
     let fetches = 0;
     const response = await call("phaseTwoVerify", request("/api/phase-two/verify", { body: raw }), async () => {
       fetches += 1;
       return okJson();
     });
-    assert.equal(response.status, 400, raw);
+    assert.equal(response.status, expected, raw);
     assert.equal(fetches, 0);
   }
 });
@@ -308,7 +428,7 @@ test("Phase Three proxy rejects deferred PII and injects the launch privacy cont
     return okJson({ ok: true });
   });
   assert.equal(accepted.status, 200);
-  assert.equal(forwarded.profile.privacy_contract_version, "2026-09-26");
+  assert.equal(forwarded.profile.privacy_contract_version, "2026-10-01");
   assert.equal(forwarded.profile.age_confirmed, true);
   assert.equal(forwarded.profile.terms_accepted, true);
 });

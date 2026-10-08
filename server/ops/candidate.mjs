@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
 import { promisify } from "node:util";
@@ -14,7 +14,7 @@ const ARTIFACT_IMAGE = /\.(?:png|jpe?g|gif|webp|bmp|tiff?)$/i;
 const APPROVED_SOURCE_ASSET = /^(?:assets\/(?:badges|og)\/[^/]+\.(?:svg|png|jpe?g|webp)|assets\/fonts\/[^/]+\.woff2|assets\/models\/[^/]+\.glb)$/i;
 const APPROVED_BINARY_ASSET = /^(?:assets\/(?:badges|og)\/[^/]+\.(?:png|jpe?g|webp)|assets\/fonts\/[^/]+\.woff2|assets\/models\/[^/]+\.glb)$/i;
 const APPROVED_REPORT_FIXTURE = "reports/boot-motion-performance.json";
-const APPROVED_ROLE_SQL = new Set(["db/roles/000_roles.sql", "db/roles/005_unseal_migrator.sql", "db/roles/010_seal_migrator.sql"]);
+const APPROVED_ROLE_SQL = new Set(["db/roles/000_roles.sql", "db/roles/004_onboarding_roles.sql", "db/roles/005_unseal_migrator.sql", "db/roles/006_backup_reader.sql", "db/roles/010_seal_migrator.sql", "db/roles/020_seal_bootstrap.sql"]);
 const FORBIDDEN_CREDENTIAL_MARKER = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk_live_|gh[opusr]_|github_pat_|xox[baprs]-)[A-Za-z0-9_-]{12,}/i;
 const SECRET_KEY_NAMES = ["password", "passwd", "secret", "token", "authorization", "clientsecret", "databaseurl", "apikey", "accesstoken", "authtoken", "privatekey", "secretkey"];
 const EXACT_PLACEHOLDERS = new Set(["<provided-by-secret-manager>", "<redacted>", "EXAMPLE_ONLY_CHANGE_ME", "REPLACE_WITH_SECRET"]);
@@ -24,6 +24,9 @@ const MAX_SCANNER_TOKENS = 250_000;
 const MAX_SCANNER_NESTING = 8_192;
 const MAX_SCANNER_WORK = 500_000;
 const SHELL_EXTENSIONS = new Set(["sh", "bash", "dash", "ksh", "zsh"]);
+const DARWIN_FGETPATH_HELPER = "import fcntl,sys; value=fcntl.fcntl(3, fcntl.F_GETPATH, bytes(1024)); sys.stdout.buffer.write(value.split(bytes([0]),1)[0])";
+const DARWIN_HELPER_OUTPUT_LIMIT = 4096;
+const DARWIN_HELPER_TIMEOUT_MS = 5000;
 
 async function gitRaw(root, args) {
   const { stdout } = await exec("git", args, { cwd: root, encoding: null, maxBuffer: 32 * 1024 * 1024 });
@@ -588,6 +591,64 @@ function assertContained(root, absolute, label) {
   if (!rel || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error(`candidate descriptor containment cannot be proven for ${label}`);
 }
 
+async function darwinDescriptorPath(descriptor) {
+  return new Promise((resolvePath, rejectPath) => {
+    const child = spawn("/usr/bin/python3", ["-I", "-S", "-c", DARWIN_FGETPATH_HELPER], {
+      stdio: ["ignore", "pipe", "pipe", descriptor],
+    });
+    const stdout = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let settled = false;
+    let timer;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) rejectPath(error);
+      else resolvePath(value);
+    };
+    timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finish(new Error("candidate Darwin descriptor-path helper timed out"));
+    }, DARWIN_HELPER_TIMEOUT_MS);
+    child.once("error", (error) => finish(new Error(`candidate Darwin descriptor-path helper failed: ${error.message}`)));
+    child.stdout.on("data", (chunk) => {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes > DARWIN_HELPER_OUTPUT_LIMIT) {
+        child.kill("SIGKILL");
+        finish(new Error("candidate Darwin descriptor-path helper exceeded stdout bound"));
+      } else stdout.push(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderrBytes += chunk.length;
+      if (stderrBytes > DARWIN_HELPER_OUTPUT_LIMIT) {
+        child.kill("SIGKILL");
+        finish(new Error("candidate Darwin descriptor-path helper exceeded stderr bound"));
+      }
+    });
+    child.once("close", (status, signal) => {
+      if (settled) return;
+      if (status !== 0 || signal !== null || stderrBytes !== 0) {
+        finish(new Error("candidate Darwin descriptor-path helper rejected the descriptor"));
+        return;
+      }
+      let value;
+      try {
+        value = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(stdout));
+      } catch {
+        finish(new Error("candidate Darwin descriptor-path helper returned non-UTF-8 output"));
+        return;
+      }
+      if (!isAbsolute(value) || value.includes("\0")) {
+        finish(new Error("candidate Darwin descriptor-path helper returned an invalid path"));
+        return;
+      }
+      finish(null, value);
+    });
+  });
+}
+
 async function boundedRead(root, path, expected) {
   if (typeof fsConstants.O_NOFOLLOW !== "number") throw new Error("candidate descriptor identity cannot be proven: O_NOFOLLOW unavailable");
   const ancestors = await snapshotDirectoryChain(root, path);
@@ -598,8 +659,10 @@ async function boundedRead(root, path, expected) {
   try {
     const before = await handle.stat({ bigint: true });
     if (!before.isFile() || !sameIdentity(before, leafBefore) || before.size > BigInt(MAX_FILE_BYTES)) throw new Error(`candidate opened descriptor identity changed or exceeds ${MAX_FILE_BYTES} bytes: ${path}`);
-    if (process.platform !== "linux") throw new Error("candidate descriptor containment cannot be proven on this platform");
-    const descriptorPath = await realpath(`/proc/self/fd/${handle.fd}`);
+    let descriptorPath;
+    if (process.platform === "linux") descriptorPath = await realpath(`/proc/self/fd/${handle.fd}`);
+    else if (process.platform === "darwin") descriptorPath = await darwinDescriptorPath(handle.fd);
+    else throw new Error("candidate descriptor containment cannot be proven on this platform");
     assertContained(root, descriptorPath, path);
     if (descriptorPath !== path) throw new Error(`candidate opened descriptor does not equal intended canonical path: ${path}`);
     const bytes = Buffer.alloc(Number(before.size));

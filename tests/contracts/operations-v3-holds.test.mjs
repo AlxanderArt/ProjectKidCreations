@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -68,6 +68,11 @@ test("candidate rejects a direct leaf symlink", async () => {
 });
 
 test("candidate accepts a normal nested regular file", async () => {
+  const candidateSource = await readFile(join(ROOT, "server/ops/candidate.mjs"), "utf8");
+  assert.match(candidateSource, /\/proc\/self\/fd/);
+  assert.match(candidateSource, /fcntl\.F_GETPATH/);
+  assert.match(candidateSource, /\/usr\/bin\/python3/);
+  assert.match(candidateSource, /stdio: \["ignore", "pipe", "pipe", descriptor\]/);
   const repo = await disposableRepo({ "one/two/inside.txt": "ordinary nested text\n" });
   const manifest = await buildCandidateManifest(repo);
   assert.deepEqual(manifest.files.map(({ path }) => path), ["one/two/inside.txt"]);

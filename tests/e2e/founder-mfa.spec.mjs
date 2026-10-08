@@ -208,6 +208,13 @@ test("network loss after committed finalization recovers the same session identi
   await page.getByRole("button", { name: /verify authenticator/i }).click();
   await expect(page.getByText(/sign-in result is still being reconciled/i)).toBeVisible();
   await expect(page.locator("#mfa-finalize-retry")).toBeFocused();
+  await page.context().addCookies([{
+    name: "pkc_session",
+    value: "e2e-founder",
+    url: "http://127.0.0.1:4173",
+    httpOnly: true,
+    sameSite: "Lax",
+  }]);
   await page.getByRole("button", { name: /check sign-in status/i }).click();
   await expect.poll(() => finalizeBodies.length).toBe(2);
   expect(finalizeBodies.map((body) => body.finalizeId)).toEqual([finalizeId, finalizeId]);

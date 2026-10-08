@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "compose_project": "pkc-onboarding-postgres",
+  "service": "postgres",
+  "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+  "volume": "pkc_onboarding_postgres_data",
+  "private_dns": "pkc-postgres",
+  "database": "pkc_founder_mfa",
+  "environment": "production",
+  "postgres_major": 16,
+  "system_identifier": "REPLACE_WITH_EXACT_DECIMAL_SYSTEM_IDENTIFIER",
+  "tls": {
+    "enabled": true,
+    "minimum_protocol": "TLSv1.3",
+    "client_certificate_verification": "verify-full",
+    "server_name": "pkc-postgres"
+  },
+  "durability": {
+    "fsync": true,
+    "synchronous_commit": "on",
+    "full_page_writes": true,
+    "data_checksums": true
+  }
+}
